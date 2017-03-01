@@ -20,15 +20,17 @@
  
 package org.jnode.fs.iso9660;
 
+import org.apache.log4j.Logger;
+
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
-
-import org.jnode.bootlog.BootLogInstance;
 
 /**
  * @author Ewout Prangsma (epr@users.sourceforge.net)
  */
 public class SupplementaryVolumeDescriptor extends VolumeDescriptor {
+
+    private Logger log = Logger.getLogger(SupplementaryVolumeDescriptor.class);
 
     private final int flags;
     private final String encoding;
@@ -58,7 +60,7 @@ public class SupplementaryVolumeDescriptor extends VolumeDescriptor {
         } catch (UnsupportedEncodingException ex) {
             encoding = DEFAULT_ENCODING;
             encodingKnown = false;
-            BootLogInstance.get().warn("Unsupported encoding, escapeSequences: '" + escapeSequences + "'");
+            log.warn("Unsupported encoding, escapeSequences: '" + escapeSequences + "'");
         }
         this.encoding = encoding;
         this.encodingKnown = encodingKnown;
