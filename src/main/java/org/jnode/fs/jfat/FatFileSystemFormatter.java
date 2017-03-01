@@ -20,8 +20,6 @@
  
 package org.jnode.fs.jfat;
 
-import java.io.IOException;
-
 import org.apache.log4j.Logger;
 import org.jnode.driver.ApiNotFoundException;
 import org.jnode.driver.Device;
@@ -30,11 +28,10 @@ import org.jnode.driver.block.FSBlockDeviceAPI;
 import org.jnode.driver.bus.ide.IDEConstants;
 import org.jnode.fs.FileSystemException;
 import org.jnode.fs.Formatter;
-import org.jnode.fs.service.FileSystemService;
 import org.jnode.partitions.PartitionTableEntry;
 import org.jnode.partitions.ibm.IBMPartitionTableEntry;
-import org.jnode.naming.InitialNaming;
-import javax.naming.NameNotFoundException;
+
+import java.io.IOException;
 
 
 /**
@@ -102,14 +99,10 @@ public class FatFileSystemFormatter extends Formatter<FatFileSystem> {
             // The FAT32 Formatter class constructor
             FatFormatter.HDDFormatter(sectorSize, (int) numberOfSectors, clusterSize, (int) offset, api);
 
-            final FileSystemService fSS = InitialNaming.lookup(FileSystemService.NAME);
-            FatFileSystemType type = fSS.getFileSystemType(FatFileSystemType.ID);
-            return type.create(device, false); // not readOnly !
+            return new FatFileSystemType().create(device, false); // not readOnly !
         } catch (IOException ioe) {
             throw new FileSystemException("Formating problem", ioe);
         } catch (ApiNotFoundException e) {
-            throw new FileSystemException("Formating problem", e);
-        } catch (NameNotFoundException e) {
             throw new FileSystemException("Formating problem", e);
         }
     }
