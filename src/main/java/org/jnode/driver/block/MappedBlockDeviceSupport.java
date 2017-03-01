@@ -44,7 +44,7 @@ public class MappedBlockDeviceSupport extends Device implements BlockDeviceAPI {
      * @throws IOException
      */
     public MappedBlockDeviceSupport(Device parent, long offset, long length) throws IOException {
-        super(parent.getBus(), "mapped-" + parent.getId());
+        super("mapped-" + parent.getId());
         this.parent = parent;
         try {
             this.parentApi = parent.getAPI(BlockDeviceAPI.class);
