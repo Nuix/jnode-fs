@@ -55,6 +55,10 @@ public class Device {
         this.id = id;
     }
 
+    public Device() {
+        this.id = "default";
+    }
+
     /**
      * @return The id of this device
      * @see org.jnode.driver.Device#getId()

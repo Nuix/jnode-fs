@@ -16,4 +16,11 @@
         </dependency>
     </dependencies>
 
+    <distributionManagement>
+        <repository>
+            <id>javafs</id>
+            <url>https://api.bintray.com/maven/magnusja/maven/javafs/;publish=1</url>
+        </repository>
+    </distributionManagement>
+
 </project>

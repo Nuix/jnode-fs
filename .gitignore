@@ -1,6 +1,7 @@
 
 pom.properties
 *.lst
+settings.xml
 
 # /
 /build
