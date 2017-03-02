@@ -6,7 +6,7 @@
 
     <groupId>com.github.magnusja</groupId>
     <artifactId>java-fs</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1</version>
 
     <dependencies>
         <dependency>
@@ -18,7 +18,7 @@
 
     <distributionManagement>
         <repository>
-            <id>javafs</id>
+            <id>bintray</id>
             <url>https://api.bintray.com/maven/magnusja/maven/javafs/;publish=1</url>
         </repository>
     </distributionManagement>
