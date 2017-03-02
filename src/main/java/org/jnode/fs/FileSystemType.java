@@ -53,5 +53,5 @@ public interface FileSystemType<T extends FileSystem<?>> {
      */
     public T create(Device device, boolean readOnly) throws FileSystemException;
 
-    public boolean supports(PartitionTableEntry pte, byte[] firstSector, FSBlockDeviceAPI devApi)
+    public boolean supports(PartitionTableEntry pte, byte[] firstSector, FSBlockDeviceAPI devApi);
 }
