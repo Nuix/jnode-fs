@@ -21,6 +21,8 @@
 package org.jnode.fs;
 
 import org.jnode.driver.Device;
+import org.jnode.driver.block.FSBlockDeviceAPI;
+import org.jnode.partitions.PartitionTableEntry;
 
 /**
  * Descriptor and entry point for a class of file systems.
@@ -50,4 +52,6 @@ public interface FileSystemType<T extends FileSystem<?>> {
      *             file system.
      */
     public T create(Device device, boolean readOnly) throws FileSystemException;
+
+    public boolean supports(PartitionTableEntry pte, byte[] firstSector, FSBlockDeviceAPI devApi)
 }
