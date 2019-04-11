@@ -47,11 +47,27 @@ public class FatDirectory extends FatEntry implements FSDirectory, FSDirectoryId
         super(fs);
     }
 
-    /*
-     * from a directory record;
+    /**
+     * Constructs a new FAT directory from a directory record.
+     *
+     * @param fs the file system.
+     * @param parent the parent directory.
+     * @param record the FAT record.
      */
     public FatDirectory(FatFileSystem fs, FatDirectory parent, FatRecord record) {
-        super(fs, parent, record);
+        super(fs, parent, record, true);
+    }
+
+    /**
+     * Constructs a new FAT directory from a directory record.
+     *
+     * @param fs the file system.
+     * @param parent the parent directory.
+     * @param record the FAT record.
+     * @param performValidation a flag indicating whether to perform validation on the data passed in.
+     */
+    public FatDirectory(FatFileSystem fs, FatDirectory parent, FatRecord record, boolean performValidation) {
+        super(fs, parent, record, performValidation);
     }
 
     /*
@@ -165,7 +181,7 @@ public class FatDirectory extends FatEntry implements FSDirectory, FSDirectoryId
     public FatDirEntry[] getFatFreeEntries(int n) throws IOException {
         int i = 0;
         int index = 0;
-        FatDirEntry entry = null;
+        FatDirEntry entry;
         FatDirEntry[] entries = new FatDirEntry[n];
 
         while (i < n) {
@@ -211,8 +227,19 @@ public class FatDirectory extends FatEntry implements FSDirectory, FSDirectoryId
         return children;
     }
 
+    /**
+     * Creates a new entry factory.
+     *
+     * @param includeDeleted {@code true} if deleted files and directory entries should be returned, {@code false}
+     *                       otherwise.
+     * @return the entry factory.
+     */
+    protected FatEntriesFactory createEntriesFactory(boolean includeDeleted) {
+        return new FatEntriesFactory(this, includeDeleted);
+    }
+
     public Iterator<FSEntry> iterator() {
-        return new FatEntriesIterator(children, this, false);
+        return new FatEntriesIterator(children, createEntriesFactory(false), false);
     }
 
     /**
@@ -223,27 +250,27 @@ public class FatDirectory extends FatEntry implements FSDirectory, FSDirectoryId
      * @return the iterator.
      */
     public Iterator<FSEntry> createIterator(boolean includeDeleted) {
-        return new FatEntriesIterator(new FatTable(), this, includeDeleted);
+        return new FatEntriesIterator(new FatTable(), createEntriesFactory(includeDeleted), includeDeleted);
     }
 
-    /*
+    /**
      * used from a FatRootDirectory looking for its label
      */
     protected void scanDirectory() {
-        FatEntriesFactory f = new FatEntriesFactory(this, false);
+        FatEntriesFactory f = createEntriesFactory(false);
 
-        while (f.hasNextEntry())
-            f.createNextEntry();
+        while (f.hasNext())
+            f.next();
     }
 
     public synchronized FSEntry getEntry(String name) {
         FatEntry child = children.get(name);
 
         if (child == null) {
-            FatEntriesFactory f = new FatEntriesFactory(this, false);
+            FatEntriesFactory f = createEntriesFactory(false);
 
-            while (f.hasNextEntry()) {
-                FatEntry entry = f.createNextEntry();
+            while (f.hasNext()) {
+                FatEntry entry = f.next();
                 if (FatUtils.compareIgnoreCase(entry.getName(), name)) {
                     child = children.put(entry);
                     break;
@@ -259,10 +286,10 @@ public class FatDirectory extends FatEntry implements FSDirectory, FSDirectoryId
         FatEntry child = idMap.get(id);
 
         if (child == null) {
-            FatEntriesFactory f = new FatEntriesFactory(this, true);
+            FatEntriesFactory f = createEntriesFactory(true);
 
-            while (f.hasNextEntry()) {
-                FatEntry entry = f.createNextEntry();
+            while (f.hasNext()) {
+                FatEntry entry = f.next();
                 idMap.put(entry.getId(), entry);
             }
 
@@ -274,10 +301,10 @@ public class FatDirectory extends FatEntry implements FSDirectory, FSDirectoryId
 
     public FatEntry getEntryByShortName(byte[] shortName) {
         FatEntry child = null;
-        FatEntriesFactory f = new FatEntriesFactory(this, false);
+        FatEntriesFactory f = createEntriesFactory(false);
 
-        while (f.hasNextEntry()) {
-            FatEntry entry = f.createNextEntry();
+        while (f.hasNext()) {
+            FatEntry entry = f.next();
             if (entry.isShortName(shortName)) {
                 child = entry;
                 break;
@@ -289,10 +316,10 @@ public class FatDirectory extends FatEntry implements FSDirectory, FSDirectoryId
 
     public FatEntry getEntryByName(String name) {
         FatEntry child = null;
-        FatEntriesFactory f = new FatEntriesFactory(this, false);
+        FatEntriesFactory f = createEntriesFactory(false);
 
-        while (f.hasNextEntry()) {
-            FatEntry entry = f.createNextEntry();
+        while (f.hasNext()) {
+            FatEntry entry = f.next();
             if (FatUtils.compareIgnoreCase(entry.getName(), name)) {
                 child = entry;
                 break;
