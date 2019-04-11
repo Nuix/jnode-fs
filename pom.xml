@@ -6,7 +6,7 @@
 
     <groupId>com.github.magnusja</groupId>
     <artifactId>java-fs</artifactId>
-    <version>0.1.2</version>
+    <version>0.1.4</version>
 
     <dependencies>
         <dependency>
@@ -16,11 +16,11 @@
         </dependency>
     </dependencies>
 
-    <distributionManagement>
-        <repository>
-            <id>bintray</id>
-            <url>https://api.bintray.com/maven/magnusja/maven/javafs/;publish=1</url>
-        </repository>
-    </distributionManagement>
+    <distributionManagement> <repository> <id>bintray-magnusja-maven</id> <name>magnusja-maven</name> <url>https://api.bintray.com/maven/magnusja/maven/javafs/;publish=1</url> </repository> </distributionManagement>
+
+    <properties>
+        <maven.compiler.source>1.6</maven.compiler.source>
+        <maven.compiler.target>1.6</maven.compiler.target>
+    </properties>
 
 </project>
