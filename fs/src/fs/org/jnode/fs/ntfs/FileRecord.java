@@ -504,17 +504,7 @@ public class FileRecord extends NTFSRecord {
         Iterator<NTFSAttribute> attributeIterator;
 
         if (attrTypeID == NTFSAttribute.Types.DATA && referenceNumber == MasterFileTable.SystemFiles.MFT) {
-            List<NTFSAttribute> attributes = new ArrayList<NTFSAttribute>();
-            attributes.addAll(getAllStoredAttributes());
-            attributes.addAll(readAttributeListAttributes(new FileRecordSupplier() {
-                @Override
-                public FileRecord getRecord(long referenceNumber) {
-                    // When trying to get the $DATA attribute of the MFT, don't attempt to look up any other records
-                    // to avoid possible infinite recursion
-                    return null;
-                }
-            }));
-            attributeIterator = attributes.iterator();
+            attributeIterator = getAllStoredAttributes().iterator();
         } else {
             attributeIterator = getAllAttributes().iterator();
         }
