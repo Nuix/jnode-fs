@@ -736,9 +736,6 @@ public class FileRecord extends NTFSRecord {
                         log.debug("Skipping lookup for entry: " + entry);
                         continue;
                     }
-                    else if (entry.getFileReferenceNumber() == referenceNumber) {
-                        log.debug("Skipping lookup for itself: " + referenceNumber);
-                    }
 
                     if (log.isDebugEnabled()) {
                         log.debug("Looking up MFT entry for: " + entry.getFileReferenceNumber());
