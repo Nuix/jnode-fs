@@ -34,6 +34,7 @@ import org.jnode.fs.ntfs.attribute.NTFSAttribute;
 import org.jnode.fs.ntfs.attribute.NTFSNonResidentAttribute;
 import org.jnode.fs.ntfs.attribute.NTFSResidentAttribute;
 import org.jnode.fs.util.FSUtils;
+import org.jnode.util.NumberUtils;
 
 /**
  * MFT file record structure.
