@@ -34,7 +34,6 @@ import org.jnode.fs.ntfs.attribute.NTFSAttribute;
 import org.jnode.fs.ntfs.attribute.NTFSNonResidentAttribute;
 import org.jnode.fs.ntfs.attribute.NTFSResidentAttribute;
 import org.jnode.fs.util.FSUtils;
-import org.jnode.util.NumberUtils;
 
 /**
  * MFT file record structure.
@@ -500,16 +499,7 @@ public class FileRecord extends NTFSRecord {
         if (log.isDebugEnabled()) {
             log.debug("findAttributesByTypeAndName(0x" + NumberUtils.hex(attrTypeID, 4) + "," + name + ")");
         }
-
-        Iterator<NTFSAttribute> attributeIterator;
-
-        if (attrTypeID == NTFSAttribute.Types.DATA && referenceNumber == MasterFileTable.SystemFiles.MFT) {
-            attributeIterator = getAllStoredAttributes().iterator();
-        } else {
-            attributeIterator = getAllAttributes().iterator();
-        }
-
-        return new FilteredAttributeIterator(attributeIterator) {
+        return new FilteredAttributeIterator(getAllAttributes().iterator()) {
             @Override
             protected boolean matches(NTFSAttribute attr) {
                 if (attr.getAttributeType() == attrTypeID) {
@@ -744,6 +734,9 @@ public class FileRecord extends NTFSRecord {
                     if (entry.getFileReferenceNumber() == 0) {
                         log.debug("Skipping lookup for entry: " + entry);
                         continue;
+                    }
+                    else if (entry.getFileReferenceNumber() == referenceNumber) {
+                        log.debug("Skipping lookup for itself: " + referenceNumber);
                     }
 
                     if (log.isDebugEnabled()) {
