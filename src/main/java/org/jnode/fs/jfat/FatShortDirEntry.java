@@ -23,15 +23,16 @@ package org.jnode.fs.jfat;
 import java.io.IOException;
 import java.nio.charset.CharacterCodingException;
 import java.util.Arrays;
-import org.apache.log4j.Logger;
 import org.jnode.util.NumberUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
  * @author gvt
  */
 public class FatShortDirEntry extends FatDirEntry {
-    private static final Logger log = Logger.getLogger(FatShortDirEntry.class);
+    private static final Logger log = LoggerFactory.getLogger(FatShortDirEntry.class);
 
     /*
      * encoded side

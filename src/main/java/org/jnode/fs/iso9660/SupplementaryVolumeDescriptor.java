@@ -20,7 +20,9 @@
  
 package org.jnode.fs.iso9660;
 
-import org.apache.log4j.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
@@ -30,7 +32,7 @@ import java.io.UnsupportedEncodingException;
  */
 public class SupplementaryVolumeDescriptor extends VolumeDescriptor {
 
-    private Logger log = Logger.getLogger(SupplementaryVolumeDescriptor.class);
+    private Logger log = LoggerFactory.getLogger(SupplementaryVolumeDescriptor.class);
 
     private final int flags;
     private final String encoding;

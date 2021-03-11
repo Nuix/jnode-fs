@@ -20,13 +20,15 @@
  
 package org.jnode.fs.hfsplus.tree;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.LinkedList;
 import java.util.List;
-import org.apache.log4j.Logger;
 
 public abstract class AbstractLeafNode<K extends Key> extends AbstractNode<K, LeafRecord> {
 
-    private static final Logger log = Logger.getLogger(AbstractLeafNode.class);
+    private static final Logger log = LoggerFactory.getLogger(AbstractLeafNode.class);
 
     /**
      * Create a new node.

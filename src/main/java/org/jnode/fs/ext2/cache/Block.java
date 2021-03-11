@@ -21,14 +21,15 @@
 package org.jnode.fs.ext2.cache;
 
 import java.io.IOException;
-import org.apache.log4j.Logger;
 import org.jnode.fs.ext2.Ext2FileSystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Andras Nagy
  */
 public class Block {
-    private static final Logger log = Logger.getLogger(Block.class);
+    private static final Logger log = LoggerFactory.getLogger(Block.class);
 
     protected byte[] data;
     boolean dirty = false;

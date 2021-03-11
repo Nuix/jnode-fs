@@ -22,12 +22,13 @@ package org.jnode.fs.spi;
 
 import java.io.IOException;
 
-import org.apache.log4j.Logger;
 import org.jnode.fs.FSAccessRights;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.FSFile;
 import org.jnode.fs.util.FSUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * An abstract implementation of FSEntry that contains common things among many
@@ -36,7 +37,7 @@ import org.jnode.fs.util.FSUtils;
  * @author Fabien DUMINY
  */
 public abstract class AbstractFSEntry extends AbstractFSObject implements FSEntry {
-    private static final Logger log = Logger.getLogger(AbstractFSEntry.class);
+    private static final Logger log = LoggerFactory.getLogger(AbstractFSEntry.class);
 
     // common types of entries found in most FileSystems:
     /** Fake entry: lower bound */

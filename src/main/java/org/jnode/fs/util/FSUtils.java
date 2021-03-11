@@ -25,10 +25,11 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import org.apache.log4j.Logger;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.FSFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 
@@ -36,7 +37,7 @@ import org.jnode.fs.FSFile;
  */
 public class FSUtils {
 
-    private static final Logger log = Logger.getLogger(FSUtils.class);
+    private static final Logger log = LoggerFactory.getLogger(FSUtils.class);
 
     protected static DateFormat dateFormat = new SimpleDateFormat();
 

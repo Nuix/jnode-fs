@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import org.apache.log4j.Logger;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSDirectoryId;
 import org.jnode.fs.FSEntry;
@@ -38,10 +37,14 @@ import org.jnode.fs.hfsplus.catalog.CatalogLeafNode;
 import org.jnode.fs.hfsplus.catalog.CatalogNodeId;
 import org.jnode.fs.hfsplus.tree.LeafRecord;
 import org.jnode.fs.spi.FSEntryTable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Marker;
+import org.slf4j.MarkerFactory;
 
 public class HfsPlusDirectory implements FSDirectory, FSDirectoryId {
 
-    private static final Logger log = Logger.getLogger(HfsPlusDirectory.class);
+    private static final Logger log = LoggerFactory.getLogger(HfsPlusDirectory.class);
 
     /**
      * The directory entry
@@ -193,7 +196,8 @@ public class HfsPlusDirectory implements FSDirectory, FSDirectoryId {
                 }
                 entry.resetDirty();
             } catch (IOException e) {
-                log.fatal("unable to read directory entries", e);
+                Marker fatal = MarkerFactory.getMarker("FATAL");
+                log.error(fatal, "unable to read directory entries", e);
                 // the next time, we will call checkEntriesLoaded()
                 // we will retry to load entries
                 entries = FSEntryTable.EMPTY_TABLE;

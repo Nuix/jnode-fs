@@ -23,7 +23,6 @@ package org.jnode.fs.spi;
 import java.io.IOException;
 import java.util.HashMap;
 
-import org.apache.log4j.Logger;
 import org.jnode.driver.ApiNotFoundException;
 import org.jnode.driver.Device;
 import org.jnode.driver.block.BlockDeviceAPI;
@@ -34,6 +33,8 @@ import org.jnode.fs.FSFile;
 import org.jnode.fs.FileSystem;
 import org.jnode.fs.FileSystemException;
 import org.jnode.fs.FileSystemType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class provide a basic implementation of {@link FileSystem} interface.
@@ -42,7 +43,7 @@ import org.jnode.fs.FileSystemType;
  */
 public abstract class AbstractFileSystem<T extends FSEntry> implements FileSystem<T> {
     /** My logger */
-    private static final Logger log = Logger.getLogger(AbstractFileSystem.class);
+    private static final Logger log = LoggerFactory.getLogger(AbstractFileSystem.class);
     /** The device that contains the file system */
     private final Device device;
     /** API of the block device */

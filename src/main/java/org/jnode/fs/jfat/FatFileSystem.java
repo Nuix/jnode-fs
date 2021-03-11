@@ -21,19 +21,20 @@
 package org.jnode.fs.jfat;
 
 import java.io.IOException;
-import org.apache.log4j.Logger;
 import org.jnode.driver.Device;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.FSFile;
 import org.jnode.fs.FileSystemException;
 import org.jnode.fs.spi.AbstractFileSystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author gvt
  */
 public class FatFileSystem extends AbstractFileSystem<FatRootDirectory> {
-    private static final Logger log = Logger.getLogger(FatFileSystem.class);
+    private static final Logger log = LoggerFactory.getLogger(FatFileSystem.class);
 
     private Fat fat;
     private final CodePage cp;

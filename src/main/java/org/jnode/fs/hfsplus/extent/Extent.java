@@ -25,7 +25,6 @@ import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-import org.apache.log4j.Logger;
 import org.jnode.fs.hfsplus.HFSPlusParams;
 import org.jnode.fs.hfsplus.HfsPlusFileSystem;
 import org.jnode.fs.hfsplus.HfsPlusForkData;
@@ -35,9 +34,11 @@ import org.jnode.fs.hfsplus.tree.IndexRecord;
 import org.jnode.fs.hfsplus.tree.NodeDescriptor;
 import org.jnode.util.ByteBufferUtils;
 import org.jnode.util.NumberUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Extent {
-    private static final Logger log = Logger.getLogger(Extent.class);
+    private static final Logger log = LoggerFactory.getLogger(Extent.class);
 
     /**
      * B-Tree node descriptor

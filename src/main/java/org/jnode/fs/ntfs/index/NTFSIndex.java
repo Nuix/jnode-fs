@@ -23,10 +23,11 @@ package org.jnode.fs.ntfs.index;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import org.apache.log4j.Logger;
 import org.jnode.fs.ntfs.FileRecord;
 import org.jnode.fs.ntfs.attribute.NTFSAttribute;
 import org.jnode.util.Queue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Chira
@@ -45,7 +46,7 @@ public final class NTFSIndex {
 
     private IndexAllocationAttribute indexAllocationAttribute;
 
-    static final Logger log = Logger.getLogger(NTFSIndex.class);
+    static final Logger log = LoggerFactory.getLogger(NTFSIndex.class);
 
     /**
      * Initialize this instance.

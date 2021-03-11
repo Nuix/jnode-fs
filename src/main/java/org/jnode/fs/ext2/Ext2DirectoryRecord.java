@@ -22,9 +22,10 @@ package org.jnode.fs.ext2;
 
 import java.util.Arrays;
 
-import org.apache.log4j.Logger;
 import org.jnode.fs.FileSystemException;
 import org.jnode.util.LittleEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A single directory record, i.e. the inode number and name of an entry in a
@@ -33,7 +34,7 @@ import org.jnode.util.LittleEndian;
  * @author Andras Nagy
  */
 public class Ext2DirectoryRecord {
-    private static final Logger log = Logger.getLogger(Ext2DirectoryRecord.class);
+    private static final Logger log = LoggerFactory.getLogger(Ext2DirectoryRecord.class);
     /*
      * private int iNodeNr; private int recLen; private short nameLen; private
      * short type; private StringBuffer name;

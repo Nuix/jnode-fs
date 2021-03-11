@@ -20,8 +20,9 @@
  
 package org.jnode.fs.fat;
 
-import org.apache.log4j.Logger;
 import org.jnode.util.LittleEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <description>
@@ -305,6 +306,6 @@ public class FatUtils {
         return unicodechar;
     }
 
-    private static final Logger log = Logger.getLogger(FatUtils.class);
+    private static final Logger log = LoggerFactory.getLogger(FatUtils.class);
 
 }

@@ -24,8 +24,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.log4j.Logger;
 import org.jnode.util.ObjectUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A builder for reading and merging in {@link NTFSAttribute}s as they are read in.
@@ -37,7 +38,7 @@ public class AttributeListBuilder {
     /**
      * My logger
      */
-    protected static final Logger log = Logger.getLogger(AttributeListBuilder.class);
+    protected static final Logger log = LoggerFactory.getLogger(AttributeListBuilder.class);
 
     /**
      * The map of non-resident attributes by type, then by stream name.
