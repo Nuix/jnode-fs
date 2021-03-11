@@ -26,15 +26,13 @@ import org.jnode.fs.ntfs.NTFSStructure;
 import org.jnode.fs.ntfs.NTFSVolume;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.jnode.fs.util.FSUtils;
 
 /**
  * @author Ewout Prangsma (epr@users.sourceforge.net)
  */
 public final class DataRun implements DataRunInterface {
 
-    /**
-     * Type of this datarun
-     */
     /**
      * logger
      */
@@ -49,7 +47,7 @@ public final class DataRun implements DataRunInterface {
     /**
      * Length of datarun in clusters
      */
-    private final int length;
+    private final long length;
 
     /**
      * Flag indicating that the data is not stored on disk but is all zero.
@@ -75,7 +73,7 @@ public final class DataRun implements DataRunInterface {
      * @param size    Size in bytes of this datarun descriptor
      * @param vcn     First VCN of this datarun.
      */
-    public DataRun(long cluster, int length, boolean sparse, int size, long vcn) {
+    public DataRun(long cluster, long length, boolean sparse, int size, long vcn) {
         this.cluster = cluster;
         this.length = length;
         this.sparse = sparse;
@@ -116,12 +114,12 @@ public final class DataRun implements DataRunInterface {
                 length = dataRunStructure.getUInt24(1);
                 break;
             case 0x04:
-                length = dataRunStructure.getUInt32AsInt(1);
+                length = dataRunStructure.getUInt32(1);
                 break;
             default:
                 throw new IllegalArgumentException("Invalid length length " + lenlen);
         }
-        final int cluster;
+        final long cluster;
         switch (clusterlen) {
             case 0x00:
                 sparse = true;
@@ -138,6 +136,9 @@ public final class DataRun implements DataRunInterface {
                 break;
             case 0x04:
                 cluster = dataRunStructure.getInt32(1 + lenlen);
+                break;
+            case 0x05:
+                cluster = dataRunStructure.getInt40(1 + lenlen);
                 break;
             default:
                 throw new IllegalArgumentException("Unknown cluster length " + clusterlen);
@@ -177,7 +178,7 @@ public final class DataRun implements DataRunInterface {
      *
      * @return Returns the length.
      */
-    public int getLength() {
+    public long getLength() {
         return length;
     }
 
@@ -217,7 +218,7 @@ public final class DataRun implements DataRunInterface {
                             NTFSVolume volume) throws IOException {
 
         final long myFirstVcn = getFirstVcn();
-        final int myLength = getLength();
+        final long myLength = getLength();
         final long myLastVcn = getLastVcn();
 
         final long reqLastVcn = vcn + nrClusters - 1;
@@ -236,13 +237,13 @@ public final class DataRun implements DataRunInterface {
         final int actDstOffset; // Actual dst offset
         if (vcn < myFirstVcn) {
             final int vcnDelta = (int) (myFirstVcn - vcn);
-            count = Math.min(nrClusters - vcnDelta, myLength);
+            count = FSUtils.checkedCast(Math.min(nrClusters - vcnDelta, myLength));
             actDstOffset = dstOffset + (vcnDelta * clusterSize);
             actCluster = getCluster();
         } else {
             // vcn >= myFirstVcn
             final int vcnDelta = (int) (vcn - myFirstVcn);
-            count = Math.min(nrClusters, myLength - vcnDelta);
+            count = FSUtils.checkedCast(Math.min(nrClusters, myLength - vcnDelta));
             actDstOffset = dstOffset;
             actCluster = getCluster() + vcnDelta;
         }

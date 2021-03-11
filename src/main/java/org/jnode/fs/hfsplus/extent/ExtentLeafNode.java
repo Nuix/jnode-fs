@@ -70,7 +70,7 @@ public class ExtentLeafNode extends AbstractLeafNode<ExtentKey> {
      * @param key the key to match.
      * @return the overflow extents.
      */
-    public ExtentDescriptor[] getOverflowExtents(ExtentKey key) {
+    public List<ExtentDescriptor> getOverflowExtents(ExtentKey key) {
         List<ExtentDescriptor> overflowExtents = new LinkedList<ExtentDescriptor>();
 
         for (LeafRecord record : findAll(key)) {
@@ -81,6 +81,6 @@ public class ExtentLeafNode extends AbstractLeafNode<ExtentKey> {
             }
         }
 
-        return overflowExtents.toArray(new ExtentDescriptor[overflowExtents.size()]);
+        return overflowExtents;
     }
 }

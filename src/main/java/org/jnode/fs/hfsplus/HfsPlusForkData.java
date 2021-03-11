@@ -60,7 +60,7 @@ public class HfsPlusForkData {
     /**
      * Overflow extents.
      */
-    private ExtentDescriptor[] overflowExtents;
+    private List<ExtentDescriptor> overflowExtents;
 
     /**
      * The catalog node ID that owns this fork.
@@ -179,7 +179,7 @@ public class HfsPlusForkData {
 
         // Add the overflow extents if the exist
         if (overflowExtents != null) {
-            Collections.addAll(allExtents, overflowExtents);
+            allExtents.addAll(overflowExtents);
         }
 
         return allExtents;

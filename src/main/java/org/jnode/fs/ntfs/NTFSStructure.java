@@ -182,7 +182,7 @@ public class NTFSStructure {
     }
 
     /**
-     * Read n signed 32-bit integer from a given offset.
+     * Read a signed 32-bit integer from a given offset.
      *
      * @param offset
      * @return
@@ -192,7 +192,17 @@ public class NTFSStructure {
     }
 
     /**
-     * Read n signed 48-bit integer from a given offset.
+     * Read a signed 40-bit integer from a given offset.
+     *
+     * @param offset
+     * @return
+     */
+    public final long getInt40(int offset) {
+        return LittleEndian.getInt40(buffer, this.offset + offset);
+    }
+
+    /**
+     * Read a signed 48-bit integer from a given offset.
      *
      * @param offset
      * @return
@@ -202,7 +212,7 @@ public class NTFSStructure {
     }
 
     /**
-     * Read n signed 64-bit integer from a given offset.
+     * Read a signed 64-bit integer from a given offset.
      *
      * @param offset
      * @return
