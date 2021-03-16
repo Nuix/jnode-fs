@@ -24,7 +24,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Vector;
-import org.apache.log4j.Logger;
 import org.jnode.fs.FSAccessRights;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
@@ -32,10 +31,12 @@ import org.jnode.fs.FSEntryCreated;
 import org.jnode.fs.FSEntryLastAccessed;
 import org.jnode.fs.FSFile;
 import org.jnode.util.NumberUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class FatEntry extends FatObject implements FSEntry, FSEntryCreated, FSEntryLastAccessed {
-    private static final Logger log = Logger.getLogger(FatEntry.class);
+    private static final Logger log = LoggerFactory.getLogger(FatEntry.class);
 
     private String name;
     private FatRecord record;

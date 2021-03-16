@@ -24,12 +24,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Calendar;
 import java.util.Date;
-import org.apache.log4j.Logger;
 import org.jnode.fs.FileSystemException;
 import org.jnode.fs.hfsplus.catalog.CatalogNodeId;
 import org.jnode.fs.hfsplus.extent.ExtentDescriptor;
 import org.jnode.util.BigEndian;
 import org.jnode.util.NumberUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * HFS+ volume header definition.
@@ -54,7 +55,7 @@ public class SuperBlock extends HfsPlusObject {
     public static final int HFSPLUS_VOL_JOURNALED_BIT = 13;
     public static final int HFSPLUS_VOL_SOFTLOCK_BIT = 15;
 
-    private static final Logger log = Logger.getLogger(SuperBlock.class);
+    private static final Logger log = LoggerFactory.getLogger(SuperBlock.class);
 
     /**
      * Volume header data length

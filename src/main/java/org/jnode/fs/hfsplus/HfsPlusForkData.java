@@ -26,12 +26,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import org.apache.log4j.Logger;
 import org.jnode.fs.hfsplus.catalog.CatalogNodeId;
 import org.jnode.fs.hfsplus.extent.ExtentDescriptor;
 import org.jnode.fs.hfsplus.extent.ExtentKey;
 import org.jnode.fs.util.FSUtils;
 import org.jnode.util.BigEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class HfsPlusForkData {
     public static final int FORK_DATA_LENGTH = 80;
@@ -40,7 +41,7 @@ public class HfsPlusForkData {
     /**
      * The logger.
      */
-    protected static final Logger log = Logger.getLogger(HfsPlusForkData.class);
+    protected static final Logger log = LoggerFactory.getLogger(HfsPlusForkData.class);
 
     /**
      * The size in bytes of the valid data in the fork.

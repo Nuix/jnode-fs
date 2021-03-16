@@ -46,9 +46,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Date;
 
-import org.apache.log4j.Logger;
 import org.jnode.driver.block.BlockDeviceAPI;
 import org.jnode.util.LittleEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>
@@ -71,7 +72,7 @@ import org.jnode.util.LittleEndian;
  * 
  */
 public class FatFormatter {
-    private static final Logger log = Logger.getLogger(FatFormatter.class);
+    private static final Logger log = LoggerFactory.getLogger(FatFormatter.class);
 
     /** The Device Identifier for Floppy Device */
     public static final int FLOPPY_DESC = 0xf0;

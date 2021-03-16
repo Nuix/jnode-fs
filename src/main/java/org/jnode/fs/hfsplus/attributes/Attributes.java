@@ -22,11 +22,12 @@ package org.jnode.fs.hfsplus.attributes;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-import org.apache.log4j.Logger;
+
 import org.jnode.fs.hfsplus.HfsPlusFileSystem;
 import org.jnode.fs.hfsplus.HfsPlusForkData;
 import org.jnode.fs.hfsplus.SuperBlock;
@@ -37,6 +38,8 @@ import org.jnode.fs.hfsplus.tree.LeafRecord;
 import org.jnode.fs.hfsplus.tree.NodeDescriptor;
 import org.jnode.util.BigEndian;
 import org.jnode.util.ByteBufferUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The attributes file in the HFS+ volume.
@@ -47,7 +50,7 @@ public class Attributes {
     /**
      * The logger.
      */
-    private static final Logger log = Logger.getLogger(Attributes.class);
+    private static final Logger log = LoggerFactory.getLogger(Attributes.class);
 
     /**
      * B-Tree Header record

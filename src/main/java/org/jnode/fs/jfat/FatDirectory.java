@@ -27,13 +27,14 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import org.apache.log4j.Logger;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSDirectoryId;
 import org.jnode.fs.FSEntry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FatDirectory extends FatEntry implements FSDirectory, FSDirectoryId {
-    private static final Logger log = Logger.getLogger(FatEntriesFactory.class);
+    private static final Logger log = LoggerFactory.getLogger(FatEntriesFactory.class);
 
     private static final boolean debugEntries = Boolean.getBoolean("org.jnode.fs.jfat.dir.debugEntries");
 

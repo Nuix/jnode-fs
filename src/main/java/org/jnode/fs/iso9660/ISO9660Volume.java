@@ -20,9 +20,10 @@
  
 package org.jnode.fs.iso9660;
 
-import org.apache.log4j.Logger;
 import org.jnode.driver.block.BlockDeviceAPI;
 import org.jnode.driver.block.FSBlockDeviceAPI;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -33,7 +34,7 @@ import java.nio.ByteBuffer;
  */
 public class ISO9660Volume implements ISO9660Constants {
 
-    private Logger log = Logger.getLogger(ISO9660Volume.class);
+    private Logger log = LoggerFactory.getLogger(ISO9660Volume.class);
 
     private final BlockDeviceAPI api;
 

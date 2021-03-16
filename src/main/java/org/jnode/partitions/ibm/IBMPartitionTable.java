@@ -28,7 +28,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import org.apache.log4j.Logger;
 import org.jnode.driver.ApiNotFoundException;
 import org.jnode.driver.Device;
 import org.jnode.driver.block.BlockDeviceAPI;
@@ -37,6 +36,8 @@ import org.jnode.partitions.PartitionTable;
 import org.jnode.partitions.PartitionTableType;
 import org.jnode.util.BigEndian;
 import org.jnode.util.LittleEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author epr
@@ -86,7 +87,7 @@ public class IBMPartitionTable implements PartitionTable<IBMPartitionTableEntry>
     /**
      * My logger
      */
-    private static final Logger log = Logger.getLogger(IBMPartitionTable.class);
+    private static final Logger log = LoggerFactory.getLogger(IBMPartitionTable.class);
 
     /**
      * The position of the extendedPartition in the table

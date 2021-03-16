@@ -22,8 +22,9 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 package org.jnode.fs.hfsplus.compression;
 
 import java.nio.ByteBuffer;
-import org.apache.log4j.Logger;
 import org.jnode.util.LittleEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Adapted from: https://github.com/lzfse/lzfse/blob/master/src/lzvn_decode_base.c
@@ -33,7 +34,7 @@ public final class LzvnDecode {
     /**
      * The logger for this class.
      */
-    private static final Logger log = Logger.getLogger(LzvnDecode.class);
+    private static final Logger log = LoggerFactory.getLogger(LzvnDecode.class);
 
     /**
      * A flag for whether debug is enabled.

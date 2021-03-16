@@ -1,8 +1,9 @@
 package org.jnode.fs.ext4;
 
 import java.io.IOException;
-import org.apache.log4j.Logger;
 import org.jnode.util.LittleEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A class for checking the ext4 multiple-mount protection (MMP) status.
@@ -11,7 +12,7 @@ public class MultipleMountProtection {
     /**
      * Logger
      */
-    private static final Logger log = Logger.getLogger(MultipleMountProtection.class);
+    private static final Logger log = LoggerFactory.getLogger(MultipleMountProtection.class);
 
     /**
      * The length of the MMP structure.

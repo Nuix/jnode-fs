@@ -2,8 +2,9 @@ package org.jnode.fs.ntfs.datarun;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.log4j.Logger;
 import org.jnode.fs.ntfs.NTFSStructure;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A decoder for the NTFS non-resident data runs.
@@ -18,7 +19,7 @@ public class DataRunDecoder {
     /**
      * The logger.
      */
-    protected static final Logger log = Logger.getLogger(DataRunDecoder.class);
+    protected static final Logger log = LoggerFactory.getLogger(DataRunDecoder.class);
 
     /**
      * A flag indicating whether the data runs are for a compressed attribute.

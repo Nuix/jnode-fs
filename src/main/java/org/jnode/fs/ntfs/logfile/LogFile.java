@@ -9,11 +9,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import org.apache.log4j.Logger;
 import org.jnode.fs.ntfs.FileRecord;
 import org.jnode.fs.ntfs.attribute.NTFSAttribute;
 import org.jnode.fs.util.FSUtils;
 import org.jnode.util.LittleEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * $LogFile
@@ -25,7 +26,7 @@ public class LogFile {
     /**
      * My logger
      */
-    protected static final Logger log = Logger.getLogger(LogFile.class);
+    protected static final Logger log = LoggerFactory.getLogger(LogFile.class);
 
     /**
      * The start of the normal area (in pages).

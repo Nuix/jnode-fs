@@ -21,7 +21,7 @@
 package org.jnode.fs.exfat;
 
 import java.io.IOException;
-import org.apache.log4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Matthias Treydte &lt;waldheinz at gmail.com&gt;
@@ -60,7 +60,7 @@ public final class Node {
         result.deleted = deleted;
 
         if (allocatedSize < size) {
-            Logger.getLogger(Node.class).warn("Allocated size less than file size: " + result);
+            LoggerFactory.getLogger(Node.class).warn("Allocated size less than file size: " + result);
         }
 
         return result;

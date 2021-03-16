@@ -34,11 +34,6 @@ import java.util.Set;
 public class Device {
 
     /**
-     * The bus that i'm connected to
-     */
-    private Bus bus;
-
-    /**
      * My identifier
      */
     private String id;
@@ -48,17 +43,6 @@ public class Device {
      */
     private final HashMap<Class<? extends DeviceAPI>, DeviceAPI> apis =
         new HashMap<Class<? extends DeviceAPI>, DeviceAPI>();
-
-    /**
-     * Create a new instance
-     *
-     * @param bus
-     * @param id
-     */
-    public Device(Bus bus, String id) {
-        this.id = id;
-        this.bus = bus;
-    }
 
     /**
      * Create a new instance
@@ -79,15 +63,6 @@ public class Device {
      */
     public final String getId() {
         return id;
-    }
-
-    /**
-     * Gets the bus this device is connected to.
-     *
-     * @return My parent bus
-     */
-    public final Bus getBus() {
-        return this.bus;
     }
 
     /**

@@ -22,14 +22,15 @@ package org.jnode.fs.ext2;
 
 import java.nio.ByteBuffer;
 
-import org.apache.log4j.Logger;
 import org.jnode.driver.block.BlockDeviceAPI;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Andras Nagy
  */
 public class Ext2Print {
-    private static final Logger log = Logger.getLogger("EXT2");
+    private static final Logger log = LoggerFactory.getLogger("EXT2");
 
     public static String hexFormat(int i) {
         String pad = "00000000";

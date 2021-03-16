@@ -23,11 +23,12 @@ package org.jnode.fs.jfat;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import org.apache.log4j.Logger;
 import org.jnode.driver.block.BlockDeviceAPI;
 import org.jnode.partitions.ibm.IBMPartitionTable;
 import org.jnode.util.LittleEndian;
 import org.jnode.util.NumberUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author gvt
@@ -35,7 +36,7 @@ import org.jnode.util.NumberUtils;
  */
 public class BootSector {
     @SuppressWarnings("unused")
-    private static final Logger log = Logger.getLogger(BootSector.class);
+    private static final Logger log = LoggerFactory.getLogger(BootSector.class);
 
     private static final int IFAT12 = 12;
     private static final int IFAT16 = 16;
