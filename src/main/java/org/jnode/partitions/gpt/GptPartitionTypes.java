@@ -20,8 +20,8 @@
 
 package org.jnode.partitions.gpt;
 
-import org.apache.log4j.Logger;
 import org.jnode.util.NumberUtils;
+import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
 
@@ -126,11 +126,6 @@ public enum GptPartitionTypes {
         "MidnightBSD Vinum Volume Manager Partition"),
     MIDNIGHT_BSD_ZFS_PARTITION("85D5E45D-237C-11E1-B4B3-E89A8F7FC3A7", "MidnightBSD ZFS Partition");
 
-    /**
-     * Logger
-     */
-    private static final Logger log = Logger.getLogger(GptPartitionTypes.class);
-
     private UUID uuid;
     private String name;
 
@@ -187,7 +182,7 @@ public enum GptPartitionTypes {
                 }
             }
         } catch (Exception e) {
-            log.warn("Exception checking uuid: " + uuidBuilder.toString());
+            LoggerFactory.getLogger(GptPartitionTypes.class).warn("Exception checking uuid: " + uuidBuilder.toString());
         }
 
         return UNKNOWN;

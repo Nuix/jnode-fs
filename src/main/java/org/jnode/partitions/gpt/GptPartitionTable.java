@@ -20,7 +20,6 @@
  
 package org.jnode.partitions.gpt;
 
-import org.apache.log4j.Logger;
 import org.jnode.driver.Device;
 import org.jnode.partitions.PartitionTable;
 import org.jnode.partitions.PartitionTableType;
@@ -28,6 +27,8 @@ import org.jnode.partitions.ibm.IBMPartitionTable;
 import org.jnode.partitions.ibm.IBMPartitionTableEntry;
 import org.jnode.partitions.ibm.IBMPartitionTypes;
 import org.jnode.util.LittleEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -52,7 +53,7 @@ public class GptPartitionTable implements PartitionTable<GptPartitionTableEntry>
     private final List<GptPartitionTableEntry> partitions = new ArrayList<GptPartitionTableEntry>();
 
     /** My logger */
-    private static final Logger log = Logger.getLogger(GptPartitionTable.class);
+    private static final Logger log = LoggerFactory.getLogger(GptPartitionTable.class);
 
     /**
      * Create a new instance
@@ -87,7 +88,7 @@ public class GptPartitionTable implements PartitionTable<GptPartitionTableEntry>
                 int offset = blockSize * 2 + (partitionNumber * entrySize);
                 GptPartitionTableEntry entry = new GptPartitionTableEntry(this, first16KiB, offset, blockSize);
 
-                log.debug(entry);
+                log.debug("GptPartitionTableEntry- ", entry);
 
                 if (entry.isValid()) {
                     partitions.add(entry);

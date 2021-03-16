@@ -29,7 +29,7 @@ public class VirtualDevice extends Device {
     private final String initialName;
 
     public VirtualDevice(String id) {
-        super(null, id);
+        super(id);
         this.initialName = id;
     }
 

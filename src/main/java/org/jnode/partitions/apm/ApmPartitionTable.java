@@ -20,11 +20,11 @@
  
 package org.jnode.partitions.apm;
 
-import org.apache.log4j.Logger;
 import org.jnode.driver.Device;
 import org.jnode.partitions.PartitionTable;
 import org.jnode.partitions.PartitionTableType;
 import org.jnode.util.BigEndian;
+import org.slf4j.LoggerFactory;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -45,9 +45,6 @@ public class ApmPartitionTable implements PartitionTable<ApmPartitionTableEntry>
     /** The partition entries */
     private final List<ApmPartitionTableEntry> partitions = new ArrayList<ApmPartitionTableEntry>();
 
-    /** My logger */
-    private static final Logger log = Logger.getLogger(ApmPartitionTable.class);
-
     /**
      * Create a new instance
      *
@@ -61,7 +58,7 @@ public class ApmPartitionTable implements PartitionTable<ApmPartitionTableEntry>
         long entries = BigEndian.getUInt32(first16KiB, 0x204);
 
         for (int partitionNumber = 0; partitionNumber < entries; partitionNumber++) {
-            log.debug("try part " + partitionNumber);
+            LoggerFactory.getLogger(ApmPartitionTable.class).debug("try part " + partitionNumber);
 
             int offset = 0x200 + (partitionNumber * 0x200);
 
