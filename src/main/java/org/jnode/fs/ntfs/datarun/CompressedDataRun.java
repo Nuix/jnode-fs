@@ -24,10 +24,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.apache.log4j.Logger;
 import org.jnode.fs.ntfs.NTFSVolume;
 import org.jnode.fs.util.FSUtils;
 import org.jnode.util.LittleEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Daniel Noll (daniel@noll.id.au)
@@ -42,7 +43,7 @@ public final class CompressedDataRun implements DataRunInterface {
     /**
      * Logger.
      */
-    private static final Logger log = Logger.getLogger(CompressedDataRun.class);
+    private static final Logger log = LoggerFactory.getLogger(CompressedDataRun.class);
 
     /**
      * The underlying data runs containing the compressed data.

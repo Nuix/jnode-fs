@@ -20,7 +20,6 @@
  
 package org.jnode.fs.jfat;
 
-import org.apache.log4j.Logger;
 import org.jnode.driver.ApiNotFoundException;
 import org.jnode.driver.Device;
 import org.jnode.driver.block.BlockDeviceAPI;
@@ -30,6 +29,8 @@ import org.jnode.fs.FileSystemException;
 import org.jnode.fs.Formatter;
 import org.jnode.partitions.PartitionTableEntry;
 import org.jnode.partitions.ibm.IBMPartitionTableEntry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
@@ -39,7 +40,7 @@ import java.io.IOException;
  * @author Tango
  */
 public class FatFileSystemFormatter extends Formatter<FatFileSystem> {
-    private static final Logger log = Logger.getLogger(FatFileSystemFormatter.class);
+    private static final Logger log = LoggerFactory.getLogger(FatFileSystemFormatter.class);
 
     private ClusterSize clusterSize;
 

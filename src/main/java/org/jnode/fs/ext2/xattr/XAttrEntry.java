@@ -2,9 +2,10 @@ package org.jnode.fs.ext2.xattr;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.log4j.Logger;
 import org.jnode.fs.ext2.Ext2FileSystem;
 import org.jnode.util.LittleEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * An extended attribute entry.
@@ -16,7 +17,7 @@ public class XAttrEntry {
     /**
      * The logger.
      */
-    private static final Logger log = Logger.getLogger(XAttrEntry.class);
+    private static final Logger log = LoggerFactory.getLogger(XAttrEntry.class);
 
     /**
      * The minimum size of the entry structure.

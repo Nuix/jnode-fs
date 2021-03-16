@@ -21,7 +21,8 @@
 package org.jnode.fs.ext2;
 
 import java.io.IOException;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jnode.util.LittleEndian;
 
 /**
@@ -36,7 +37,7 @@ public class GroupDescriptor {
     private Ext2FileSystem fs;
     private int groupNr;
     private boolean dirty;
-    private static final Logger log = Logger.getLogger(GroupDescriptor.class);
+    private static final Logger log = LoggerFactory.getLogger(GroupDescriptor.class);
 
     public GroupDescriptor(Ext2FileSystem fs) {
         size = fs.hasIncompatFeature(Ext2Constants.EXT4_FEATURE_INCOMPAT_64BIT)

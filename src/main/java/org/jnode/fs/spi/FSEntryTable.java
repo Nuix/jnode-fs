@@ -27,8 +27,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import org.apache.log4j.Logger;
 import org.jnode.fs.FSEntry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A table containing all the entries of a directory. This class and its childs
@@ -40,7 +41,7 @@ import org.jnode.fs.FSEntry;
  */
 public class FSEntryTable extends AbstractFSObject {
 
-    private static final Logger log = Logger.getLogger(FSEntryTable.class);
+    private static final Logger log = LoggerFactory.getLogger(FSEntryTable.class);
 
     /**
      * An empty table that's used as a default table (that can't be modified)

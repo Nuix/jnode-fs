@@ -20,12 +20,13 @@
  
 package org.jnode.fs.exfat;
 
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
-import org.apache.log4j.Logger;
 
 /**
  * @author Matthias Treydte &lt;waldheinz at gmail.com&gt;
@@ -114,7 +115,7 @@ final class EntryTimes {
 
             return cal.getTime();
         } catch (Exception e) {
-            Logger.getLogger(EntryTimes.class).error("Error getting entry times", e);
+            LoggerFactory.getLogger(EntryTimes.class).error("Error getting entry times", e);
             return null;
         }
     }

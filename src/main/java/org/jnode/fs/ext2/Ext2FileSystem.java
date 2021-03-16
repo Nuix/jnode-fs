@@ -25,7 +25,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import org.apache.log4j.Logger;
 import org.jnode.driver.Device;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
@@ -37,6 +36,8 @@ import org.jnode.fs.ext2.cache.BlockCache;
 import org.jnode.fs.ext2.cache.INodeCache;
 import org.jnode.fs.ext4.MultipleMountProtection;
 import org.jnode.fs.spi.AbstractFileSystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Andras Nagy
@@ -64,7 +65,7 @@ public class Ext2FileSystem extends AbstractFileSystem<Ext2Entry> {
 
     private MultipleMountProtection multipleMountProtection;
 
-    private static final Logger log = Logger.getLogger(Ext2FileSystem.class);
+    private static final Logger log = LoggerFactory.getLogger(Ext2FileSystem.class);
 
     // private Object groupDescriptorLock;
     // private Object superblockLock;

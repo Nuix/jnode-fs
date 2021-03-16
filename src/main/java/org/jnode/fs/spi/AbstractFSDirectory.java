@@ -25,10 +25,13 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Iterator;
 
-import org.apache.log4j.Logger;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.ReadOnlyFileSystemException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Marker;
+import org.slf4j.MarkerFactory;
 
 /**
  * An abstract implementation of FSDirectory that contains common things among
@@ -37,7 +40,7 @@ import org.jnode.fs.ReadOnlyFileSystemException;
  * @author Fabien DUMINY
  */
 public abstract class AbstractFSDirectory extends AbstractFSObject implements FSDirectory {
-    private static final Logger log = Logger.getLogger(AbstractFSDirectory.class);
+    private static final Logger log = LoggerFactory.getLogger(AbstractFSDirectory.class);
 
     /* Table of entries */
     private FSEntryTable entries = FSEntryTable.EMPTY_TABLE;
@@ -221,7 +224,8 @@ public abstract class AbstractFSDirectory extends AbstractFSObject implements FS
                 }
                 resetDirty();
             } catch (IOException e) {
-                log.fatal("unable to read directory entries", e);
+                Marker fatal = MarkerFactory.getMarker("FATAL");
+                log.error(fatal, "unable to read directory entries", e);
                 // the next time, we will call checkEntriesLoaded()
                 // we will retry to load entries
                 entries = FSEntryTable.EMPTY_TABLE;

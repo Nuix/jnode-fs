@@ -2,10 +2,11 @@ package org.jnode.fs.hfsplus.compression;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import org.apache.log4j.Logger;
 import org.jnode.fs.hfsplus.HfsPlusFile;
 import org.jnode.fs.hfsplus.HfsPlusFileSystem;
 import org.jnode.fs.hfsplus.attributes.AttributeData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * LZVN compressed data stored off in the file's resource fork.
@@ -17,7 +18,7 @@ public class LzvnForkCompression implements HfsPlusCompression {
     /**
      * The logger for this class.
      */
-    private static final Logger log = Logger.getLogger(LzvnForkCompression.class);
+    private static final Logger log = LoggerFactory.getLogger(LzvnForkCompression.class);
 
     /**
      * The LZVN fork compression chunk size.

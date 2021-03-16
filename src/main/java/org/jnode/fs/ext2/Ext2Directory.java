@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import org.apache.log4j.Logger;
+
 import org.jnode.fs.FSDirectoryId;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.FileSystemException;
@@ -35,6 +35,8 @@ import org.jnode.fs.spi.AbstractFileSystem;
 import org.jnode.fs.spi.FSEntryTable;
 import org.jnode.fs.util.FSUtils;
 import org.jnode.util.LittleEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Andras Nagy
@@ -45,7 +47,7 @@ public class Ext2Directory extends AbstractFSDirectory implements FSDirectoryId 
 
     protected Ext2Entry entry;
 
-    private static final Logger log = Logger.getLogger(Ext2Directory.class);
+    private static final Logger log = LoggerFactory.getLogger(Ext2Directory.class);
 
     /**
      * @param entry the Ext2Entry representing this directory

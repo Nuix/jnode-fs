@@ -22,9 +22,10 @@ package org.jnode.fs.ntfs.datarun;
 
 import java.io.IOException;
 import java.util.Arrays;
-import org.apache.log4j.Logger;
 import org.jnode.fs.ntfs.NTFSStructure;
 import org.jnode.fs.ntfs.NTFSVolume;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.jnode.fs.util.FSUtils;
 
 /**
@@ -35,7 +36,7 @@ public final class DataRun implements DataRunInterface {
     /**
      * logger
      */
-    protected static final Logger log = Logger.getLogger(DataRun.class);
+    protected static final Logger log = LoggerFactory.getLogger(DataRun.class);
 
     /**
      * Cluster number of first cluster of this run. If this is zero, the run

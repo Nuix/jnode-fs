@@ -23,7 +23,6 @@ package org.jnode.fs.ext2;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import org.apache.log4j.Logger;
 import org.jnode.fs.FSFileSlackSpace;
 import org.jnode.fs.FileSystemException;
 import org.jnode.fs.ReadOnlyFileSystemException;
@@ -31,6 +30,8 @@ import org.jnode.fs.ext2.xattr.XAttrEntry;
 import org.jnode.fs.spi.AbstractFSFile;
 import org.jnode.fs.spi.AbstractFileSystem;
 import org.jnode.util.ByteBufferUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Andras Nagy
@@ -41,7 +42,7 @@ public class Ext2File extends AbstractFSFile implements FSFileSlackSpace {
     private final String name;
     private INode iNode;
 
-    private static final Logger log = Logger.getLogger(Ext2File.class);
+    private static final Logger log = LoggerFactory.getLogger(Ext2File.class);
 
     public Ext2File(Ext2Entry entry) {
         super((AbstractFileSystem<?>) entry.getFileSystem());
