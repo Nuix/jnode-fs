@@ -1,5 +1,6 @@
-# java-fs
-Various file system implementations based on the code of the JNode operating system
+# jnode-fs
+File system implementations based on the code of the JNode operating system.
+JNode-fs contains the Filesystems and the various block device drivers which is a subset of the bigger https://github.com/tmyroadctfig/jnode project.
 
 ```
 /*
