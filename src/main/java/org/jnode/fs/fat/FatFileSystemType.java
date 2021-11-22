@@ -48,36 +48,6 @@ public class FatFileSystemType implements BlockDeviceFileSystemType<FatFileSyste
      * @param firstSector
      */
     public boolean supports(PartitionTableEntry pte, byte[] firstSector, FSBlockDeviceAPI devApi) {
-/*
-        if (pte != null) {
-            if (!pte.isValid()) {
-                return false;
-            }
-            if (!(pte instanceof IBMPartitionTableEntry)) {
-                return false;
-            }
-            final IBMPartitionTableEntry ipte = (IBMPartitionTableEntry) pte;
-            final IBMPartitionTypes type = ipte.getSystemIndicator();
-            if ((type == IBMPartitionTypes.PARTTYPE_DOS_FAT12) ||
-                    (type == IBMPartitionTypes.PARTTYPE_DOS_FAT16_LT32M) ||
-                    (type == IBMPartitionTypes.PARTTYPE_DOS_FAT16_GT32M)) {
-                return true;
-            } else {
-                return false;
-            }
-        }
-
-        try
-        {
-        if (!new BootSector(firstSector).isaValidBootSector())
-            return false;
-        }
-        catch (RuntimeException e)
-        {
-            return false;
-        }
-*/
-
         // FAT-32 is currently handled by the newer jfat package.
         return (firstSector[38] == 0x29 &&
                 firstSector[54] == 'F' &&

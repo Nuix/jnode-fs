@@ -21,7 +21,8 @@
 package org.jnode.fs.ntfs;
 
 import java.io.IOException;
-import java.util.Iterator;
+import java.util.List;
+
 import org.jnode.fs.FSAccessRights;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
@@ -31,7 +32,6 @@ import org.jnode.fs.FSEntryLastChanged;
 import org.jnode.fs.FSFile;
 import org.jnode.fs.FSObject;
 import org.jnode.fs.FileSystem;
-import org.jnode.fs.ntfs.attribute.NTFSAttribute;
 import org.jnode.fs.ntfs.index.IndexEntry;
 
 /**
@@ -118,35 +118,7 @@ public class NTFSEntry implements FSEntry, FSEntryCreated, FSEntryLastChanged, F
                 indexEntry, IndexEntry.CONTENT_OFFSET);
             name = fileName.getFileName();
         } else if (fileRecord != null) {
-            if (parentReferenceNumber != -1) {
-                // The file name can be different for every hard-linked copy of the file. To find the correct name
-                // look for a matching parent MFT index
-                FileNameAttribute fileNameAttribute = null;
-                Iterator<NTFSAttribute> iterator = fileRecord.findAttributesByType(NTFSAttribute.Types.FILE_NAME);
-                while (iterator.hasNext()) {
-                    FileNameAttribute attribute = (FileNameAttribute) iterator.next();
-
-                    if (attribute.getParentMftIndex() != parentReferenceNumber) {
-                        // File name attribute doesn't match our current parent
-                        continue;
-                    }
-
-                    // Prefer the win32 namespace
-                    if (fileNameAttribute == null ||
-                        fileNameAttribute.getNameSpace() != FileNameAttribute.NameSpace.WIN32) {
-                        fileNameAttribute = attribute;
-                    }
-                }
-
-                if (fileNameAttribute != null) {
-                    name = fileNameAttribute.getFileName();
-                }
-            }
-
-            if (name == null) {
-                // Didn't find a matching parent, just return the 'best' name
-                name = fileRecord.getFileName();
-            }
+            name = fileRecord.getFileName(parentReferenceNumber);
         }
 
         return name;

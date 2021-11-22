@@ -70,9 +70,11 @@ public final class IndexEntryIterator implements Iterator<IndexEntry> {
 
             // Prevents an infinite loop.  Seen on images where the size of the index entry has been zeroed out.
             if (size <= 0) {
+                // we'll just retrieve the first file name for the parent file record, as we don't have access
+                // to the parent's parent.
                 throw new IllegalStateException(String.format(
                     "Index entry size is 0, filesystem is corrupt.  Parent directory: '%s', reference number '%d'",
-                    nextEntry.getParentFileRecord().getFileName(),
+                    nextEntry.getParentFileRecord().getFileName(-1),
                     nextEntry.getParentFileRecord().getReferenceNumber()));
             }
 

@@ -34,46 +34,68 @@ import org.jnode.fs.util.FSUtils;
  */
 public abstract class NTFSAttribute extends NTFSStructure {
 
-    public static final class Types {
+    /**
+     * NTFS attribute types.
+     *
+     * @see <a href="https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/a82e9105-2405-4e37-b2c3-28c773902d85">NTFS Attribute Types</a>
+     * @see <a href="https://github.com/tuxera/ntfs-3g/blob/a4a837025b6ac2b0c44c93e34e22535fe9e95b27/include/ntfs-3g/layout.h#L488">ntfs-3g</a>
+     */
+    public enum Types {
 
-        public static final int STANDARD_INFORMATION = 0x10;
+        STANDARD_INFORMATION(0x10),
 
-        public static final int ATTRIBUTE_LIST = 0x20;
+        ATTRIBUTE_LIST(0x20),
 
-        public static final int FILE_NAME = 0x30;
+        FILE_NAME(0x30),
 
-        public static final int VOLUME_VERSION = 0x40;
+        OBJECT_ID(0x40),
 
-        public static final int OBJECT_ID = 0x40;
+        SECURITY_DESCRIPTOR(0x50),
 
-        public static final int SECURITY_DESCRIPTOR = 0x50;
+        VOLUME_NAME(0x60),
 
-        public static final int VOLUME_NAME = 0x60;
+        VOLUME_INFORMATION(0x70),
 
-        public static final int VOLUME_INFORMATION = 0x70;
+        DATA(0x80),
 
-        public static final int DATA = 0x80;
+        INDEX_ROOT(0x90),
 
-        public static final int INDEX_ROOT = 0x90;
+        INDEX_ALLOCATION(0xA0),
 
-        public static final int INDEX_ALLOCATION = 0xA0;
+        BITMAP(0xB0),
 
-        public static final int BITMAP = 0xB0;
+        REPARSE_POINT(0xC0),
 
-        public static final int SYMBOLIC_LINK = 0xC0;
+        EA_INFORMATION(0xD0),
 
-        public static final int REPARSE_POINT = 0xC0;
+        EA(0xE0),
 
-        public static final int EA_INFORMATION = 0xD0;
+        PROPERTY_SET(0xF0),
 
-        public static final int EA = 0xE0;
+        LOGGED_UTILITY_STREAM(0x100);
 
-        public static final int PROPERTY_SET = 0xF0;
+        private final int value;
 
-        public static final int LOGGED_UTILITY_STREAM = 0x100;
+        private Types(int value) {
+            this.value = value;
+        }
+
+        public final int getValue() {
+            return value;
+        }
+
+        public static Types fromValue(int value) {
+            for (Types type : Types.values()) {
+                if (type.getValue() == value) {
+                    return type;
+                }
+            }
+
+            return null;
+        }
     }
 
-    private final int type;
+    private final Types type;
 
     private final int flags;
 
@@ -85,14 +107,14 @@ public abstract class NTFSAttribute extends NTFSStructure {
     public NTFSAttribute(FileRecord fileRecord, int offset) {
         super(fileRecord, offset);
         this.fileRecord = fileRecord;
-        this.type = getUInt32AsInt(0);
+        this.type = Types.fromValue(getUInt32AsInt(0));
         this.flags = getUInt16(0x0C);
     }
 
     /**
      * @return Returns the attributeType.
      */
-    public int getAttributeType() {
+    public Types getAttributeType() {
         return type;
     }
 
@@ -202,34 +224,44 @@ public abstract class NTFSAttribute extends NTFSStructure {
      */
     public static NTFSAttribute getAttribute(FileRecord fileRecord, int offset) {
         final boolean resident = (fileRecord.getUInt8(offset + 0x08) == 0);
-        final int type = fileRecord.getUInt32AsInt(offset + 0x00);
+        final Types type = Types.fromValue(fileRecord.getUInt32AsInt(offset));
 
-        switch (type) {
-            case Types.STANDARD_INFORMATION:
-                return new StandardInformationAttribute(fileRecord, offset);
-            case Types.ATTRIBUTE_LIST:
-                if (resident) {
-                    return new AttributeListAttributeRes(fileRecord, offset);
-                } else {
-                    return new AttributeListAttributeNonRes(fileRecord, offset);
-                }
-            case Types.FILE_NAME:
-                return new FileNameAttribute(fileRecord, offset);
-            case Types.INDEX_ROOT:
-                return new IndexRootAttribute(fileRecord, offset);
-            case Types.INDEX_ALLOCATION:
-                return new IndexAllocationAttribute(fileRecord, offset);
-            case Types.REPARSE_POINT:
-                return new ReparsePointAttribute(fileRecord, offset);
+        if (type != null) {
+            switch (type) {
+                case STANDARD_INFORMATION:
+                    return new StandardInformationAttribute(fileRecord, offset);
+
+                case ATTRIBUTE_LIST:
+                    if (resident) {
+                        return new AttributeListAttributeRes(fileRecord, offset);
+                    } else {
+                        return new AttributeListAttributeNonRes(fileRecord, offset);
+                    }
+
+                case FILE_NAME:
+                    return new FileNameAttribute(fileRecord, offset);
+
+                case INDEX_ROOT:
+                    return new IndexRootAttribute(fileRecord, offset);
+
+                case INDEX_ALLOCATION:
+                    return new IndexAllocationAttribute(fileRecord, offset);
+
+                case REPARSE_POINT:
+                    return new ReparsePointAttribute(fileRecord, offset);
+
+                default:
+                    // check the resident flag
+                    if (resident) {
+                        // resident
+                        return new NTFSResidentAttribute(fileRecord, offset);
+                    } else {
+                        // non resident
+                        return new NTFSNonResidentAttribute(fileRecord, offset);
+                    }
+            }
         }
 
-        // check the resident flag
-        if (resident) {
-            // resident
-            return new NTFSResidentAttribute(fileRecord, offset);
-        } else {
-            // non resident
-            return new NTFSNonResidentAttribute(fileRecord, offset);
-        }
+        return null;
     }
 }

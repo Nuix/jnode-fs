@@ -43,8 +43,8 @@ public class AttributeListBuilder {
     /**
      * The map of non-resident attributes by type, then by stream name.
      */
-    private final Map<Integer, Map<String, NTFSNonResidentAttribute>> nonResByType =
-        new LinkedHashMap<Integer, Map<String, NTFSNonResidentAttribute>>();
+    private final Map<NTFSAttribute.Types, Map<String, NTFSNonResidentAttribute>> nonResByType =
+        new LinkedHashMap<NTFSAttribute.Types, Map<String, NTFSNonResidentAttribute>>();
 
     /**
      * The attribute list being built.
@@ -66,7 +66,7 @@ public class AttributeListBuilder {
         if (attribute.isResident()) {
             attributeList.add(attribute);
         } else {
-            int attrType = attribute.getAttributeType();
+            NTFSAttribute.Types attrType = attribute.getAttributeType();
             Map<String, NTFSNonResidentAttribute> typeByName = nonResByType.get(attrType);
 
             // Use an empty string for the default (null) stream name.

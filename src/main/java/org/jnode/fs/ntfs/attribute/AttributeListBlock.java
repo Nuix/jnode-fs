@@ -22,6 +22,7 @@ package org.jnode.fs.ntfs.attribute;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+
 import org.jnode.fs.ntfs.NTFSStructure;
 
 /**
@@ -34,7 +35,7 @@ public final class AttributeListBlock extends NTFSStructure {
     /**
      * The length of the block.
      */
-    private long length;
+    private final long blockLength;
 
     /**
      * @param data   binary data for the block.
@@ -43,7 +44,7 @@ public final class AttributeListBlock extends NTFSStructure {
      */
     public AttributeListBlock(byte[] data, int offset, long length) {
         super(data, offset);
-        this.length = length;
+        blockLength = length;
     }
 
     /**
@@ -81,20 +82,30 @@ public final class AttributeListBlock extends NTFSStructure {
                 return true;
             }
 
-            // If the length is specified, use it to determine where the block ends.
-            if (offset + 4 > length) {
+            // Ensure that the remaining data length contains a minimum length to encapsulate
+            // a list entry record.
+            if (offset + 0x1A > blockLength) {
                 return false;
             }
 
-            int length = getUInt16(offset + 0x04);
-            if (length <= 0) {
-                log.error("Invalid attribute length, preventing infinite loop. Data on disk may be corrupt.");
+            AttributeListEntry entry = new AttributeListEntry(AttributeListBlock.this, offset);
+
+            int typeValue = entry.getType();
+            if (NTFSAttribute.Types.fromValue(typeValue) == null) {
+                log.debug(String.format("Invalid attribute type found: 0x%x", typeValue));
                 return false;
             }
 
-            nextElement = new AttributeListEntry(AttributeListBlock.this, offset);
+            int elementLength = entry.getSize();
+            if (elementLength <= 0 || elementLength + offset > blockLength) {
+                log.debug("Invalid attribute length, preventing infinite loop. Data on disk may be corrupt.");
+                return false;
+            }
+
+            nextElement = entry;
+
             log.debug(nextElement.toString());
-            offset += length;
+            offset += elementLength;
             return true;
         }
 
@@ -116,6 +127,7 @@ public final class AttributeListBlock extends NTFSStructure {
         /**
          * @throws UnsupportedOperationException always.
          */
+        @Override
         public void remove() {
             throw new UnsupportedOperationException();
         }

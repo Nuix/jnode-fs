@@ -60,7 +60,7 @@ public class NTFSResidentAttribute extends NTFSAttribute {
 
     @Override
     public String toString() {
-        return String.format("[attribute (res) type=x%x name'%s' size=%d]", getAttributeType(), getAttributeName(),
+        return String.format("[attribute (res) type=x%x name'%s' size=%d]", getAttributeType().getValue(), getAttributeName(),
             getAttributeLength());
     }
 

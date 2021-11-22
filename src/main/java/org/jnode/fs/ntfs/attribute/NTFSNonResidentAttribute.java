@@ -173,7 +173,7 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
 
     @Override
     public String toString() {
-        return String.format("[attribute (non-res) type=x%x name'%s' size=%d runs=%d]", getAttributeType(),
+        return String.format("[attribute (non-res) type=x%x name'%s' size=%d runs=%d]", getAttributeType().getValue(),
             getAttributeName(), getAttributeActualSize(), getDataRuns().size());
     }
 

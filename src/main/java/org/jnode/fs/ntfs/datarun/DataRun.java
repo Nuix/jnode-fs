@@ -116,6 +116,15 @@ public final class DataRun implements DataRunInterface {
             case 0x04:
                 length = dataRunStructure.getUInt32(1);
                 break;
+            case 0x05:
+                length = dataRunStructure.getUInt40(1);
+                break;
+            case 0x06:
+                length = dataRunStructure.getUInt48(1);
+                break;
+            case 0x07:
+                length = dataRunStructure.getUInt56(1);
+                break;
             default:
                 throw new IllegalArgumentException("Invalid length length " + lenlen);
         }
@@ -139,6 +148,12 @@ public final class DataRun implements DataRunInterface {
                 break;
             case 0x05:
                 cluster = dataRunStructure.getInt40(1 + lenlen);
+                break;
+            case 0x06:
+                cluster = dataRunStructure.getInt48(1 + lenlen);
+                break;
+            case 0x07:
+                cluster = dataRunStructure.getInt56(1 + lenlen);
                 break;
             default:
                 throw new IllegalArgumentException("Unknown cluster length " + clusterlen);

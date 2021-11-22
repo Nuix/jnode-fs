@@ -32,7 +32,15 @@ public final class BootRecord extends NTFSStructure {
 
     private final int sectorsPerCluster;
 
+    /**
+     * The logical cluster number of the Master File Table.
+     */
     private final long mftLcn;
+
+    /**
+     * The logical cluster number of the copy of the Master File Table.
+     */
+    private final long mftLcnMirror;
 
     private final int mediaDescriptor;
 
@@ -46,24 +54,24 @@ public final class BootRecord extends NTFSStructure {
     private final String serialNumber;
 
     /**
-     * Size of a filerecord in bytes
+     * Size of a file record in bytes.
      */
     private final int fileRecordSize;
 
     /**
-     * Size of an index record in bytes
+     * Size of an index record in bytes.
      */
     private final int indexRecordSize;
 
     /**
-     * Size of a cluster in bytes
+     * Size of a cluster in bytes.
      */
     private final int clusterSize;
 
     /**
      * Initialize this instance.
      *
-     * @param buffer
+     * @param buffer the byte buffer to base this instance from.
      */
     public BootRecord(byte[] buffer) {
         super(buffer, 0);
@@ -72,8 +80,9 @@ public final class BootRecord extends NTFSStructure {
         this.sectorsPerCluster = getUInt8(0x0D);
         this.mediaDescriptor = getUInt8(0x15);
         this.sectorsPerTrack = getUInt16(0x18);
-        this.totalSectors = getUInt32(0x28);
-        this.mftLcn = getUInt32(0x30);
+        this.totalSectors = getInt64(0x28);
+        this.mftLcn = getInt64(0x30);
+        this.mftLcnMirror = getInt64(0x38);
         final int clustersPerMFTRecord = getInt8(0x40);
         final int clustersPerIndexRecord = getInt8(0x44);
         this.serialNumber = String.format("%02X%02X-%02X%02X", buffer[0x4b], buffer[0x4a], buffer[0x49], buffer[0x48]);
@@ -82,20 +91,24 @@ public final class BootRecord extends NTFSStructure {
         this.fileRecordSize = calcByteSize(clustersPerMFTRecord);
         this.indexRecordSize = calcByteSize(clustersPerIndexRecord);
 
-        log.debug("FileRecordSize  = " + fileRecordSize);
-        log.debug("IndexRecordSize = " + indexRecordSize);
-        log.debug("TotalSectors    = " + totalSectors);
+        log.debug("FileRecordSize  = {}", fileRecordSize);
+        log.debug("IndexRecordSize = {}", indexRecordSize);
+        log.debug("TotalSectors    = {}", totalSectors);
     }
 
     /**
-     * @return Returns the bytesPerSector.
+     * Gets the bytes per sector.
+     *
+     * @return the bytes per sector.
      */
     public int getBytesPerSector() {
         return this.bytesPerSector;
     }
 
     /**
-     * @return Returns the mediaDescriptor.
+     * Gets the media descriptor.
+     *
+     * @return the media descriptor.
      */
     public int getMediaDescriptor() {
         return this.mediaDescriptor;
@@ -104,28 +117,43 @@ public final class BootRecord extends NTFSStructure {
     /**
      * Gets the logical cluster number of the MFT.
      *
-     * @return Returns the mFTPointer.
+     * @return the logical cluster number of the MFT.
      */
     public long getMftLcn() {
         return mftLcn;
     }
 
     /**
-     * @return Returns the sectorPerCluster.
+     * Gets the logical cluster number of the MFT mirror.
+     *
+     * @return the logical cluster number of the MFT mirror.
+     */
+    public long getMftLcnMirror() {
+        return mftLcnMirror;
+    }
+
+    /**
+     * Gets the number of sectors per cluster.
+     *
+     * @return the number of sectors per cluster.
      */
     public int getSectorsPerCluster() {
         return this.sectorsPerCluster;
     }
 
     /**
-     * @return Returns the sectorsPerTrack.
+     * Gets the number of sectors per track.
+     *
+     * @return the number of sectors per track.
      */
     public int getSectorsPerTrack() {
         return this.sectorsPerTrack;
     }
 
     /**
-     * @return Returns the systemID.
+     * Gets the system ID.
+     *
+     * @return the system ID.
      */
     public String getSystemID() {
         return this.systemID;
@@ -141,40 +169,42 @@ public final class BootRecord extends NTFSStructure {
     }
 
     /**
-     * @return Returns the totalSectors.
+     * Gets the total sectors.
+     *
+     * @return the total sectors.
      */
     public long getTotalSectors() {
         return this.totalSectors;
     }
 
     /**
-     * Gets the size of a filerecord in bytes.
+     * Gets the size of a file record in bytes.
      *
-     * @return
+     * @return the size of a file record in bytes.
      */
     public int getFileRecordSize() {
         return fileRecordSize;
     }
 
     /**
-     * Gets the size of a indexrecord in bytes.
+     * Gets the size of an index record in bytes.
      *
-     * @return
+     * @return the size of an index record in bytes.
      */
     public int getIndexRecordSize() {
         return indexRecordSize;
     }
 
     /**
-     * Gets the size of a cluster bytes.
+     * Gets the size of a cluster in bytes.
      *
-     * @return
+     * @return the size of a cluster in bytes.
      */
     public int getClusterSize() {
         return clusterSize;
     }
 
-    private final int calcByteSize(int clusters) {
+    private int calcByteSize(int clusters) {
         if (clusters > 0) {
             return clusters * clusterSize;
         } else {

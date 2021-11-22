@@ -65,7 +65,7 @@ final class EntryTimes {
 
     private static final int EXFAT_EPOCH = 1980;
 
-    private static Date exfatToUnix(int date, int time, int cs, int tzOffset)  {
+    static Date exfatToUnix(int date, int time, int cs, int tzOffset)  {
 
         try {
             final GregorianCalendar cal =
@@ -73,6 +73,10 @@ final class EntryTimes {
 
             cal.setTimeInMillis(0);
 
+            //   date = 2 bytes:
+            //     15-9     Year (0 = 1980, 127 = 2107)
+            //     8-5      Month (1 = January, 12 = December)
+            //     4-0      Day (1 - 31)
             final int day = date & 0x1f;
             final int month = ((date >> 5) & 0x0f);
             final int year = ((date >> 9) & 0x7f) + EXFAT_EPOCH;
@@ -85,8 +89,12 @@ final class EntryTimes {
 
             cal.set(year, month - 1, day);
 
+            //   time = 2 bytes:
+            //     15-11    Hours (0-23)
+            //     10-5     Minutes (0-59)
+            //     4-0      Seconds/2 (0-29)
             final int twoSec = (time & 0x1f);
-            final int min = ((time >> 5) & 0x0f);
+            final int min = ((time >> 5) & 0x3f);
             final int hour = (time >> 11);
 
             if ((hour > 23) || (min > 59) || (twoSec > 29)) {
@@ -107,7 +115,7 @@ final class EntryTimes {
 
             /* adjust for TZ offset */
 
-            final boolean tzNeg = ((tzOffset & 0x40) != 0);
+            final boolean tzNeg = ((tzOffset & 0x40) == 0);
             tzOffset &= 0x3f;
             tzOffset *= tzNeg ? -15 : 15;
 

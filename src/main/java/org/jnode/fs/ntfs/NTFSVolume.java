@@ -152,7 +152,9 @@ public class NTFSVolume {
             // Read the root directory
             final MasterFileTable mft = getMFT();
             rootDirectory = mft.getRecord(MasterFileTable.SystemFiles.ROOT);
-            log.info("getRootDirectory: " + rootDirectory.getFileName());
+            // found that the parent in the file name attribute in the root directory entry
+            // referred to the root directory entry itself.
+            log.info("getRootDirectory: " + rootDirectory.getFileName(rootDirectory.getReferenceNumber()));
         }
         return rootDirectory;
     }
