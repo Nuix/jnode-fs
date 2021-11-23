@@ -32,8 +32,10 @@ public class XfsFileSystemTypeTest
             byte[] buffer = new byte[512];
             assertThat(type.supports(partitionTableEntry, buffer, device), is(true));
         }
-
-        testFile.delete();
+        finally
+        {
+            testFile.delete();
+        }
     }
 
 }

@@ -1,15 +1,14 @@
-package org.jnode.test.fs.ntfs;
+package org.jnode.fs.ntfs;
 
 import java.util.List;
-import org.jnode.fs.ntfs.NTFSStructure;
+
 import org.jnode.fs.ntfs.datarun.DataRunDecoder;
 import org.jnode.fs.ntfs.datarun.DataRunInterface;
 import org.junit.Test;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.core.IsEqual.equalTo;
-import static org.jnode.test.fs.FileSystemTestUtils.toByteArray;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.*;
+import static org.hamcrest.Matchers.*;
+import static org.jnode.fs.FileSystemTestUtils.*;
 
 /**
  * Tests for {@link org.jnode.fs.ntfs.datarun.DataRunDecoder}.

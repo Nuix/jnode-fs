@@ -46,18 +46,19 @@ public class FileDevice extends Device implements FSBlockDeviceAPI, Closeable
     }
 
     @Override
-    public void write(long devOffset, ByteBuffer src)
+    public void write(long devOffset, ByteBuffer src) throws IOException
     {
-        throw new UnsupportedOperationException("no support for write");
+        randomAccessFile.seek(devOffset);
+        randomAccessFile.write(src.array());
     }
 
     @Override
-    public void flush() throws IOException
+    public void flush()
     {
     }
 
     @Override
-    public int getSectorSize() throws IOException
+    public int getSectorSize()
     {
         // value copied over from jnode. Not sure if this will need to be updated.
         return 512;
