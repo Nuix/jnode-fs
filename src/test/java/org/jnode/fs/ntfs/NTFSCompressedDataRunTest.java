@@ -1,13 +1,14 @@
-package org.jnode.test.fs.ntfs;
+package org.jnode.fs.ntfs;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+
 import org.jnode.fs.ntfs.datarun.CompressedDataRun;
 import org.junit.Test;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.jnode.test.fs.FileSystemTestUtils.toByteArray;
-import static org.junit.Assert.assertThat;
-import static org.junit.matchers.JUnitMatchers.containsString;
+import static org.hamcrest.MatcherAssert.*;
+import static org.hamcrest.Matchers.*;
+import static org.jnode.fs.FileSystemTestUtils.*;
 
 /**
  * Tests for {@link org.jnode.fs.ntfs.datarun.CompressedDataRun}.
@@ -474,7 +475,7 @@ public class NTFSCompressedDataRunTest {
         CompressedDataRun.unCompressUnit(compressed, uncompressed);
 
         // Assert
-        String uncompressedContent = new String(uncompressed, "US-ASCII");
+        String uncompressedContent = new String(uncompressed, StandardCharsets.US_ASCII);
         assertThat(uncompressedContent.startsWith("%!PS-Adobe-3.0 EPSF-3.0\r\n%%Creator: Adobe Illustrator(TM)"),
             is(true));
         assertThat(uncompressedContent, containsString("% matrix llx lly urx ury string")); // Near the end of the chunk
