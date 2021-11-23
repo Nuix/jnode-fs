@@ -16,6 +16,7 @@ public class FileDevice extends Device implements FSBlockDeviceAPI, Closeable
     public FileDevice(File backingFile, String mode) throws IOException
     {
         randomAccessFile = new RandomAccessFile(backingFile, mode);
+        registerAPI(FSBlockDeviceAPI.class, this);
     }
 
     @Override
@@ -39,7 +40,6 @@ public class FileDevice extends Device implements FSBlockDeviceAPI, Closeable
     @Override
     public void read(long devOffset, ByteBuffer dest) throws IOException
     {
-        // TODO: bounds checking
         byte[] buffer = dest.array();
         randomAccessFile.seek(devOffset);
         randomAccessFile.read(buffer, 0, buffer.length);
@@ -54,7 +54,6 @@ public class FileDevice extends Device implements FSBlockDeviceAPI, Closeable
     @Override
     public void flush() throws IOException
     {
-
     }
 
     @Override
