@@ -10,6 +10,13 @@ public class FileSystemService
         throws FileSystemException
     {
         // TODO: stub function. Currently only called from Ext4FileSystemTest.
-        return (T) new Ext2FileSystemType();
+        if (Ext2FileSystemType.class.equals(name))
+        {
+            return (T) new Ext2FileSystemType();
+        }
+        else
+        {
+            throw new FileSystemException("Unhandled Filesystem type");
+        }
     }
 }
