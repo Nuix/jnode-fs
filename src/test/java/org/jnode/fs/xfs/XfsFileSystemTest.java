@@ -21,7 +21,6 @@ public class XfsFileSystemTest {
     FileDevice device;
     XfsFileSystem fs;
 
-
     @Before
     public void initialize() throws IOException, FileSystemException {
         testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/test-xfs-1.img");
@@ -36,10 +35,17 @@ public class XfsFileSystemTest {
         testFile.delete();
     }
 
-
     @Test
     public void testSupports() throws Exception {
+        System.out.println("SUPERBLOCK INFO:");
         final MySuperblock superblock = new MySuperblock(device, 0);
+        System.out.println("SUPERBLOCK SIGNATURE: " + superblock.isValidSignature());
         System.out.println(superblock.getXfsDbInspectionString());
+
+        System.out.println("FREE BLOCK INFO:");
+        MyAGFreeSpaceBlock freeblock = new MyAGFreeSpaceBlock(device, 256);
+        System.out.println("FREEBLOCK SIGNATURE: " + freeblock.isValidSignature());
+        System.out.println(freeblock.getXfsDbInspectionString());
+
     }
 }
