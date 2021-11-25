@@ -63,15 +63,16 @@ public class MySuperblock extends MyXfsBaseAccessor {
 
     /**
      * https://mirrors.edge.kernel.org/pub/linux/utils/fs/xfs/docs/xfs_filesystem_structure.pdf page 50
+     * this should match output xfs_db command with commands "sb" and "p"
      */
     public String getXfsDbInspectionString() throws IOException {
         String str = "";
-        str += "magicnum = " + Long.toOctalString(getMagicNum()) + "\n";
+        str += "magicnum = 0x" + Long.toHexString(getMagicNum()) + "\n";
         str += "blocksize = " + getBlockSize() + "\n";
         str += "dblocks = " + getTotalBlocks() + "\n";
         str += "rblocks = " + getDeviceBlocks() + "\n";
         str += "rextents = " + getDeviceExtents() + "\n";
-        str += "uuid = " + getDeviceIdentifier() + "(PENDING to FIND PARSING METHOD)\n";
+        str += "uuid = " + getDeviceIdentifier() + "\n";
         str += "logstart = " + getJournalBlockNumber() + "\n";
         str += "rootino = " + getRootINodeNumber() + "\n";
         str += "rbmino = " + getBitmapExtentsINodeNumber() + "\n";
@@ -85,7 +86,7 @@ public class MySuperblock extends MyXfsBaseAccessor {
         str += "sectsize = " + getSectorSize() + "\n";
         str += "inodesize = " + getINodeSize() + "\n";
         str += "inopblock = " + getINodePerBlock() + "\n";
-//        str += "fname = ”" + getVolumeLabel() + "”\n";
+        str += "fname = ”" + getVolumeLabel() + "”\n";
 //        str += "blocklog = 12" + "\n";
 //        str += "sectlog = 9" + "\n";
 //        str += "inodelog = 8" + "\n";
@@ -98,19 +99,19 @@ public class MySuperblock extends MyXfsBaseAccessor {
         str += "ifree = " + getNumberOfFreeINodes() + "\n";
         str += "fdblocks = " + getNumberOfFreeDataBlocks() + "\n";
         str += "frextents = " + getNumberOfFreeExtents() + "\n";
-//        str += "uquotino = = 0" + "\n";
-//        str += "gquotino = 0" + "\n";
-//        str += "qflags = 0" + "\n";
-//        str += "flags = 0" + "\n";
-//        str += "shared_vn = 0" + "\n";
-//        str += "inoalignmt = 2" + "\n";
-//        str += "unit = 0" + "\n";
-//        str += "width = 0" + "\n";
-//        str += "dirblklog = 2" + "\n";
-//        str += "logsectlog = 0" + "\n";
-//        str += "logsectsize = 0" + "\n";
-//        str += "logsunit = 0" + "\n";
-//        str += "features2 = 8" + "\n";
+        str += "uquotino = 0" + "\n";
+        str += "gquotino = 0" + "\n";
+        str += "qflags = 0" + "\n";
+        str += "flags = 0" + "\n";
+        str += "shared_vn = 0" + "\n";
+        str += "inoalignmt = 2" + "\n";
+        str += "unit = 0" + "\n";
+        str += "width = 0" + "\n";
+        str += "dirblklog = 2" + "\n";
+        str += "logsectlog = " + getJournalDeviceSizeLog2() + "\n";
+        str += "logsectsize = " + getJournalRaidUnitSize() + "\n";
+        str += "logsunit = 0" + getJournalRaidUnitSize() + "\n";
+        str += "features2 = 0x" + Long.toHexString(getSecondaryFeatureFlags()) + "\n";
 
         return str;
     }
@@ -152,10 +153,7 @@ public class MySuperblock extends MyXfsBaseAccessor {
      * Contains an UUID
      */
     public String getDeviceIdentifier() throws IOException {
-        // TODO: Check if is correct reading
-        final long p1 = read(32, 8);
-        final long p2 = read(40, 8);
-        return Long.toOctalString(p1) + Long.toOctalString(p2);
+        return readUuid(32, 16);
     }
 
     /**
@@ -272,9 +270,16 @@ public class MySuperblock extends MyXfsBaseAccessor {
     /**
      * Volume label (or name)
      */
-    public long getVolumeLabel() throws IOException {
-        // TODO: Verify hoy to read
-        return read(108, 12);
+    public String getVolumeLabel() throws IOException {
+        return readAsHexString(108, 1) +
+                readAsHexString(109, 1) +
+                readAsHexString(110, 1) +
+                readAsHexString(111, 1) +
+                readAsHexString(112, 1) +
+                readAsHexString(113, 1) +
+                readAsHexString(114, 1) +
+                readAsHexString(115, 1) +
+                readAsHexString(116, 1);
     }
 
     // TODO: Verify if log2 values are required
@@ -509,10 +514,40 @@ public class MySuperblock extends MyXfsBaseAccessor {
     }
 
     public long getVersion() throws IOException {
-        return getFeatureFlags() & 0x0008;
+        return getFeatureFlags() & 0x0007;
     }
 
     public long getLastBytePositionForOffset() throws IOException {
         return getOffset() + (getVersion() >= 5 ? 272 : 208);
     }
+
+    public MyAGFreeSpaceBlock getAGFreeSpaceBlock() {
+        return new MyAGFreeSpaceBlock(getDevApi(), getOffset() + 256);
+    }
+
+    public MyINodeInformation getINodeInformation() {
+        return new MyINodeInformation(getDevApi(), getOffset() + 256 * 2);
+    }
+
+    public MyAGFreeListHeader getAGFreeListHeader() {
+        return new MyAGFreeListHeader(getDevApi(), getOffset() + 256 * 3);
+    }
+
+    public MyBPlusTree getBlockOffsetBTree() {
+        return new My64BitBPlusTree(getDevApi(), getOffset() + 256 * 8);
+    }
+
+    public MyBPlusTree getBlockCountBTree() {
+        return new My64BitBPlusTree(getDevApi(), getOffset() + 256 * 16);
+    }
+
+    public MyBPlusTree getV5FreeINodeBTree() {
+        return new My64BitBPlusTree(getDevApi(), getOffset() + 256 * 24);
+    }
+
+    public MyBPlusTree getV5AllocatedINodeBTree() {
+        return new My64BitBPlusTree(getDevApi(), getOffset() + 256 * 32);
+    }
+
+
 }

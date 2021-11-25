@@ -4,19 +4,40 @@ import org.jnode.driver.block.FSBlockDeviceAPI;
 
 import java.io.IOException;
 
-public class MyInode extends MyXfsBaseAccessor {
+public class MyINodeInformation extends MyXfsBaseAccessor {
 
 
     public static final long MAGIC_NUMBER = AsciiToHex("XAGI");
 
 
-    public MyInode(FSBlockDeviceAPI devApi, long superBlockStart) {
+    public MyINodeInformation(FSBlockDeviceAPI devApi, long superBlockStart) {
         super(devApi, superBlockStart);
     }
 
     @Override
     public boolean isValidSignature() throws IOException {
         return getSignature() == MAGIC_NUMBER;
+    }
+
+    public String getXfsDbInspectionString() throws IOException {
+        String str = "";
+        str += "magicnum = 0x" + Long.toHexString(getSignature()) + "\n";
+        str += "versionnum = " + getVersion() + "\n";
+        str += "seqno = " + getSequenceNumber() + "\n";
+        str += "length = " + getAGBlockSize() + "\n";
+        str += "count = 64" + getINodeAGCount() + "\n"; // Check
+        str += "root = 3" + getBtreeBlockNumber() + "\n"; // Check
+        str += "level = 1" + getINodeBtreeDepth() + "\n"; //Check
+        str += "freecount = 58" + getFreeINodeCount() + "\n"; // Check
+        str += "newino = 96" + getLasAllocatedINode() + "\n"; // Check
+        str += "dirino = null\n";
+        str += "unlinked[0-63] =\n";
+        str += "uuid = " + getUuid() + "\n";
+        str += "crc = 0x" + Long.toHexString(getChecksum()) + "\n"; // Check
+        str += "lsn = 0x100000011" + Long.toHexString(getLogSequenceNumber()) + "\n"; // Check
+        str += "free_root = " + getFreeInodeRootNumber() + "\n"; // Check
+        str += "free_level = 1" + getFreeInodeDepth() + "\n"; // Check
+        return str;
     }
 
     /**
@@ -36,13 +57,13 @@ public class MyInode extends MyXfsBaseAccessor {
     }
 
 
-//    /**
-//     * Unknown (Allocation group size)
-//     *     Contains number of blocks
-//     */
-//    public long getVersion() throws IOException {
-//        return read(12,4);
-//    }
+    /**
+     * Unknown (Allocation group size)
+     *     Contains number of blocks
+     */
+    public long getAGBlockSize() throws IOException {
+        return read(12,4);
+    }
 
 
     /**
@@ -96,8 +117,8 @@ public class MyInode extends MyXfsBaseAccessor {
      * Block type identifier
      * Contains an UUID that should correspond to sb_uuid or sb_meta_uuid
      */
-    public long getUuid() throws IOException {
-        return read(296, 16);
+    public String getUuid() throws IOException {
+        return readUuid(296, 16);
     }
 
     public long getChecksum() throws IOException {
