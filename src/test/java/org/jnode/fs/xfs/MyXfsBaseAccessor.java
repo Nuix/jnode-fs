@@ -3,19 +3,32 @@ package org.jnode.fs.xfs;
 import com.google.common.base.Splitter;
 import org.jnode.driver.block.FSBlockDeviceAPI;
 import org.jnode.util.BigEndian;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Locale;
 
 public abstract class MyXfsBaseAccessor {
 
     private final FSBlockDeviceAPI devApi;
     private final long offset;
+    private final Logger logger;
 
     public MyXfsBaseAccessor(FSBlockDeviceAPI devApi, long superBlockStart) {
         this.devApi = devApi;
         this.offset = superBlockStart;
+        logger = LoggerFactory.getLogger(this.getClass());
+        try {
+            if (!this.isValidSignature()) {
+                logger.error("INVALID SIGNATURE FOUND ON " + offset + " FOR CLASS");
+                throw new MYInvalidSignatureExpression(getAsciiSignature(), validSignatures(), offset, this.getClass());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 
@@ -32,7 +45,7 @@ public abstract class MyXfsBaseAccessor {
             case 4:
                 return BigEndian.getUInt32(buffer.array(), 0);
             case 6:
-                return BigEndian.getUInt48(buffer.array(),0);
+                return BigEndian.getUInt48(buffer.array(), 0);
             case 8:
                 return BigEndian.getInt64(buffer.array(), 0);
         }
@@ -45,11 +58,11 @@ public abstract class MyXfsBaseAccessor {
     }
 
     protected String readUuid(long offset, int size) throws IOException {
-        return readAsHexString(offset,4)
-                + "-" + readAsHexString(offset+4,2)
-                + "-" + readAsHexString(offset+6,2)
-                + "-" + readAsHexString(offset+8,2)
-                + "-" + readAsHexString(offset+10,6);
+        return readAsHexString(offset, 4)
+                + "-" + readAsHexString(offset + 4, 2)
+                + "-" + readAsHexString(offset + 6, 2)
+                + "-" + readAsHexString(offset + 8, 2)
+                + "-" + readAsHexString(offset + 10, 6);
     }
 
     public FSBlockDeviceAPI getDevApi() {
@@ -68,14 +81,25 @@ public abstract class MyXfsBaseAccessor {
         return HexToAscii(Long.toHexString(getSignature()));
     }
 
-    abstract public boolean isValidSignature() throws IOException;
+    public boolean isValidSignature() throws IOException{
+        return validSignatures().stream().anyMatch(s -> {
+            try {
+                return getSignature() == s;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return false;
+        });
+    }
+
+    protected abstract List<Long> validSignatures();
 
     public static long AsciiToHex(String asciiString) {
         StringBuilder hex = new StringBuilder();
         for (char c : asciiString.toCharArray()) {
             hex.append(Integer.toHexString(c).toUpperCase(Locale.ROOT));
         }
-        return Long.parseLong(hex.toString(),16);
+        return Long.parseLong(hex.toString(), 16);
     }
 
     public static String HexToAscii(String hexString) {
@@ -86,7 +110,7 @@ public abstract class MyXfsBaseAccessor {
                 ascii.append((char) Byte.parseByte(c, 16));
             }
             return ascii.toString();
-        }catch (Throwable t){
+        } catch (Throwable t) {
             return "INVALID";
         }
     }

@@ -4,6 +4,7 @@ import org.jnode.driver.block.FSBlockDeviceAPI;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -16,8 +17,8 @@ public class MySuperblock extends MyXfsBaseAccessor {
     }
 
     @Override
-    public boolean isValidSignature() throws IOException {
-        return getSignature() == MAGIC_NUMBER;
+    protected List<Long> validSignatures() {
+        return Collections.singletonList(MAGIC_NUMBER);
     }
 
     enum FeatureFlags {
@@ -104,13 +105,13 @@ public class MySuperblock extends MyXfsBaseAccessor {
         str += "qflags = 0" + "\n";
         str += "flags = 0" + "\n";
         str += "shared_vn = 0" + "\n";
-        str += "inoalignmt = 2" + "\n";
-        str += "unit = 0" + "\n";
-        str += "width = 0" + "\n";
-        str += "dirblklog = 2" + "\n";
+        str += "inoalignmt = 2"+ getINodeChunkAlignmentSize() + "\n";
+        str += "unit = "+ getRaidUnitSize() + "\n";
+        str += "width = " + getRaidWidth() +"\n";
+        str += "dirblklog = " + getDirectoryBlockSizeLog2() + "\n";
         str += "logsectlog = " + getJournalDeviceSizeLog2() + "\n";
         str += "logsectsize = " + getJournalRaidUnitSize() + "\n";
-        str += "logsunit = 0" + getJournalRaidUnitSize() + "\n";
+        str += "logsunit = " + getJournalRaidUnitSize() + "\n";
         str += "features2 = 0x" + Long.toHexString(getSecondaryFeatureFlags()) + "\n";
 
         return str;
@@ -282,7 +283,53 @@ public class MySuperblock extends MyXfsBaseAccessor {
                 readAsHexString(116, 1);
     }
 
-    // TODO: Verify if log2 values are required
+    /**
+     * Block size in log2
+     * Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
+     */
+    public long getBlockSizeLog2() throws IOException {
+        return read(120,1);
+    }
+
+    /**
+     * Sector size in log2
+     * Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
+     */
+    public long getSectorSizeLog2() throws IOException {
+        return read(121,1);
+    }
+
+    /**
+     * Inode size in log2
+     * Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
+     */
+    public long getINodeSizeLog2() throws IOException {
+        return read(122,1);
+    }
+
+    /**
+     * Number of inodes per block in log2
+     *     Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
+     */
+    public long getINodePerBlockLog2() throws IOException {
+        return read(123,1);
+    }
+
+    /**
+     * Allocation group size in log2
+     *     Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
+     */
+    public long getAGSizeLog2() throws IOException {
+        return read(124,1);
+    }
+
+    /**
+     * Number of real-time (device) extents in log2
+     *     Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
+     */
+    public long getDeviceExtentsLog2() throws IOException {
+        return read(125,1);
+    }
 
     /**
      * Creation flag
@@ -516,38 +563,5 @@ public class MySuperblock extends MyXfsBaseAccessor {
     public long getVersion() throws IOException {
         return getFeatureFlags() & 0x0007;
     }
-
-    public long getLastBytePositionForOffset() throws IOException {
-        return getOffset() + (getVersion() >= 5 ? 272 : 208);
-    }
-
-    public MyAGFreeSpaceBlock getAGFreeSpaceBlock() {
-        return new MyAGFreeSpaceBlock(getDevApi(), getOffset() + 256);
-    }
-
-    public MyINodeInformation getINodeInformation() {
-        return new MyINodeInformation(getDevApi(), getOffset() + 256 * 2);
-    }
-
-    public MyAGFreeListHeader getAGFreeListHeader() {
-        return new MyAGFreeListHeader(getDevApi(), getOffset() + 256 * 3);
-    }
-
-    public MyBPlusTree getBlockOffsetBTree() {
-        return new My64BitBPlusTree(getDevApi(), getOffset() + 256 * 8);
-    }
-
-    public MyBPlusTree getBlockCountBTree() {
-        return new My64BitBPlusTree(getDevApi(), getOffset() + 256 * 16);
-    }
-
-    public MyBPlusTree getV5FreeINodeBTree() {
-        return new My64BitBPlusTree(getDevApi(), getOffset() + 256 * 24);
-    }
-
-    public MyBPlusTree getV5AllocatedINodeBTree() {
-        return new My64BitBPlusTree(getDevApi(), getOffset() + 256 * 32);
-    }
-
 
 }

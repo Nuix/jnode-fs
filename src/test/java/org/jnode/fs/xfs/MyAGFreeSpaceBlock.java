@@ -4,6 +4,7 @@ import org.jnode.driver.block.FSBlockDeviceAPI;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -16,8 +17,8 @@ public class MyAGFreeSpaceBlock extends MyXfsBaseAccessor {
     }
 
     @Override
-    public boolean isValidSignature() throws IOException {
-        return getSignature() == MAGIC_NUMBER;
+    protected List<Long> validSignatures() {
+        return Collections.singletonList(MAGIC_NUMBER);
     }
 
     public String getXfsDbInspectionString() throws IOException {

@@ -8,8 +8,8 @@ import java.io.IOException;
  * 32 Bit Implementation
  */
 public class My64BitBPlusTree extends MyBPlusTree {
-    public My64BitBPlusTree(FSBlockDeviceAPI devApi, long superBlockStart) {
-        super(devApi, superBlockStart);
+    public My64BitBPlusTree(FSBlockDeviceAPI devApi, long superBlockStart,MyAllocationGroup allocationGroup) {
+        super(devApi, superBlockStart,allocationGroup);
     }
 
 

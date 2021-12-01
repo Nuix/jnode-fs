@@ -3,6 +3,8 @@ package org.jnode.fs.xfs;
 import org.jnode.driver.block.FSBlockDeviceAPI;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 public class MyINodeInformation extends MyXfsBaseAccessor {
 
@@ -15,8 +17,8 @@ public class MyINodeInformation extends MyXfsBaseAccessor {
     }
 
     @Override
-    public boolean isValidSignature() throws IOException {
-        return getSignature() == MAGIC_NUMBER;
+    protected List<Long> validSignatures() {
+        return Collections.singletonList(MAGIC_NUMBER);
     }
 
     public String getXfsDbInspectionString() throws IOException {
@@ -25,7 +27,7 @@ public class MyINodeInformation extends MyXfsBaseAccessor {
         str += "versionnum = " + getVersion() + "\n";
         str += "seqno = " + getSequenceNumber() + "\n";
         str += "length = " + getAGBlockSize() + "\n";
-        str += "count = 64" + getINodeAGCount() + "\n"; // Check
+        str += "count = " + getINodeAGCount() + "\n"; // Check
         str += "root = 3" + getBtreeBlockNumber() + "\n"; // Check
         str += "level = 1" + getINodeBtreeDepth() + "\n"; //Check
         str += "freecount = 58" + getFreeINodeCount() + "\n"; // Check

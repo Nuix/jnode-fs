@@ -122,7 +122,7 @@ public class XfsFileSystemTest {
     File testFile;
     FileDevice device;
     XfsFileSystem fs;
-    MySuperblock superblock;
+    MyAllocationGroup allocationGroup;
 
     @Before
     public void initialize() throws IOException, FileSystemException {
@@ -130,17 +130,19 @@ public class XfsFileSystemTest {
         device = new FileDevice(testFile, "r");
         XfsFileSystemType type = new XfsFileSystemType();
         fs = type.create(device, true);
-        superblock = new MySuperblock(device, 0);
+        allocationGroup = new MyAllocationGroup(device);
     }
 
     @After
     public void cleanup() {
         device.close();
         testFile.delete();
+        allocationGroup = null;
     }
 
     @Test
     public void testSuperblock() throws Exception {
+        final MySuperblock superblock = allocationGroup.getSuperBlock();
         System.out.println("SUPERBLOCK INFO:");
         System.out.println("SUPERBLOCK SIGNATURE: " + superblock.isValidSignature());
         final String superblockDb = superblock.getXfsDbInspectionString();
@@ -152,7 +154,7 @@ public class XfsFileSystemTest {
     @Test
     public void testFreeSpaceBlock() throws Exception {
         System.out.println("FREE BLOCK INFO:");
-        MyAGFreeSpaceBlock freeblock = superblock.getAGFreeSpaceBlock();
+        MyAGFreeSpaceBlock freeblock = allocationGroup.getAGFreeSpaceBlock();
         System.out.println("FREEBLOCK SIGNATURE: " + freeblock.isValidSignature());
         final String freeBlockDB = freeblock.getXfsDbInspectionString();
         System.out.println(freeBlockDB);
@@ -161,35 +163,40 @@ public class XfsFileSystemTest {
 
     @Test
     public void testINodeInformation() throws Exception {
-        final MyINodeInformation inode = superblock.getINodeInformation();
+        final MyINodeInformation inode = allocationGroup.getINodeInformation();
         System.out.println("INODE INFO SIGNATURE: " + inode.getAsciiSignature() + inode.isValidSignature());
         System.out.println(inode.getXfsDbInspectionString());
     }
     @Test
     public void testUnkown() throws Exception {
-        for (int i = 0; i < 5000; i++) {
-            final MyAGFreeListHeader myAGFreeListHeader = new MyAGFreeListHeader(device,256 * i);
-            final String signature = myAGFreeListHeader.getAsciiSignature();
-            if (signature.length() == 4) {
-                System.out.println("i: " + i + " SIGNATURE: " + signature);
-            }
-        }
+        final MyAllocationGroup allocationGroup2 = this.allocationGroup.getNextAllocationGroup();
+        allocationGroup.getAGFreeSpaceBlock();
+//        allocationGroup.getINodeInformation()
+//        final MyAllocationGroup allocationGroup3 = allocationGroup2.getNextAllocationGroup();
+//        final MyAllocationGroup allocationGroup4 = allocationGroup3.getNextAllocationGroup();
+//        final String signature = allocationGroup.getSuperBlock().getAsciiSignature();
+//        System.out.println("i: " + allocationGroup.getSuperBlock().getOffset() + " SIGNATURE: " + signature);
     }
 
     @Test
     public void testFreeListHeader() throws Exception {
-        final MyAGFreeListHeader header = superblock.getAGFreeListHeader();
+        final MyAGFreeListHeader header = allocationGroup.getAGFreeListHeader();
         System.out.println("INODE INFO SIGNATURE: " + header.getAsciiSignature() + header.isValidSignature());
         System.out.println(header.getXfsDbInspectionString());
     }
 
     @Test
     public void testBTreeCanRead() throws Exception {
-        Stream.of(superblock.getBlockCountBTree(),superblock.getBlockOffsetBTree(),superblock.getV5FreeINodeBTree(),superblock.getV5AllocatedINodeBTree())
+        Stream.of(allocationGroup.getBlockCountBTree(),allocationGroup.getV5AllocatedINodeBTree())
                 .forEach(tree -> {
                     try {
-                        System.out.println("BTree INFO SIGNATURE: " + tree.getAsciiSignature());
+//                        System.out.println("BTree INFO SIGNATURE: " + tree.getAsciiSignature());
                         System.out.println("BTree UUID: " + tree.getUuid());
+                        System.out.println("BTree depth: " + tree.getDepth());
+                        System.out.println("BTree before : " + tree.getPreviousBlockNumber());
+                        System.out.println("BTree current #: " + tree.getRecordNumber());
+                        System.out.println("BTree next: " + tree.getNextBlockNumber());
+                        System.out.println("----------------");
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
