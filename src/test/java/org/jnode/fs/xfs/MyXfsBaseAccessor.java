@@ -13,7 +13,7 @@ import java.util.Locale;
 
 public abstract class MyXfsBaseAccessor {
 
-    private final FSBlockDeviceAPI devApi;
+    protected final FSBlockDeviceAPI devApi;
     private final long offset;
     private final Logger logger;
 
@@ -65,16 +65,12 @@ public abstract class MyXfsBaseAccessor {
                 + "-" + readAsHexString(offset + 10, 6);
     }
 
-    public FSBlockDeviceAPI getDevApi() {
-        return devApi;
-    }
-
     public long getOffset() {
         return offset;
     }
 
     public long getSignature() throws IOException {
-        return read(offset, 4);
+        return read(0, 4);
     }
 
     public String getAsciiSignature() throws IOException {
@@ -82,14 +78,8 @@ public abstract class MyXfsBaseAccessor {
     }
 
     public boolean isValidSignature() throws IOException{
-        return validSignatures().stream().anyMatch(s -> {
-            try {
-                return getSignature() == s;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            return false;
-        });
+        final long signature = getSignature();
+        return validSignatures().stream().anyMatch(s -> signature == s);
     }
 
     protected abstract List<Long> validSignatures();

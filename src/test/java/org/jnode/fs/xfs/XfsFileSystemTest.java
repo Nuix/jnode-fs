@@ -8,6 +8,7 @@ import org.junit.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.stream.Stream;
 
 public class XfsFileSystemTest {
@@ -94,35 +95,35 @@ public class XfsFileSystemTest {
 
     private static final String TEST_1_INODE_INFO_DB =
             "magicnum = 0x58414749\n" +
-            "versionnum = 1\n" +
-            "seqno = 0\n" +
-            "length = 8192\n" +
-            "count = 64\n" +
-            "root = 3\n" +
-            "level = 1\n" +
-            "freecount = 58\n" +
-            "newino = 96\n" +
-            "dirino = null\n" +
-            "unlinked[0-63] = \n" +
-            "uuid = e660fd99-e85f-490e-8499-cb8c9395546c\n" +
-            "crc = 0x3f71239d (correct)\n" +
-            "lsn = 0x100000011\n" +
-            "free_root = 4\n" +
-            "free_level = 1";
+                    "versionnum = 1\n" +
+                    "seqno = 0\n" +
+                    "length = 8192\n" +
+                    "count = 64\n" +
+                    "root = 3\n" +
+                    "level = 1\n" +
+                    "freecount = 58\n" +
+                    "newino = 96\n" +
+                    "dirino = null\n" +
+                    "unlinked[0-63] = \n" +
+                    "uuid = e660fd99-e85f-490e-8499-cb8c9395546c\n" +
+                    "crc = 0x3f71239d (correct)\n" +
+                    "lsn = 0x100000011\n" +
+                    "free_root = 4\n" +
+                    "free_level = 1";
 
     public static final String TEST_2_FREE_LIST_HEADER_DB =
             "magicnum = 0x5841464c\n" +
-            "seqno = 0\n" +
-            "uuid = e660fd99-e85f-490e-8499-cb8c9395546c\n" +
-            "lsn = 0\n" +
-            "crc = 0x20299b4a (correct)\n";
+                    "seqno = 0\n" +
+                    "uuid = e660fd99-e85f-490e-8499-cb8c9395546c\n" +
+                    "lsn = 0\n" +
+                    "crc = 0x20299b4a (correct)\n";
     @Rule
     public final JUnitRuleMockery mockery = new JUnitRuleMockery();
 
     File testFile;
     FileDevice device;
     XfsFileSystem fs;
-    MyAllocationGroup allocationGroup;
+    MyXfsFileSystem fileSystem;
 
     @Before
     public void initialize() throws IOException, FileSystemException {
@@ -130,19 +131,19 @@ public class XfsFileSystemTest {
         device = new FileDevice(testFile, "r");
         XfsFileSystemType type = new XfsFileSystemType();
         fs = type.create(device, true);
-        allocationGroup = new MyAllocationGroup(device);
+        fileSystem = new MyXfsFileSystem(device);
     }
 
     @After
     public void cleanup() {
         device.close();
         testFile.delete();
-        allocationGroup = null;
+        fileSystem = null;
     }
 
     @Test
     public void testSuperblock() throws Exception {
-        final MySuperblock superblock = allocationGroup.getSuperBlock();
+        final MySuperblock superblock = fileSystem.getSuperBlockOnAllocationGroupIndex(0);
         System.out.println("SUPERBLOCK INFO:");
         System.out.println("SUPERBLOCK SIGNATURE: " + superblock.isValidSignature());
         final String superblockDb = superblock.getXfsDbInspectionString();
@@ -154,7 +155,7 @@ public class XfsFileSystemTest {
     @Test
     public void testFreeSpaceBlock() throws Exception {
         System.out.println("FREE BLOCK INFO:");
-        MyAGFreeSpaceBlock freeblock = allocationGroup.getAGFreeSpaceBlock();
+        MyAGFreeSpaceBlock freeblock = fileSystem.getAGFreeSpaceBlockOnAllocationGroupIndex(0);
         System.out.println("FREEBLOCK SIGNATURE: " + freeblock.isValidSignature());
         final String freeBlockDB = freeblock.getXfsDbInspectionString();
         System.out.println(freeBlockDB);
@@ -163,14 +164,15 @@ public class XfsFileSystemTest {
 
     @Test
     public void testINodeInformation() throws Exception {
-        final MyINodeInformation inode = allocationGroup.getINodeInformation();
+        final MyINodeInformation inode = fileSystem.getINodeInformationOnAllocationGroupIndex(0);
         System.out.println("INODE INFO SIGNATURE: " + inode.getAsciiSignature() + inode.isValidSignature());
         System.out.println(inode.getXfsDbInspectionString());
     }
+
     @Test
     public void testUnkown() throws Exception {
-        final MyAllocationGroup allocationGroup2 = this.allocationGroup.getNextAllocationGroup();
-        allocationGroup.getAGFreeSpaceBlock();
+//        final MyAllocationGroup allocationGroup2 = this.fileSystem.getNextAllocationGroup();
+//        allocationGroup.getAGFreeSpaceBlock();
 //        allocationGroup.getINodeInformation()
 //        final MyAllocationGroup allocationGroup3 = allocationGroup2.getNextAllocationGroup();
 //        final MyAllocationGroup allocationGroup4 = allocationGroup3.getNextAllocationGroup();
@@ -180,28 +182,22 @@ public class XfsFileSystemTest {
 
     @Test
     public void testFreeListHeader() throws Exception {
-        final MyAGFreeListHeader header = allocationGroup.getAGFreeListHeader();
+        final MyAGFreeListHeader header = fileSystem.getAGFreeListHeaderOnAllocationGroupIndex(0);
         System.out.println("INODE INFO SIGNATURE: " + header.getAsciiSignature() + header.isValidSignature());
         System.out.println(header.getXfsDbInspectionString());
     }
 
     @Test
     public void testBTreeCanRead() throws Exception {
-        Stream.of(allocationGroup.getBlockCountBTree(),allocationGroup.getV5AllocatedINodeBTree())
-                .forEach(tree -> {
-                    try {
-//                        System.out.println("BTree INFO SIGNATURE: " + tree.getAsciiSignature());
-                        System.out.println("BTree UUID: " + tree.getUuid());
-                        System.out.println("BTree depth: " + tree.getDepth());
-                        System.out.println("BTree before : " + tree.getPreviousBlockNumber());
-                        System.out.println("BTree current #: " + tree.getRecordNumber());
-                        System.out.println("BTree next: " + tree.getNextBlockNumber());
-                        System.out.println("----------------");
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
-
+        for (MyBPlusTree tree : fileSystem.getBTreesOnAllocationGroupIndex(0)) {
+            System.out.println("BTree INFO SIGNATURE: " + tree.getAsciiSignature());
+            System.out.println("BTree UUID: " + tree.getUuid());
+            System.out.println("BTree depth: " + tree.getDepth());
+            System.out.println("BTree before : " + tree.getPreviousBlockNumber());
+            System.out.println("BTree current #: " + tree.getRecordNumber());
+            System.out.println("BTree next: " + tree.getNextBlockNumber());
+            System.out.println("----------------");
+        }
     }
 
 }

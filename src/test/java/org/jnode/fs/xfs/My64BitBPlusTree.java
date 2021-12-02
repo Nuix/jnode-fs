@@ -8,8 +8,8 @@ import java.io.IOException;
  * 32 Bit Implementation
  */
 public class My64BitBPlusTree extends MyBPlusTree {
-    public My64BitBPlusTree(FSBlockDeviceAPI devApi, long superBlockStart,MyAllocationGroup allocationGroup) {
-        super(devApi, superBlockStart,allocationGroup);
+    public My64BitBPlusTree(FSBlockDeviceAPI devApi, long superBlockStart,MyXfsFileSystem fs) {
+        super(devApi, superBlockStart, fs);
     }
 
 
@@ -68,5 +68,4 @@ public class My64BitBPlusTree extends MyBPlusTree {
     public long getChecksum() throws IOException {
         return read(52, 4);
     }
-
 }

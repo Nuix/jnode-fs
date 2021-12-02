@@ -24,17 +24,22 @@ public class MyBPlusTree extends MyXfsBaseAccessor {
      * The block offset to the root inode.
      */
     private static final int ROOT_INODE_BLOCK = 8;
-    private final MyAllocationGroup allocationGroup;
 
     enum BTreeSignatures {
-        V5_free_space_block_offset_B_P_tree("AB3B"), V5_free_space_block_count_B_P_tree("AB3C"),
-        Free_space_block_offset_B_P__tree("ABTB"),
-        Free_space_block_count_B_P__tree("ABTC"),
-        File_system_version_5_free_inode_B_P_tree("FIB3"),
-        Free_inode_B_P_tree("FIBT"),
-        File_system_version_5_allocated_inode_B_P_tree("IAB3"),
-        Allocated_inode_B_P_tree("IABT"),
-        File_system_version_5_reference_count_B_P__tree("R3FC");
+        FREE_SPACE_BY_BLOCK_V5("AB3B"),
+        FREE_SPACE_BY_BLOCK("ABTB"),
+
+        FREE_SPACE_BY_SIZE_V5("AB3C"),
+        FREE_SPACE_BY_SIZE("ABTC"),
+
+        INODE_V5("IAB3"),
+        INODE("IABT"),
+
+        FREE_INODE_V5("FIB3"),
+        FREE_INODE("FIBT"),
+
+        // ONLY available on V5
+        REFERENCE_COUNT("R3FC");
 
         public String ascii;
         public long signature;
@@ -45,9 +50,10 @@ public class MyBPlusTree extends MyXfsBaseAccessor {
         }
     }
 
-    public MyBPlusTree(FSBlockDeviceAPI devApi, long superBlockStart, MyAllocationGroup allocationGroup) {
+    protected MyXfsFileSystem fs;
+    public MyBPlusTree(FSBlockDeviceAPI devApi, long superBlockStart,MyXfsFileSystem fs) {
         super(devApi, superBlockStart);
-        this.allocationGroup = allocationGroup;
+        this.fs = fs;
     }
 
     @Override
@@ -130,19 +136,21 @@ public class MyBPlusTree extends MyXfsBaseAccessor {
     protected int getFsOffset() throws IOException {
         // Offet changes according to filesystem version on fs5 it is 0x38 bytes long
         // TODO: should also check for 64bit or 32 bit as this also changes the initial offset
-        return getSignature() == BTreeSignatures.File_system_version_5_allocated_inode_B_P_tree.signature
+        return getSignature() == BTreeSignatures.INODE_V5.signature
                 ? 0x38 : BTREE_HEADER_LENGTH;
     }
 
     public List<INodeBTreeRecord> readRecords() throws IOException {
-        List<INodeBTreeRecord> records = new ArrayList<>();
         long recordCount = getRecordNumber();
+        List<INodeBTreeRecord> records = new ArrayList<>((int)recordCount);
         System.out.println(getAsciiSignature());
-        int offset = getFsOffset();
 
 
-        final ByteBuffer buffer = ByteBuffer.allocate((int) allocationGroup.getSuperBlock().getBlockSize());
-        getDevApi().read(this.getOffset() + 68,buffer);
+        final ByteBuffer buffer = ByteBuffer.allocate((int) fs.getBlockSize());
+        long devOffset = this.getOffset() + getFsOffset();
+        devApi.read(devOffset,buffer);
+        int offset = 0;
+
         final byte[] data = buffer.array();
 
         for (; offset < data.length && records.size() < recordCount; offset += INodeBTreeRecord.LENGTH) {
@@ -171,8 +179,8 @@ public class MyBPlusTree extends MyXfsBaseAccessor {
             throw new IOException("Failed to find an inode for: " + inode);
         }
 
-        long blockSize = allocationGroup.getSuperBlock().getBlockSize();
-        long inodeSize = allocationGroup.getSuperBlock().getINodeSize();
+        long blockSize = fs.getBlockSize();
+        long inodeSize = fs.getiNodeSize();
         int chunkSize = (int) inodeSize * INODE_CHUNK_COUNT;
         int offset = (int) ((inode % INODE_CHUNK_COUNT) * inodeSize);
 
@@ -181,7 +189,7 @@ public class MyBPlusTree extends MyXfsBaseAccessor {
 
         ByteBuffer buffer = ByteBuffer.allocate(data.length);
         long rootInodeOffset = ROOT_INODE_BLOCK * blockSize;
-        getDevApi().read(rootInodeOffset + chunkNumber * chunkSize, buffer);
+        devApi.read(rootInodeOffset + chunkNumber * chunkSize, buffer);
         buffer.position(0);
         buffer.get(data);
 
