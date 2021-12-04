@@ -160,7 +160,7 @@ public class MyBPlusTree extends MyXfsBaseAccessor {
         return records;
     }
 
-    public INode getINode(long inode) throws IOException {
+    public MyInode getINode(long inode) throws IOException {
         List<INodeBTreeRecord> records = readRecords();
         int chunkNumber;
         boolean foundMatch = false;
@@ -181,19 +181,11 @@ public class MyBPlusTree extends MyXfsBaseAccessor {
 
         long blockSize = fs.getBlockSize();
         long inodeSize = fs.getiNodeSize();
-        int chunkSize = (int) inodeSize * INODE_CHUNK_COUNT;
-        int offset = (int) ((inode % INODE_CHUNK_COUNT) * inodeSize);
+        long inodeOffset = inodeSize * inode;
+//        long rootInodeOffset = ROOT_INODE_BLOCK * blockSize;
+//        final long offset = rootInodeOffset + inodeOffset;
 
-
-        byte[] data = new byte[chunkSize];
-
-        ByteBuffer buffer = ByteBuffer.allocate(data.length);
-        long rootInodeOffset = ROOT_INODE_BLOCK * blockSize;
-        devApi.read(rootInodeOffset + chunkNumber * chunkSize, buffer);
-        buffer.position(0);
-        buffer.get(data);
-
-        return new INode(inode, data, offset);
+        return new MyInode(devApi, inodeOffset);
     }
 
 }

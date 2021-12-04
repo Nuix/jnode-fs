@@ -115,6 +115,10 @@ public class MyXfsFileSystem {
         return getBTreeOnAllocationGroupIndexAndType(index,treeSignature);
     }
 
+    public MyInode getINode(long index){
+        return new MyInode(device, iNodeSize * index);
+    }
+
     public int getXfsVersion() {
         return xfsVersion;
     }
