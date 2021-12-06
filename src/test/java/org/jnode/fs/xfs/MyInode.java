@@ -10,7 +10,11 @@ import java.util.List;
 public class MyInode extends MyXfsBaseAccessor {
 
     enum INodeFormat {
-        LOCAL,FILE,BTREE
+        LOCAL(1),FILE(2),BTREE(3);
+        int val;
+        INodeFormat(int val){
+            this.val = val;
+        }
     }
 
     /**
@@ -158,6 +162,9 @@ public class MyInode extends MyXfsBaseAccessor {
     }
 
     public List<MyShortFormDirectory> getDirectories() throws IOException {
+        if (getFormat() != INodeFormat.LOCAL.val){
+            throw new RuntimeException("Is not a directory extent");
+        }
         final MyInodeHeader header = getDirectoryHeader();
         final long count = header.getCount();
         final long i8Count = header.getI8Count();
@@ -171,6 +178,18 @@ public class MyInode extends MyXfsBaseAccessor {
             data.add(dir);
         }
         return data;
+    }
+
+    public List<MyExtentInformation> getExtentInfo() throws IOException {
+        long offset = getOffset() + getINodeSizeForOffset();
+        final int count = (int) getExtentCount();
+        final ArrayList<MyExtentInformation> list = new ArrayList<>(count);
+        for (int i=0;i<count;i++) {
+            final MyExtentInformation info = new MyExtentInformation(devApi, offset);
+            list.add(info);
+            offset += 0x10;
+        }
+        return list;
     }
 
 }

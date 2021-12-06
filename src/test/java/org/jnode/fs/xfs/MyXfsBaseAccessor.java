@@ -32,7 +32,7 @@ public abstract class MyXfsBaseAccessor {
     }
 
 
-    protected long read(long offset, int size) throws IOException {
+    public long read(long offset, int size) throws IOException {
         ByteBuffer buffer = ByteBuffer.allocate(size);
         devApi.read(this.offset + offset, buffer);
         switch (size) {
