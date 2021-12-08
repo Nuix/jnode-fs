@@ -4,6 +4,7 @@ import org.jmock.integration.junit4.JUnitRuleMockery;
 import org.jnode.driver.block.FileDevice;
 import org.jnode.fs.FileSystemException;
 import org.jnode.fs.FileSystemTestUtils;
+import org.jnode.fs.logger.Logger_File;
 import org.junit.*;
 
 import java.io.File;
@@ -121,6 +122,7 @@ public class XfsFileSystemTest {
     public final JUnitRuleMockery mockery = new JUnitRuleMockery();
 
     File testFile;
+    Logger_File log;
     FileDevice device;
     XfsFileSystem fs;
     MyXfsFileSystem fileSystem;
@@ -131,6 +133,7 @@ public class XfsFileSystemTest {
         device = new FileDevice(testFile, "r");
         XfsFileSystemType type = new XfsFileSystemType();
         fs = type.create(device, true);
+        log = new Logger_File();
         fileSystem = new MyXfsFileSystem(device);
     }
 
@@ -144,28 +147,28 @@ public class XfsFileSystemTest {
     @Test
     public void testSuperblock() throws Exception {
         final MySuperblock superblock = fileSystem.getSuperBlockOnAllocationGroupIndex(0);
-        System.out.println("SUPERBLOCK INFO:");
-        System.out.println("SUPERBLOCK SIGNATURE: " + superblock.isValidSignature());
+        log.write_to_file(2, "SUPERBLOCK INFO:");
+        log.write_to_file(2, "SUPERBLOCK SIGNATURE: " + superblock.isValidSignature());
         final String superblockDb = superblock.getXfsDbInspectionString();
-        System.out.println(superblockDb);
-        System.out.println("SuperblockVersion : " + superblock.getVersion());
-        System.out.println("IS VALID SUPERBLOCK: " + superblockDb.equals(TEST_1_DB_INSPECTION_STRING));
+        log.write_to_file(2, superblockDb);
+        log.write_to_file(2,"SuperblockVersion : " + superblock.getVersion());
+        log.write_to_file(2,"IS VALID SUPERBLOCK: " + superblockDb.equals(TEST_1_DB_INSPECTION_STRING));
     }
 
     @Test
     public void testFreeSpaceBlock() throws Exception {
-        System.out.println("FREE BLOCK INFO:");
+        log.write_to_file(2,"FREE BLOCK INFO:");
         MyAGFreeSpaceBlock freeblock = fileSystem.getAGFreeSpaceBlockOnAllocationGroupIndex(0);
-        System.out.println("FREEBLOCK SIGNATURE: " + freeblock.isValidSignature());
+        log.write_to_file(2,"FREEBLOCK SIGNATURE: " + freeblock.isValidSignature());
         final String freeBlockDB = freeblock.getXfsDbInspectionString();
-        System.out.println(freeBlockDB);
-        System.out.println("IS VALID FREEBLOCK: " + freeBlockDB.equals(TEST_1_AG_FREE_SPACE_BLOCK));
+        log.write_to_file(2, freeBlockDB);
+        log.write_to_file(2,"IS VALID FREEBLOCK: " + freeBlockDB.equals(TEST_1_AG_FREE_SPACE_BLOCK));
     }
 
     @Test
     public void testINodeInformation() throws Exception {
         final MyINodeInformation inode = fileSystem.getINodeInformationOnAllocationGroupIndex(0);
-        System.out.println("INODE INFO SIGNATURE: " + inode.getAsciiSignature() + inode.isValidSignature());
+        log.write_to_file(2,"INODE INFO SIGNATURE: " + inode.getAsciiSignature() + inode.isValidSignature());
         System.out.println(inode.getXfsDbInspectionString());
     }
 
@@ -183,21 +186,37 @@ public class XfsFileSystemTest {
     @Test
     public void testFreeListHeader() throws Exception {
         final MyAGFreeListHeader header = fileSystem.getAGFreeListHeaderOnAllocationGroupIndex(0);
-        System.out.println("INODE INFO SIGNATURE: " + header.getAsciiSignature() + header.isValidSignature());
-        System.out.println(header.getXfsDbInspectionString());
+        log.write_to_file(2, "INODE INFO SIGNATURE: " + header.getAsciiSignature() + header.isValidSignature());
+        log.write_to_file(2, header.getXfsDbInspectionString());
     }
 
     @Test
     public void testBTreeCanRead() throws Exception {
         for (MyBPlusTree tree : fileSystem.getBTreesOnAllocationGroupIndex(0)) {
-            System.out.println("BTree INFO SIGNATURE: " + tree.getAsciiSignature());
-            System.out.println("BTree UUID: " + tree.getUuid());
-            System.out.println("BTree depth: " + tree.getDepth());
-            System.out.println("BTree before : " + tree.getPreviousBlockNumber());
-            System.out.println("BTree current #: " + tree.getRecordNumber());
-            System.out.println("BTree next: " + tree.getNextBlockNumber());
-            System.out.println("----------------");
+            log.write_to_file(2,"BTree INFO SIGNATURE: " + tree.getAsciiSignature());
+            log.write_to_file(2,"BTree UUID: " + tree.getUuid());
+            log.write_to_file(2,"BTree depth: " + tree.getDepth());
+            log.write_to_file(2,"BTree before : " + tree.getPreviousBlockNumber());
+            log.write_to_file(2,"BTree current #: " + tree.getRecordNumber());
+            log.write_to_file(2,"BTree next: " + tree.getNextBlockNumber());
+            log.write_to_file(2,"----------------");
         }
+    }
+
+    @Test
+    public void generate_output_structure() throws IOException {
+        log.write_to_file(2,"WE TRY TO CREATE THE OUTPUT FOR XFS READING.");
+        MyXfsCreateOutput output_object = new MyXfsCreateOutput("");
+        File first_dir = new File("folder1");
+        File second_dir = new File("folder 2");
+
+        File first_file = new File("folder1/testfile.txt");
+        String txt_content = "this is a test file.";
+        byte[] bytes_to_write = txt_content.getBytes();
+
+        output_object.write_to_disk(false, first_dir, null);
+        output_object.write_to_disk(false, second_dir, null);
+        output_object.write_to_disk(false, first_file, bytes_to_write);
     }
 
 }

@@ -1,5 +1,0 @@
-#-------------------PROPERTIES FILE FOR THE LOG PATHs. 06/12/2021---------------------------
-ERROR_LOG_FILE_PATH=./logs/error_file.log
-INFO_LOG_FILE_PATH=./logs/error_file.log
-DEBUG_LOG_FILE_PATH=./logs/error_file.log
-WARNING_LOG_FILE_PATH=./logs/error_file.log

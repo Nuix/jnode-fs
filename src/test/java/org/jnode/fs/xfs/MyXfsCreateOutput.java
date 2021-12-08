@@ -12,7 +12,7 @@ public class MyXfsCreateOutput {
     protected final int FILE = 1;
     protected final int DIRECTORY = 2;
 
-    public MyXfsCreateOutput(String output_space){
+    public MyXfsCreateOutput(String output_space) throws IOException {
         System.out.println("WE TRY TO WRITE THE OUTPUT...");
         if (output_space != null && !output_space.equals("")) {
             System.out.println("THE OUTPUT SPACE IS: " + output_space);
@@ -25,7 +25,7 @@ public class MyXfsCreateOutput {
         }
     }
 
-    private void initComponents(String output){
+    private void initComponents(String output) throws IOException {
         if(output.equals("")){
             String Default = "./output/";
             output_entry = new File(Default);
@@ -41,59 +41,62 @@ public class MyXfsCreateOutput {
         entries = new String[entry_limit];
     }
 
-    private int validate_file_type(String File_name){
-        if (File_name.contains(".")){
-            System.out.println("IT IS A FILE!!!!");
-            file_name = file_name;
+    private int validate_file_type(String name){
+        if (name.contains(".")){
+            file_name = name;
             return FILE;
         }
         else{
-            System.out.println("IT IS A DIRECTORY!!!!");
-            dir_name = file_name;
+            dir_name = name;
             return DIRECTORY;
         }
     }
 
-    private boolean write_to_disk(boolean is_root, String file_name, Byte[] bytes_to_write) throws IOException {
+    public void write_to_disk(boolean is_root, File file, byte[] bytes_to_write) throws IOException {
         if (is_root){
-            System.out.print("WE ARE GOING TO WRITE...");
-            dir_name = file_name;
+            System.out.println("WE ARE GOING TO WRITE...");
+            dir_name = file.getName();
             if (validate_file_type(dir_name) == DIRECTORY){
-                File file_to_write = new File(dir_name);
-                if(file_to_write.exists()){
+                System.out.println("THE ROOT DIRECTORY WILL BE: " + dir_name);
+                if(file.exists()){
                     System.out.println("THE ROOT DIRECTORY EXISTS!!!");
                 }
                 else{
                     System.out.println("THE ROOT DIRECTORY DOE'S NOT EXISTS!!!");
-                    file_to_write.mkdir();
+                    file.mkdir();
                 }
             }
         }
         else{
-            File file_to_write;
-            String root_dir = "./output/";
-
-            if (validate_file_type(file_name) == FILE){
-                if(file_to_write.exists()){
-                }
-                else{
-                    try{
-                        FileOutputStream outputStream = new FileOutputStream(file_to_write);
+            String root_dir = "output/";
+            if (validate_file_type(file.getName()) == FILE){
+                try{
+                    System.out.println("FILE NAME: " + file_name);
+                    final String file_route = root_dir + file.getPath();
+                    file = new File(file_route);
+                    if (bytes_to_write == null){
+                        file.createNewFile();
+                    }
+                    else{
+                        file.createNewFile();
+                        FileOutputStream outputStream = new FileOutputStream(file_route);
                         outputStream.write(bytes_to_write);
                         outputStream.close();
-                    }catch(Exception e){
-                        e.printStackTrace();
                     }
+                }
+                catch(Exception e){
+                    e.printStackTrace();
                 }
             }
             else{
-                final String dir_route = root_dir + dir_name;
-                file_to_write = new File(dir_route);
-                if(file_to_write.exists()){
+                final String dir_route = root_dir + file.getPath();
+                System.out.println("FILE NAME: " + dir_name);
+                file = new File(dir_route);
+                if(file.exists()){
                     System.out.println("THE DIR EXISTS...");
                 }
                 else{
-                    file_to_write.mkdir();
+                    file.mkdir();
                 }
             }
         }
