@@ -22,8 +22,11 @@ public class MyInode extends MyXfsBaseAccessor {
      */
     public static final long MAGIC = AsciiToHex("IN");
 
-    public MyInode(FSBlockDeviceAPI devApi, long offset) {
+    private final long iNodeNumber;
+
+    public MyInode(FSBlockDeviceAPI devApi, long offset,long iNodeNumber) {
         super(devApi, offset);
+        this.iNodeNumber = iNodeNumber;
     }
 
     @Override
@@ -145,8 +148,8 @@ public class MyInode extends MyXfsBaseAccessor {
         return read(148, 4);
     }
 
-    public long getINodeNumber() throws IOException {
-        return read(152, 8);
+    public long getINodeNumber() {
+        return iNodeNumber;
     }
 
     public String getUuId() throws IOException {

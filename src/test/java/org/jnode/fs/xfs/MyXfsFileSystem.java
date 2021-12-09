@@ -116,7 +116,7 @@ public class MyXfsFileSystem {
     }
 
     public MyInode getINode(long index){
-        return new MyInode(device, iNodeSize * index);
+        return new MyInode(device, iNodeSize * index,index);
     }
 
     public int getXfsVersion() {

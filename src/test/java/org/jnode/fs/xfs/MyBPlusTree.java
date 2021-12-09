@@ -185,7 +185,7 @@ public class MyBPlusTree extends MyXfsBaseAccessor {
 //        long rootInodeOffset = ROOT_INODE_BLOCK * blockSize;
 //        final long offset = rootInodeOffset + inodeOffset;
 
-        return new MyInode(devApi, inodeOffset);
+        return new MyInode(devApi, inodeOffset, inode);
     }
 
 }
