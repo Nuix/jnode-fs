@@ -2,13 +2,16 @@ package org.jnode.fs.xfs;
 
 import org.jmock.integration.junit4.JUnitRuleMockery;
 import org.jnode.driver.block.FileDevice;
+import org.jnode.fs.FSEntry;
 import org.jnode.fs.FileSystemException;
 import org.jnode.fs.FileSystemTestUtils;
 import org.jnode.fs.logger.Logger_File;
+import org.jnode.fs.spi.FSEntryTable;
 import org.junit.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
@@ -207,16 +210,24 @@ public class XfsFileSystemTest {
     public void generate_output_structure() throws IOException {
         log.write_to_file(2,"WE TRY TO CREATE THE OUTPUT FOR XFS READING.");
         MyXfsCreateOutput output_object = new MyXfsCreateOutput("");
-        File first_dir = new File("folder1");
-        File second_dir = new File("folder 2");
+        XfsDirectory xfsdir = new XfsDirectory(fs.getRootEntry());
+        /**
+            * Table of entries of our parent
+        */
+        FSEntryTable entries;
+        entries = xfsdir.readEntries();
 
-        File first_file = new File("folder1/testfile.txt");
-        String txt_content = "this is a test file.";
-        byte[] bytes_to_write = txt_content.getBytes();
-
-        output_object.write_to_disk(false, first_dir, null);
-        output_object.write_to_disk(false, second_dir, null);
-        output_object.write_to_disk(false, first_file, bytes_to_write);
+        ArrayList<FSEntry> entry = new ArrayList<FSEntry>(entries.size());
+        for (int i = 0; i < entries.size(); i++) {
+            FSEntry name = entries.get(i);
+            if( name.isDirectory() && !(name.getName().equals("..") || name.getName().equals(".")) )  {
+                //create a Directory
+                output_object.write_to_disk(false, new File(name.getName()), null );
+            } else if ( name.isFile() ){
+                // create a File
+                output_object.write_to_disk( false, new File(name.getName()), null );
+            }
+        }
     }
 
 }
