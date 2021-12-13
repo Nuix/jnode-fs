@@ -2,19 +2,63 @@ package org.jnode.fs.xfs;
 
 import org.jnode.driver.block.FSBlockDeviceAPI;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class MyInode extends MyXfsBaseAccessor {
 
     enum INodeFormat {
-        LOCAL(1),FILE(2),BTREE(3);
-        int val;
+        LOCAL(1),EXTENT(2),BTREE(3);
+        final int val;
         INodeFormat(int val){
             this.val = val;
         }
+    }
+
+    enum FileMode {
+        // FILE PERMISSIONS
+        OTHER_X(0x0007 ,0x0001),
+        OTHER_W(0x0007,0x0002),
+        OTHER_R(0x0007,0x0004),
+        GROUP_X(0x0038 ,0x0008),
+        GROUP_W(0x0038,0x0010),
+        GROUP_R(0x0038,0x0020),
+        USER_X(0x01c0 ,0x0040),
+        USER_W(0x01c0,0x0080),
+        USER_R(0x01c0,0x0100),
+        //TODO: Check mask
+//        STICKY_BIT(0xFFFF,0x0200),
+//        SET_GID(0xFFFF,0x0400),
+//        SET_UID(0xFFFF,0x0800),
+        // FILE TYPE
+        NAMED_PIPE(0xf000,0x1000),
+        CHARACTER_DEVICE(0xf000,0x2000),
+        DIRECTORY(0xf000,0x4000),
+        BLOCK_DEVICE(0xf000,0x6000),
+        FILE(0xf000,0x8000),
+        SYM_LINK(0xf000,0xa000),
+        Socket(0xf000,0xc000);
+        final int mask;
+        final int val;
+
+        private FileMode(int mask,int val){
+            this.mask = mask;
+            this.val = val;
+        }
+
+        public static boolean is(int data,FileMode mode){
+            return (data & mode.mask) == mode.val;
+        }
+
+        public static List<FileMode> getModes(int data){
+            return Arrays.stream(FileMode.values()).filter(mode -> FileMode.is(data,mode)).collect(Collectors.toList());
+        }
+
     }
 
     /**
@@ -41,6 +85,10 @@ public class MyInode extends MyXfsBaseAccessor {
 
     public long getMode() throws IOException {
         return read(2, 2);
+    }
+
+    public boolean isDirectory() throws IOException {
+        return FileMode.is((int) getMode(),FileMode.DIRECTORY);
     }
 
     public long getVersion() throws IOException {
@@ -164,23 +212,35 @@ public class MyInode extends MyXfsBaseAccessor {
         return new MyInodeHeader(devApi, getOffset() + getINodeSizeForOffset());
     }
 
-    public List<MyShortFormDirectory> getDirectories() throws IOException {
-        if (getFormat() != INodeFormat.LOCAL.val){
-            throw new RuntimeException("Is not a directory extent");
+    public List<? extends IMyDirectory> getDirectories() throws IOException {
+        final long format = getFormat();
+        if (format == INodeFormat.LOCAL.val ){
+            final MyInodeHeader header = getDirectoryHeader();
+            final long count = header.getCount();
+            final long i8Count = header.getI8Count();
+            final boolean is8Bit = i8Count > 0;
+            final long l = count > 0 ? count : i8Count;
+            long offset = header.getFirstEntryAbsoluteOffset();
+            List<MyShortFormDirectory> data = new ArrayList<>((int)l);
+            for (int i = 0; i < l; i++) {
+                final MyShortFormDirectory dir = new MyShortFormDirectory(devApi, offset,is8Bit);
+                offset += dir.getOffsetSize();
+                data.add(dir);
+            }
+            return data;
+        } else if (format == INodeFormat.EXTENT.val){
+            if (!isDirectory()){
+                throw new UnsupportedOperationException("Trying to get directories of a nondirectory inode");
+            }
+            final MyExtentInformation extentInformation = getExtentInfo().get(0);
+            final long offset = extentInformation.getStartBlock() * 4096;
+            final MyBlockDirectory myBlockDirectory = new MyBlockDirectory(devApi, offset);
+            return myBlockDirectory.getEntries();
+
         }
-        final MyInodeHeader header = getDirectoryHeader();
-        final long count = header.getCount();
-        final long i8Count = header.getI8Count();
-        final boolean is8Bit = i8Count > 0;
-        final long l = count > 0 ? count : i8Count;
-        long offset = header.getFirstEntryAbsoluteOffset();
-        List<MyShortFormDirectory> data = new ArrayList<>((int)l);
-        for (int i = 0; i < l; i++) {
-            final MyShortFormDirectory dir = new MyShortFormDirectory(devApi, offset,is8Bit);
-            offset += dir.getOffsetSize();
-            data.add(dir);
-        }
-        return data;
+        throw new UnsupportedOperationException("getDirectories not supported for inode format " + format);
+
+
     }
 
     public List<MyExtentInformation> getExtentInfo() throws IOException {

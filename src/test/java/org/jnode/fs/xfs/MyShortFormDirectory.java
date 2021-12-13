@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 
-public class MyShortFormDirectory extends MyXfsBaseAccessor {
+public class MyShortFormDirectory extends MyXfsBaseAccessor implements IMyDirectory {
 
     private final boolean is8BitInodeNumber;
     private final long nameSize;

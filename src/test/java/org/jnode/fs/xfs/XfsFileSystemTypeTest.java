@@ -55,7 +55,7 @@ public class XfsFileSystemTypeTest {
             System.out.println(rootInodeDirectoryHeader.getI8Count());
             System.out.println(rootInodeDirectoryHeader.getParentInode());
 
-            for (MyShortFormDirectory directory : rootInode.getDirectories()) {
+            for (IMyDirectory directory : rootInode.getDirectories()) {
                 System.out.println("Directory " + directory.getName() + " / " + directory.getINodeNumber());
             }
             // Using test Inode for testfile.txt inside current image
@@ -115,17 +115,21 @@ public class XfsFileSystemTypeTest {
     }
 
     private void recursiveFsPrint(MyInode inode,String str,MyXfsFileSystem fs) throws IOException {
-        if (inode.getFormat() == MyInode.INodeFormat.FILE.val){
+        if (inode.getFormat() == MyInode.INodeFormat.EXTENT.val && !inode.isDirectory()){
             System.out.println(str);
             return;
         }
-        final List<MyShortFormDirectory> directories = inode.getDirectories();
+        final List<? extends IMyDirectory> directories = inode.getDirectories();
         if (directories.size() == 0){
-            System.out.println(str + "/");
+            System.out.println(str + Long.toHexString(inode.getMode()) + "/");
             return;
         }
-        for (MyShortFormDirectory directory : directories) {
-            String str2 = str + "/" + directory.getName() ;//+ " -- " + directory.getINodeNumber() + "(" + directory.getFileType() + ")";
+        for (IMyDirectory directory : directories) {
+            final String name = directory.getName();
+            if (name.equals(".") || name.equals("..")){
+                continue;
+            }
+            String str2 = str + "/" + name; // + " -- " + directory.getINodeNumber();
             recursiveFsPrint(fs.getINode(directory.getINodeNumber()),str2,fs);
         }
     }
