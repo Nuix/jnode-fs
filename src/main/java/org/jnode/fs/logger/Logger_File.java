@@ -1,5 +1,6 @@
 package org.jnode.fs.logger;
 
+import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,7 +16,7 @@ public class Logger_File{
     private final int INFO_LOGGER = 2;
 
     public Logger_File(){
-        File prop_file = new File("src/main/java/org/jnode/fs/logger/log4j.properties");
+        File prop_file = new File("src/main/java/org/jnode/fs/logger/log.properties");
         config_file = new Properties();
         try{
             InputStream input = new FileInputStream(prop_file);
