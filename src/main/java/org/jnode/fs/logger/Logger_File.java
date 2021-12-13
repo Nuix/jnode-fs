@@ -1,12 +1,12 @@
 package org.jnode.fs.logger;
 
-import org.apache.log4j.PropertyConfigurator;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.util.Properties;
 
 public class Logger_File{
-
     private Properties config_file;
     private Logger logger;
     private final String log_file_url = "src/main/java/org/jnode/fs/logger/logs/";
@@ -20,8 +20,7 @@ public class Logger_File{
         try{
             InputStream input = new FileInputStream(prop_file);
             config_file.load(input);
-            logger = Logger.getLogger(Logger_File.class);
-            PropertyConfigurator.configure("src/main/java/org/jnode/fs/logger/log4j.properties");
+            logger = LoggerFactory.getLogger(Logger_File.class);
         }
         catch (IOException ex) {
             ex.printStackTrace();
@@ -41,7 +40,7 @@ public class Logger_File{
     //there is for get the file path from the properties file...
     public String get_file_path(){
         String file_path = "";
-        if (config_file != null) {
+        if(config_file != null) {
                 //WE TRY TO READ LOG PATH...
                 file_path = config_file.getProperty("log4j.appender.file.File");
         }
