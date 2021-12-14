@@ -12,7 +12,7 @@ import org.jnode.fs.FileSystemException;
 import org.jnode.fs.FileSystemType;
 import org.jnode.fs.spi.AbstractFileSystem;
 import org.jnode.fs.xfs.inode.INodeBTree;
-
+import org.jnode.fs.xfs.inode.INode;
 /**
  * An XFS file system.
  *
@@ -36,6 +36,11 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     private INodeBTree inodeBTree;
 
     /**
+     * The inode size.
+     */
+    private int iNodeSize;
+
+    /**
      * Construct an XFS file system.
      *
      * @param device device contains file system.
@@ -56,11 +61,23 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     public final void read() throws FileSystemException {
         superblock = new Superblock(this);
         agINode = new AllocationGroupINode(this);
+        iNodeSize = superblock.getInodeSize();
 
         try {
             inodeBTree = new INodeBTree(this, agINode);
         } catch (IOException e) {
             throw new FileSystemException(e);
+        }
+    }
+
+    public INode getINode(long iNodeNumber) {
+        ByteBuffer allocate = ByteBuffer.allocate(iNodeSize);
+
+        try {
+            this.getApi().read(iNodeSize * iNodeNumber, allocate);
+            return new INode(iNodeNumber, allocate.array() , 0);
+        } catch (IOException e) {
+            throw new RuntimeException("Error reading inode: " + iNodeNumber , e);
         }
     }
 

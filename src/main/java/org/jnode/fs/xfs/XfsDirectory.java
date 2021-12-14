@@ -66,12 +66,12 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
         switch (inode.getFormat()) {
             case XfsConstants.XFS_DINODE_FMT_LOCAL:
                 // Entries are stored within the inode record itself
-
-                int fourByteEntries = inode.getUInt8(INode.DATA_OFFSET);
-                int eightByteEntries = inode.getUInt8(INode.DATA_OFFSET + 1);
+                int iNodeOffset = this.inode.getVersion() == 3 ? INode.V3_DATA_OFFSET: INode.DATA_OFFSET;
+                int fourByteEntries = inode.getUInt8(iNodeOffset);
+                int eightByteEntries = inode.getUInt8(iNodeOffset + 1);
                 int recordSize = fourByteEntries > 0 ? 4 : 8;
                 int entryCount = fourByteEntries > 0 ? fourByteEntries : eightByteEntries;
-                int offset = INode.DATA_OFFSET + inode.getOffset() + 0x6;
+                int offset = iNodeOffset + inode.getOffset() + 0x6;
 
                 // The local storage doesn't store the relative directory entries, so add these in manually
                 XfsDirectory parent = (XfsDirectory) entry.getParent();
@@ -91,7 +91,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                         break;
                     }
 
-                    INode childInode = fileSystem.getInodeBTree().getINode(entry.getINumber());
+                    INode childInode = fileSystem.getINode(entry.getINumber());
                     entries.add(new XfsEntry(childInode, entry.getName(), entries.size(), fileSystem, this));
 
                     offset += entry.getLength();
@@ -105,7 +105,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
 
                 DirectoryDataHeader header = new DirectoryDataHeader(buffer.array(), 0);
                 for (DirectoryDataEntry dataEntry : header.readEntries(fileSystem.getSuperblock().getBlockSize())) {
-                    INode childInode = fileSystem.getInodeBTree().getINode(dataEntry.getINumber());
+                    INode childInode = fileSystem.getINode(dataEntry.getINumber());
                     entries.add(new XfsEntry(childInode, dataEntry.getName(), entries.size(), fileSystem, this));
                 }
 

@@ -43,11 +43,13 @@ public class DataExtent extends XfsObject {
     public DataExtent(byte[] data, int offset) {
         super(data, offset);
 
-        blockCount = (int) (getUInt32(0xc) & 0x3ffffL);
-
-        startBlock = ((getUInt32(0xc) & 0xfffc0000L) >> 21) | (getUInt32(0x8) << 14) | ((getUInt32(0x4) & 0x3fL) << 38);
-
-        startOffset = ((getUInt32(0x0) & 0x7fffffff) << 22) | ((getUInt32(0x4) & 0xfffffcL) >> 9);
+        long valueUpper128bit = getInt64( 0);
+        long valueLower128bit = getInt64( 8);
+        blockCount = (int) (valueLower128bit & 0x1fffffL);
+        valueLower128bit = valueLower128bit >>> 21;
+        startBlock = valueLower128bit | ( valueUpper128bit & 0x1ffL );
+        valueUpper128bit = valueUpper128bit >>> 9;
+        startOffset = valueUpper128bit & 0x3fffffffffffffL;
     }
 
     /**
