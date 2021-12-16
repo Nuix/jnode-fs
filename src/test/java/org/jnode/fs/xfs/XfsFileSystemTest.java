@@ -24,7 +24,7 @@ public class XfsFileSystemTest {
         File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/test-xfs-1.img");
 
         try (FileDevice device = new FileDevice(testFile, "r")) {
-            XfsFileSystemType type = new XfsFileSystemType();
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
             XfsFileSystem fs = type.create(device, true);
 
             String expectedStructure = "type: XFS vol:null total:0 free:0\n" +
