@@ -31,6 +31,15 @@ public class XfsFileSystemTypeTest
             XfsFileSystemType type = new XfsFileSystemType();
             byte[] buffer = new byte[512];
             assertThat(type.supports(partitionTableEntry, buffer, device), is(true));
+            XfsFileSystem xfs = type.create(device, true);
+            System.out.println("THE SUPERBLOCK INFO OF THIS ONE IS: " + xfs.getSuperblock());
+            String magic_num = Long.toHexString(xfs.getSuperblock().getMagic());
+            String ascii_magic_numbre = XfsFileSystem.HexToAscii(magic_num);
+            System.out.println("THE SUPERBLOCK MAGIC NUMBER IS: " + ascii_magic_numbre);
+            System.out.println("VOLUME NAME IS: " + xfs.getVolumeName());
+            System.out.println("TOTAL SPACE: " + xfs.getTotalSpace());
+            System.out.println("FREE SPACE: " + xfs.getFreeSpace());
+            System.out.println("USABLE SPACE: " + xfs.getUsableSpace());
         }
         finally
         {

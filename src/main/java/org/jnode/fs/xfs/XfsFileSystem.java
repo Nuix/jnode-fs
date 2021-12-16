@@ -2,6 +2,8 @@ package org.jnode.fs.xfs;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+
+import com.google.common.base.Splitter;
 import org.jnode.driver.Device;
 import org.jnode.driver.block.BlockDeviceAPI;
 import org.jnode.fs.FSDirectory;
@@ -53,6 +55,19 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
         super(device, true, type);
     }
 
+    public static String HexToAscii(String hexString) {
+        try {
+            StringBuilder ascii = new StringBuilder();
+            final Iterable<String> chars = Splitter.fixedLength(2).split(hexString);
+            for (String c : chars) {
+                ascii.append((char) Byte.parseByte(c, 16));
+            }
+            return ascii.toString();
+        } catch (Throwable t) {
+            return "INVALID";
+        }
+    }
+
     /**
      * Reads in the file system from the block device.
      *
@@ -83,22 +98,23 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
 
     @Override
     public long getTotalSpace() throws IOException {
-        return 0;
+        //TOTAL NUMBER OF BLOCKS..........
+        return superblock.getBlockSize() * superblock.getTotalBlocks();
     }
 
     @Override
     public long getFreeSpace() throws IOException {
-        return 0;
+        return superblock.getBlockSize() * superblock.getFreeBlocks();
     }
 
     @Override
     public long getUsableSpace() throws IOException {
-        return 0;
+        return superblock.getBlockSize() * (superblock.getTotalBlocks() - superblock.getFreeBlocks());
     }
 
     @Override
     public String getVolumeName() throws IOException {
-        return null;
+        return superblock.getName();
     }
 
     @Override

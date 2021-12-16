@@ -62,11 +62,19 @@ public class Superblock extends XfsRecord {
         return (int) getUInt32(0x4);
     }
 
+    public long getTotalBlocks() throws IOException {
+        return (int) getInt64(0x8);
+    }
+
+    public long getFreeBlocks() throws IOException {
+        return (int) getInt64(144);
+    }
     /**
      * Gets the UUID for the volume stored in the super block.
      *
      * @return the UUID.
      */
+
     public byte[] getUuid() {
         byte[] uuid = new byte[16];
         System.arraycopy(getData(), 0x20, uuid, 0, uuid.length);
