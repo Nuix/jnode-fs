@@ -12,8 +12,8 @@ public class MyINodeInformation extends MyXfsBaseAccessor {
     public static final long MAGIC_NUMBER = AsciiToHex("XAGI");
 
 
-    public MyINodeInformation(FSBlockDeviceAPI devApi, long superBlockStart) {
-        super(devApi, superBlockStart);
+    public MyINodeInformation(FSBlockDeviceAPI devApi, long superBlockStart,MyXfsFileSystem fs) {
+        super(devApi, superBlockStart,fs);
     }
 
     @Override

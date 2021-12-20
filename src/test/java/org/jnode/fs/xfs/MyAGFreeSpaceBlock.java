@@ -10,8 +10,8 @@ public class MyAGFreeSpaceBlock extends MyXfsBaseAccessor {
 
     public static final long MAGIC_NUMBER = AsciiToHex("XAGF");
 
-    public MyAGFreeSpaceBlock(FSBlockDeviceAPI devApi, long freeBlockStart) {
-        super(devApi, freeBlockStart);
+    public MyAGFreeSpaceBlock(FSBlockDeviceAPI devApi, long freeBlockStart,MyXfsFileSystem fs) {
+        super(devApi, freeBlockStart,fs);
     }
 
     @Override

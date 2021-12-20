@@ -11,8 +11,8 @@ public class MyAGFreeListHeader extends MyXfsBaseAccessor {
     final static long MAGIC_NUMBER = AsciiToHex("AGFL");
     static final long MAGIC_NUMBER2 = AsciiToHex("XAFL");
 
-    public MyAGFreeListHeader(FSBlockDeviceAPI devApi, long superBlockStart) {
-        super(devApi, superBlockStart);
+    public MyAGFreeListHeader(FSBlockDeviceAPI devApi, long superBlockStart,MyXfsFileSystem fs) {
+        super(devApi, superBlockStart,fs);
     }
 
     @Override

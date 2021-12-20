@@ -12,8 +12,8 @@ public class MyBlockDirectoryEntry extends MyXfsBaseAccessor implements IMyDirec
 
     private final long nameSize;
 
-    public MyBlockDirectoryEntry(FSBlockDeviceAPI devApi, long superBlockStart) throws IOException {
-        super(devApi, superBlockStart);
+    public MyBlockDirectoryEntry(FSBlockDeviceAPI devApi, long superBlockStart,MyXfsFileSystem fs) throws IOException {
+        super(devApi, superBlockStart,fs);
         nameSize = read(8,1);
     }
 

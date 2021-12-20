@@ -12,8 +12,8 @@ public class MySuperblock extends MyXfsBaseAccessor {
 
     public static final long MAGIC_NUMBER = AsciiToHex("XFSB");
 
-    public MySuperblock(FSBlockDeviceAPI devApi, long superBlockStart) {
-        super(devApi, superBlockStart);
+    public MySuperblock(FSBlockDeviceAPI devApi, long superBlockStart,MyXfsFileSystem fs) {
+        super(devApi, superBlockStart,fs);
     }
 
     @Override

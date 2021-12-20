@@ -15,8 +15,8 @@ public class MyBlockDirectory  extends MyXfsBaseAccessor {
     private final int V4_LENGTH = 16;
     private final int V5_LENGTH = 64;
 
-    public MyBlockDirectory(FSBlockDeviceAPI devApi, long superBlockStart) {
-        super(devApi, superBlockStart);
+    public MyBlockDirectory(FSBlockDeviceAPI devApi, long superBlockStart,MyXfsFileSystem fs) {
+        super(devApi, superBlockStart,fs);
     }
 
     @Override

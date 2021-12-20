@@ -14,12 +14,14 @@ import java.util.Locale;
 public abstract class MyXfsBaseAccessor {
 
     protected final FSBlockDeviceAPI devApi;
+    protected final MyXfsFileSystem fs;
     private final long offset;
     private final Logger logger;
 
-    public MyXfsBaseAccessor(FSBlockDeviceAPI devApi, long superBlockStart) {
+    public MyXfsBaseAccessor(FSBlockDeviceAPI devApi, long superBlockStart,MyXfsFileSystem fs) {
         this.devApi = devApi;
         this.offset = superBlockStart;
+        this.fs =fs;
         logger = LoggerFactory.getLogger(this.getClass());
         try {
             if (!this.isValidSignature()) {

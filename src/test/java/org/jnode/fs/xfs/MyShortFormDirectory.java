@@ -12,11 +12,18 @@ public class MyShortFormDirectory extends MyXfsBaseAccessor implements IMyDirect
 
     private final boolean is8BitInodeNumber;
     private final long nameSize;
+    private final long iNodeNumber;
+    private final String name;
 
-    public MyShortFormDirectory(FSBlockDeviceAPI devApi, long superBlockStart, boolean is8BitInodeNumber) throws IOException {
-        super(devApi, superBlockStart);
+
+    public MyShortFormDirectory(FSBlockDeviceAPI devApi, long superBlockStart, boolean is8BitInodeNumber,MyXfsFileSystem fs) throws IOException {
+        super(devApi, superBlockStart,fs);
         this.is8BitInodeNumber = is8BitInodeNumber;
         this.nameSize = read(0, 1);
+        final ByteBuffer buffer = ByteBuffer.allocate((int) nameSize);
+        devApi.read(getOffset() + 3, buffer);
+        this.name = new String(buffer.array(), StandardCharsets.US_ASCII);
+        this.iNodeNumber = read(getNameSize() + 4, is8BitInodeNumber ? 8 : 4);
     }
 
     @Override
@@ -38,9 +45,7 @@ public class MyShortFormDirectory extends MyXfsBaseAccessor implements IMyDirect
     }
 
     public String getName() throws IOException {
-        final ByteBuffer buffer = ByteBuffer.allocate((int) nameSize);
-        devApi.read(getOffset() + 3, buffer);
-        return new String(buffer.array(), StandardCharsets.UTF_8);
+        return name;
     }
 
     public long getFileType() throws IOException {

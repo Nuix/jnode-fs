@@ -53,7 +53,7 @@ public class XfsFileSystemTypeTest {
     }
 
     @Test
-    public void testRandom() throws Exception {
+    public void testSimpleImage() throws Exception {
         File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/test-xfs-1.img");
 
 
@@ -126,6 +126,50 @@ public class XfsFileSystemTypeTest {
             testFile.delete();
         }
     }
+    @Test
+    public void testOldImage() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/xfs.dd");
+
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = new XfsFileSystemType();
+//            byte[] buffer = new byte[512];
+//            assertThat(type.supports(partitionTableEntry, buffer, device), is(true));
+            final MyXfsFileSystem ag = new MyXfsFileSystem(device);
+            final MyInode rootInode = ag.getINode(ag.getRootINode());
+
+            recursiveFsPrint(rootInode,"",ag);
+        } finally {
+            testFile.delete();
+        }
+    }
+    @Test
+    public void testCentos() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/centos-xfs.img");
+
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = new XfsFileSystemType();
+//            byte[] buffer = new byte[512];
+//            assertThat(type.supports(partitionTableEntry, buffer, device), is(true));
+            final MyXfsFileSystem ag = new MyXfsFileSystem(device);
+            final MyInode rootInode = ag.getINode(ag.getRootINode());
+
+            recursiveFsPrint(rootInode,"",ag);
+        } finally {
+            testFile.delete();
+        }
+    }
+
+    private static String byteArrToBinary(byte[] arr){
+        StringBuilder sb = new StringBuilder(arr.length * 8);
+        for (byte b :arr){
+            sb.append(byteToBinary(b));
+        }
+        return sb.toString();
+    }
+
+    private static String byteToBinary(byte b){
+        return String.format("%8s",Integer.toString(b,2)).replace(" ","0");
+    }
 
     private void recursiveFsPrint(MyInode inode,String str,MyXfsFileSystem fs) throws IOException {
         if (inode.getFormat() == MyInode.INodeFormat.EXTENT.val && !inode.isDirectory()){
@@ -134,7 +178,7 @@ public class XfsFileSystemTypeTest {
         }
         final List<? extends IMyDirectory> directories = inode.getDirectories();
         if (directories.size() == 0){
-            System.out.println(str + Long.toHexString(inode.getMode()) + "/");
+            System.out.println(str + "/");
             return;
         }
         for (IMyDirectory directory : directories) {

@@ -50,10 +50,8 @@ public class MyBPlusTree extends MyXfsBaseAccessor {
         }
     }
 
-    protected MyXfsFileSystem fs;
     public MyBPlusTree(FSBlockDeviceAPI devApi, long superBlockStart,MyXfsFileSystem fs) {
-        super(devApi, superBlockStart);
-        this.fs = fs;
+        super(devApi, superBlockStart,fs);
     }
 
     @Override
@@ -185,7 +183,7 @@ public class MyBPlusTree extends MyXfsBaseAccessor {
 //        long rootInodeOffset = ROOT_INODE_BLOCK * blockSize;
 //        final long offset = rootInodeOffset + inodeOffset;
 
-        return new MyInode(devApi, inodeOffset, inode);
+        return new MyInode(devApi, inodeOffset, inode,fs);
     }
 
 }

@@ -2,13 +2,11 @@ package org.jnode.fs.xfs;
 
 import org.jnode.driver.block.FSBlockDeviceAPI;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.security.InvalidParameterException;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class MyInode extends MyXfsBaseAccessor {
 
@@ -68,8 +66,12 @@ public class MyInode extends MyXfsBaseAccessor {
 
     private final long iNodeNumber;
 
-    public MyInode(FSBlockDeviceAPI devApi, long offset,long iNodeNumber) {
-        super(devApi, offset);
+    public MyInode(FSBlockDeviceAPI devApi, long offset,long iNodeNumber,MyXfsFileSystem fs) throws IOException {
+        super(devApi, offset,fs);
+        // Only works for V5
+        if (read(152,8) != iNodeNumber) {
+            throw new InvalidParameterException("Inode number " + iNodeNumber + " does not match with disk number " + read(152,8));
+        }
         this.iNodeNumber = iNodeNumber;
     }
 
@@ -232,10 +234,27 @@ public class MyInode extends MyXfsBaseAccessor {
             if (!isDirectory()){
                 throw new UnsupportedOperationException("Trying to get directories of a nondirectory inode");
             }
-            final MyExtentInformation extentInformation = getExtentInfo().get(0);
-            final long offset = extentInformation.getStartBlock() * 4096;
-            final MyBlockDirectory myBlockDirectory = new MyBlockDirectory(devApi, offset);
-            return myBlockDirectory.getEntries();
+            final List<MyExtentInformation> extents = getExtentInfo();
+            System.out.println(extents);
+            final List<MyBlockDirectoryEntry> directoryEntryList = extents.stream().map(e -> {
+                try {
+                    final long offset = e.getStartBlock() * 4096;
+                    return new MyBlockDirectory(devApi, offset,fs);
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+                return null;
+            }).filter(Objects::nonNull).flatMap((MyBlockDirectory myBlockDirectory1) -> {
+                try {
+                    return myBlockDirectory1.getEntries().stream();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return Stream.empty();
+            }).collect(Collectors.toList());
+//            final long offset = extentInformation.getStartBlock() * 4096;
+//            final MyBlockDirectory myBlockDirectory = new MyBlockDirectory(devApi, offset);
+            return directoryEntryList;
 
         }
         throw new UnsupportedOperationException("getDirectories not supported for inode format " + format);
@@ -248,7 +267,7 @@ public class MyInode extends MyXfsBaseAccessor {
         final int count = (int) getExtentCount();
         final ArrayList<MyExtentInformation> list = new ArrayList<>(count);
         for (int i=0;i<count;i++) {
-            final MyExtentInformation info = new MyExtentInformation(devApi, offset);
+            final MyExtentInformation info = new MyExtentInformation(devApi, offset,fs);
             list.add(info);
             offset += 0x10;
         }

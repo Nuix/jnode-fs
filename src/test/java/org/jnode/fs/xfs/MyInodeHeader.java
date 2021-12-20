@@ -7,8 +7,8 @@ import java.util.Collections;
 import java.util.List;
 
 public class MyInodeHeader extends MyXfsBaseAccessor {
-    public MyInodeHeader(FSBlockDeviceAPI devApi, long superBlockStart) {
-        super(devApi, superBlockStart);
+    public MyInodeHeader(FSBlockDeviceAPI devApi, long superBlockStart,MyXfsFileSystem fs) {
+        super(devApi, superBlockStart,fs);
     }
 
     @Override

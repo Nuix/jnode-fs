@@ -4,7 +4,6 @@ import org.jnode.driver.block.FSBlockDeviceAPI;
 import org.jnode.util.BigEndian;
 
 import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
@@ -33,8 +32,8 @@ public class MyExtentInformation extends MyXfsBaseAccessor {
 
     // Reference for implementation https://github.com/libyal/libfsxfs/blob/main/libfsxfs/libfsxfs_extent.c
     // https://mirrors.edge.kernel.org/pub/linux/utils/fs/xfs/docs/xfs_filesystem_structure.pdf page 115
-    public MyExtentInformation(FSBlockDeviceAPI devApi, long superBlockStart) throws IOException {
-        super(devApi, superBlockStart);
+    public MyExtentInformation(FSBlockDeviceAPI devApi, long superBlockStart,MyXfsFileSystem fs) throws IOException {
+        super(devApi, superBlockStart,fs);
         final ByteBuffer extentBytes = ByteBuffer.allocate(16);
         devApi.read(superBlockStart,extentBytes);
         long value_128bit_upper = BigEndian.getInt64(extentBytes.array(), 0);
@@ -69,4 +68,25 @@ public class MyExtentInformation extends MyXfsBaseAccessor {
         return read(0,1);
     }
 
+    public long getExtentOffset() throws IOException {
+        final MySuperblock sb = fs.getMainSuperBlock();
+        final long agSizeLog2 = sb.getAGSizeLog2();
+        long allocationGroupIndex = startBlock >> agSizeLog2;
+        long relativeBlockNumber  = startBlock & ( ( (long) 1 << agSizeLog2 ) - 1 );
+        long allocationGroupBlockNumber = allocationGroupIndex * sb.getAGSize();
+        return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
+    }
+
+    public void read(ByteBuffer buffer,int offset) {
+
+    }
+
+    @Override
+    public String toString() {
+        return "MyExtentInformation{" +
+                "blockCount=" + blockCount +
+                ", startOffset=" + startOffset +
+                ", startBlock=" + startBlock +
+                '}';
+    }
 }

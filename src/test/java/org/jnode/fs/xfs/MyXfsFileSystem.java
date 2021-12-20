@@ -9,28 +9,35 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class MyXfsFileSystem {
     private final long blockSize;
     FSBlockDeviceAPI device;
-    long allocationGroupSize;
-    int sectorSize;
-    int aGCount;
-    int xfsVersion;
-    int iNodeSize;
-    int rootINode;
+    final MySuperblock mainSuperBlock;
+    final long allocationGroupSize;
+    final int sectorSize;
+    final int aGCount;
+    final long aGSizeLog2;
+    final int xfsVersion;
+    final int iNodeSize;
+    final int rootINode;
 
     public MyXfsFileSystem(FSBlockDeviceAPI device) throws IOException {
         this.device = device;
-        final MySuperblock mainSuperBlock = new MySuperblock(device,0);
+        mainSuperBlock = new MySuperblock(device,0,this);
         sectorSize = (int) mainSuperBlock.getSectorSize();
         blockSize = mainSuperBlock.getBlockSize();
         aGCount = (int) mainSuperBlock.getAGCount();
         iNodeSize = (int) mainSuperBlock.getINodeSize();
         allocationGroupSize = blockSize * mainSuperBlock.getTotalBlocks() / aGCount;
+        aGSizeLog2 = mainSuperBlock.getAGSizeLog2();
         xfsVersion = (int) mainSuperBlock.getVersion();
         rootINode = (int) mainSuperBlock.getRootINodeNumber();
+    }
+
+
+    public MySuperblock getMainSuperBlock(){
+        return mainSuperBlock;
     }
 
     private long getAllocationGroupOffsetByIndex(int index) {
@@ -39,22 +46,22 @@ public class MyXfsFileSystem {
 
     public MySuperblock getSuperBlockOnAllocationGroupIndex(int index) {
         final long offset = getAllocationGroupOffsetByIndex(index);
-        return new MySuperblock(device,offset);
+        return new MySuperblock(device,offset,this);
     }
 
     public MyAGFreeSpaceBlock getAGFreeSpaceBlockOnAllocationGroupIndex(int index) {
         final long offset = getAllocationGroupOffsetByIndex(index) + sectorSize;
-        return new MyAGFreeSpaceBlock(device,offset);
+        return new MyAGFreeSpaceBlock(device,offset,this);
     }
 
     public MyINodeInformation getINodeInformationOnAllocationGroupIndex(int index) {
         final long offset = getAllocationGroupOffsetByIndex(index) + sectorSize * 2L;
-        return new MyINodeInformation(device,offset);
+        return new MyINodeInformation(device,offset,this);
     }
 
     public MyAGFreeListHeader getAGFreeListHeaderOnAllocationGroupIndex(int index) {
         final long offset = getAllocationGroupOffsetByIndex(index) + sectorSize * 3L;
-        return new MyAGFreeListHeader(device, offset);
+        return new MyAGFreeListHeader(device, offset,this);
     }
 
     public List<MyBPlusTree> getBTreesOnAllocationGroupIndex(int index) throws IOException {
@@ -115,8 +122,27 @@ public class MyXfsFileSystem {
         return getBTreeOnAllocationGroupIndexAndType(index,treeSignature);
     }
 
-    public MyInode getINode(long index){
-        return new MyInode(device, iNodeSize * index,index);
+    public MyInode getINode(long absoluteINodeNumber) throws IOException {
+        // absolute inode number = ( allocation group number << number of relative inode number bits ) | relative inode number
+        // number of relative inode number bits = allocation group size log2 + number of inodes per block log2
+        final MySuperblock mainSuperblock = getSuperBlockOnAllocationGroupIndex(0);
+        final long numberOfRelativeINodeBits = mainSuperblock.getAGSizeLog2() + mainSuperblock.getINodePerBlockLog2();
+        int allocationGroupIndex = (int) ( absoluteINodeNumber >> numberOfRelativeINodeBits );
+        long relativeINodeNumber  = absoluteINodeNumber & ( ( (long) 1 << numberOfRelativeINodeBits ) - 1 );
+        long allocationGroupBlockNumber = (long) allocationGroupIndex * mainSuperblock.getAGSize();
+        long offset = ( allocationGroupBlockNumber * mainSuperblock.getBlockSize() ) + ( relativeINodeNumber * mainSuperblock.getINodeSize() );
+        return new MyInode(device, offset,absoluteINodeNumber,this);
+    }
+
+    public long getDataExtentOffset(MyExtentInformation extent) throws IOException {
+//        file system block number = ( allocation group number << number of relative block number bits ) | relative block number
+//        number of relative block number bits = allocation group size log2
+//        file offset = ( allocation group block number + relative block number ) x block size
+        final long startBlock = 2174664; // extent.getStartBlock();
+        long allocationGroupIndex = startBlock >> aGSizeLog2;
+        System.out.println(extent + " - allocationGroup");
+        long offset = 0;
+        return offset;
     }
 
     public int getXfsVersion() {
