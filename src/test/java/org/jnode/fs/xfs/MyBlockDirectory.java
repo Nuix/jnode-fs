@@ -12,8 +12,8 @@ public class MyBlockDirectory  extends MyXfsBaseAccessor {
     private static final long MAGIC_V4 =AsciiToHex("XD2B");
     private static final long MAGIC = AsciiToHex("XDB3");
 
-    private final int V4_LENGTH = 16;
-    private final int V5_LENGTH = 64;
+    public final static int V4_LENGTH = 16;
+    public final static int V5_LENGTH = 64;
 
     public MyBlockDirectory(FSBlockDeviceAPI devApi, long superBlockStart,MyXfsFileSystem fs) {
         super(devApi, superBlockStart,fs);
@@ -48,7 +48,7 @@ public class MyBlockDirectory  extends MyXfsBaseAccessor {
         long offset = getOffset() + V5_LENGTH;
         List<MyBlockDirectoryEntry> data = new ArrayList<>(10);
         while (true) {
-            final MyBlockDirectoryEntry entry = new MyBlockDirectoryEntry(devApi, offset);
+            final MyBlockDirectoryEntry entry = new MyBlockDirectoryEntry(devApi, offset,fs);
             final String name = entry.getName();
             if (entry.getNameSize() == 0) break;
             data.add(entry);
