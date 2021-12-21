@@ -56,7 +56,7 @@ public class MyXfsDir3DataHdr {
 
     public List<MyBlockDirectoryEntry> getEntries() throws IOException {
         long accumulatorOffset = getOffset();
-        List<MyBlockDirectoryEntry> data = new ArrayList<>(10);
+        List<MyBlockDirectoryEntry> data = new ArrayList<>(50);
         while (true) {
             final MyBlockDirectoryEntry entry = new MyBlockDirectoryEntry(devApi, blockStart + accumulatorOffset,fs);
             final String name = entry.getName();

@@ -53,12 +53,18 @@ public class MyShortFormDirectory extends MyXfsBaseAccessor implements IMyDirect
     }
 
     public long getINodeNumber() throws IOException {
-        return read(getNameSize() + 4, is8BitInodeNumber ? 8 : 4);
+        return iNodeNumber;
     }
 
     public long getOffsetSize() {
         return/* Name Size and Tag Offset and File Type */ 4 + nameSize + (is8BitInodeNumber ? 8 : 4);
     }
 
-
+    @Override
+    public String toString() {
+        return "MyShortFormDirectory{is8BitInodeNumber=" + is8BitInodeNumber +
+                ", name='" + name + '\'' +
+                ", iNodeNumber=" + iNodeNumber +
+                '}';
+    }
 }

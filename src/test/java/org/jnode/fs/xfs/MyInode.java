@@ -7,6 +7,8 @@ import org.jnode.fs.xfs.btree.MyXfsDir3BlkHdr;
 import org.jnode.fs.xfs.btree.MyXfsDir3DataHdr;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -95,6 +97,10 @@ public class MyInode extends MyXfsBaseAccessor {
 
     public boolean isDirectory() throws IOException {
         return FileMode.is((int) getMode(),FileMode.DIRECTORY);
+    }
+
+    public boolean isFile() throws IOException {
+        return FileMode.is((int) getMode(),FileMode.FILE);
     }
 
     public long getVersion() throws IOException {
@@ -218,22 +224,38 @@ public class MyInode extends MyXfsBaseAccessor {
         return new MyInodeHeader(devApi, getOffset() + getINodeSizeForOffset(),fs);
     }
 
+    public boolean isSymLink() throws IOException {
+        return FileMode.is((int) getMode(),FileMode.SYM_LINK);
+    }
+
+    public String getSymLinkText() throws IOException {
+        ByteBuffer buffer = ByteBuffer.allocate((int) getSize());
+        devApi.read(getOffset() + getINodeSizeForOffset(),buffer);
+        return new String(buffer.array(), StandardCharsets.US_ASCII);
+    }
+
     public List<? extends IMyDirectory> getDirectories() throws IOException {
         final long format = getFormat();
         if (format == INodeFormat.LOCAL.val ){
-            final MyInodeHeader header = getDirectoryHeader();
-            final long count = header.getCount();
-            final long i8Count = header.getI8Count();
-            final boolean is8Bit = i8Count > 0;
-            final long l = count > 0 ? count : i8Count;
-            long offset = header.getFirstEntryAbsoluteOffset();
-            List<MyShortFormDirectory> data = new ArrayList<>((int)l);
-            for (int i = 0; i < l; i++) {
-                final MyShortFormDirectory dir = new MyShortFormDirectory(devApi, offset,is8Bit,fs);
-                offset += dir.getOffsetSize();
-                data.add(dir);
+            if (!isSymLink()) {
+                final MyInodeHeader header = getDirectoryHeader();
+                final long count = header.getCount();
+                final long i8Count = header.getI8Count();
+                final boolean is8Bit = i8Count > 0;
+                final long l = count > 0 ? count : i8Count;
+                long offset = header.getFirstEntryAbsoluteOffset();
+                List<MyShortFormDirectory> data = new ArrayList<>((int) l);
+                for (int i = 0; i < l; i++) {
+                    final MyShortFormDirectory dir = new MyShortFormDirectory(devApi, offset, is8Bit, fs);
+                    offset += dir.getOffsetSize();
+                    data.add(dir);
+                }
+                return data;
+            } else {
+                // TODO: fix if symlinks are required
+                final String linkText = getSymLinkText();
+                return Collections.singletonList(new MyShortFormDirectory(devApi, 0, false, fs));
             }
-            return data;
         } else if (format == INodeFormat.EXTENT.val){
             if (!isDirectory()){
                 throw new UnsupportedOperationException("Trying to get directories of a non directory inode");
@@ -256,8 +278,8 @@ public class MyInode extends MyXfsBaseAccessor {
                 entries.addAll(myBlockDirectoryEntries);
             }
 
-            final MyExtentInformation leafExtent = extents.get(extents.size() - 1);
-            final Leaf leaf = new Leaf(devApi, leafExtent.getExtentOffset(), fs, extents.size() - 1);
+//            final MyExtentInformation leafExtent = extents.get(extents.size() - 1);
+//            final Leaf leaf = new Leaf(devApi, leafExtent.getExtentOffset(), fs, extents.size() - 1);
 
             return entries;
         }

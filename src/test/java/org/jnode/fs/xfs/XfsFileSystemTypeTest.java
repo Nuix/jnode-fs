@@ -176,6 +176,10 @@ public class XfsFileSystemTypeTest {
             System.out.println(str);
             return;
         }
+        if (inode.getFormat() == MyInode.INodeFormat.LOCAL.val && inode.isSymLink()){
+            System.out.println(str + " --> " + inode.getSymLinkText());
+            return;
+        }
         final List<? extends IMyDirectory> directories = inode.getDirectories();
         if (directories.size() == 0){
             System.out.println(str + "/");
