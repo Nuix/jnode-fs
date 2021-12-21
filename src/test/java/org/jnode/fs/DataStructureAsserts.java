@@ -180,14 +180,14 @@ public class DataStructureAsserts
      * @param indent the indent level.
      *
      */
-    private static StringBuilder getXfsMetadata(FSEntry entry, StringBuilder actual,String indent) {
+    private static StringBuilder getXfsMetadata(FSEntry entry, StringBuilder actual,String indent)  throws IOException {
         actual.append(indent);
         actual.append(indent);
-        actual.append("atime : " +  getDate(((XfsEntry) entry).getINode().getAccessTime()));
+        actual.append("atime : " +  getDate(((XfsEntry) entry).getLastAccessed() ));
         actual.append("; ");
-        actual.append("ctime : " +  getDate(((XfsEntry) entry).getINode().getCreatedTime()));
+        actual.append("ctime : " +  getDate(((XfsEntry) entry).getCreated()));
         actual.append("; ");
-        actual.append("mtime : " +  getDate(((XfsEntry) entry).getINode().getModifiedTime()) +"\n" );
+        actual.append("mtime : " +  getDate(((XfsEntry) entry).getLastModified()) +"\n" );
         actual.append(indent);
         actual.append(indent);
         actual.append("owner : " + ((XfsEntry) entry).getINode().getUid() );
@@ -209,7 +209,6 @@ public class DataStructureAsserts
      * @param date  the epoch value.
      */
     private static String getDate(long date) {
-        long tempLong = (int) (date >> 32);
-        return new java.text.SimpleDateFormat("MM/dd/yyyy HH:mm:ss").format(new java.util.Date(tempLong * 1000));
+        return new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").format(new java.util.Date(date));
     }
 }

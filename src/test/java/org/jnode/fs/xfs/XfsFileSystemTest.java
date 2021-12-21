@@ -9,6 +9,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -52,23 +54,23 @@ public class XfsFileSystemTest {
         // Arrange
         String expectedStructure =
                 "  /; \n" +
-                        "    atime : 11/17/2021 00:50:04; ctime : 11/17/2021 00:48:33; mtime : 11/17/2021 00:48:33\n" +
-                        "    owner : 0; group : 0; size : 57; mode : 777; \n" +
-                        "    folder1; \n" +
-                        "        atime : 11/17/2021 00:50:07; ctime : 11/17/2021 00:50:07; mtime : 11/17/2021 00:50:07\n" +
-                        "        owner : 1000; group : 1000; size : 30; mode : 775; \n" +
-                        "      this_is_fine.jpg; \n" +
-                        "            atime : 11/17/2021 00:50:07; ctime : 11/17/2021 00:50:07; mtime : 05/19/2019 18:45:52\n" +
-                        "            owner : 1000; group : 1000; size : 53072; mode : 744; \n" +
-                        "    folder 2; \n" +
-                        "        atime : 11/17/2021 00:52:07; ctime : 11/17/2021 00:52:07; mtime : 11/17/2021 00:52:07\n" +
-                        "        owner : 1000; group : 1000; size : 21; mode : 775; \n" +
-                        "      xfs.zip; \n" +
-                        "            atime : 11/17/2021 00:52:07; ctime : 11/17/2021 00:52:07; mtime : 11/17/2021 00:52:03\n" +
-                        "            owner : 1000; group : 1000; size : 20103; mode : 744; \n" +
-                        "    testfile.txt; \n" +
-                        "        atime : 11/17/2021 00:48:33; ctime : 11/17/2021 00:48:33; mtime : 11/17/2021 00:48:33\n" +
-                        "        owner : 1000; group : 1000; size : 20; mode : 664; \n";
+                "    atime : 2021-11-17T00:50:04-0600; ctime : 2021-11-17T00:48:33-0600; mtime : 2021-11-17T00:48:33-0600\n" +
+                "    owner : 0; group : 0; size : 57; mode : 777; \n" +
+                "    folder1; \n" +
+                "        atime : 2021-11-17T00:50:07-0600; ctime : 2021-11-17T00:50:07-0600; mtime : 2021-11-17T00:50:07-0600\n" +
+                "        owner : 1000; group : 1000; size : 30; mode : 775; \n" +
+                "      this_is_fine.jpg; \n" +
+                "            atime : 2021-11-17T00:50:07-0600; ctime : 2021-11-17T00:50:07-0600; mtime : 2019-05-19T18:45:52-0500\n" +
+                "            owner : 1000; group : 1000; size : 53072; mode : 744; \n" +
+                "    folder 2; \n" +
+                "        atime : 2021-11-17T00:52:07-0600; ctime : 2021-11-17T00:52:07-0600; mtime : 2021-11-17T00:52:07-0600\n" +
+                "        owner : 1000; group : 1000; size : 21; mode : 775; \n" +
+                "      xfs.zip; \n" +
+                "            atime : 2021-11-17T00:52:07-0600; ctime : 2021-11-17T00:52:07-0600; mtime : 2021-11-17T00:52:03-0600\n" +
+                "            owner : 1000; group : 1000; size : 20103; mode : 744; \n" +
+                "    testfile.txt; \n" +
+                "        atime : 2021-11-17T00:48:33-0600; ctime : 2021-11-17T00:48:33-0600; mtime : 2021-11-17T00:48:33-0600\n" +
+                "        owner : 1000; group : 1000; size : 20; mode : 664; \n";
 
         try (FileDevice device = new FileDevice(testFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
@@ -85,5 +87,4 @@ public class XfsFileSystemTest {
             testFile.delete();
         }
     }
-
 }

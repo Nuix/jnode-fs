@@ -63,17 +63,17 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
 
     @Override
     public long getCreated() throws IOException {
-        return inode.getCreatedTime();
+        return (inode.getCreatedTime() >> 32) * 1000;
     }
 
     @Override
     public long getLastAccessed() throws IOException {
-        return inode.getAccessTime();
+        return (inode.getAccessTime() >> 32) * 1000;
     }
 
     @Override
     public long getLastModified() throws IOException {
-        return inode.getModifiedTime();
+        return (inode.getModifiedTime() >> 32) * 1000;
     }
 
     /**
