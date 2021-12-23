@@ -270,8 +270,7 @@ public class MyInode extends MyXfsBaseAccessor {
                 final long offset = extentInformation.getExtentOffset();
                 final MyBlockDirectory myBlockDirectory = new MyBlockDirectory(devApi, offset, fs);
                 return myBlockDirectory.getEntries();
-            } else {
-                //TODO: Failing due to node directory file structure check after PTO
+            } else if (extents.size() < 4){
                 final MyExtentInformation leafExtent = extents.get(extents.size() - 1);
                 final Leaf leaf = new Leaf(devApi, leafExtent.getExtentOffset(), fs, extents.size() - 1);
                 List<MyBlockDirectoryEntry> entries = new ArrayList<>((int)leaf.getLeafInfo().getCount());
@@ -287,6 +286,7 @@ public class MyInode extends MyXfsBaseAccessor {
                     final long relativeOffset = address * 8;
                     final long blockNum = Math.floorDiv(relativeOffset, directoryBlockSize);
                     if (blockNum >= leafDirectories.size()){
+                        // TODO: Check logic for extents larger than 1 block
                         System.out.println("edge case found getting directories for inode " + iNodeNumber + " unavailable block number " + blockNum);
                         continue;
                     }
@@ -298,7 +298,12 @@ public class MyInode extends MyXfsBaseAccessor {
                 }
 
                 return entries;
+            } else {
+                //TODO: Add logic for node directories
+                return Collections.emptyList();
             }
+        } else if (format == INodeFormat.BTREE.val) {
+            // TODO: B+Tree directories
         }
         throw new UnsupportedOperationException("getDirectories not supported for inode format " + format + " on offset " + getOffset());
 
