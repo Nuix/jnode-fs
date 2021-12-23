@@ -1,10 +1,7 @@
 package org.jnode.fs.xfs;
 
 import org.jnode.driver.block.FSBlockDeviceAPI;
-import org.jnode.fs.xfs.btree.Leaf;
-import org.jnode.fs.xfs.btree.LeafInfo;
-import org.jnode.fs.xfs.btree.MyXfsDir3BlkHdr;
-import org.jnode.fs.xfs.btree.MyXfsDir3DataHdr;
+import org.jnode.fs.xfs.btree.*;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -101,6 +98,11 @@ public class MyInode extends MyXfsBaseAccessor {
 
     public boolean isFile() throws IOException {
         return FileMode.is((int) getMode(),FileMode.FILE);
+    }
+
+
+    public boolean isSocket() throws IOException {
+        return FileMode.is((int) getMode(),FileMode.Socket);
     }
 
     public long getVersion() throws IOException {
@@ -261,29 +263,44 @@ public class MyInode extends MyXfsBaseAccessor {
                 throw new UnsupportedOperationException("Trying to get directories of a non directory inode");
             }
             final List<MyExtentInformation> extents = getExtentInfo();
-            int size = 0;
-            List<List<MyBlockDirectoryEntry>> bag = new ArrayList<>(extents.size());
-            //o MyBlockDirectory(devApi, offset,fs) Como hacer esta decision
-            for (int i=0,l=extents.size()-1;i<l;i++) {
-                final MyExtentInformation extent = extents.get(i);
-                final long offset = extent.getExtentOffset();
-                final MyXfsDir3DataHdr data = new MyXfsDir3DataHdr(devApi, offset, fs);
-                final List<MyBlockDirectoryEntry> tmp = data.getEntries();
-                size += tmp.size();
-                bag.add(tmp);
+            final long directoryBlockSizeLog2 = fs.getMainSuperBlock().getDirectoryBlockSizeLog2();
+            final long directoryBlockSize = (long) Math.pow(2, directoryBlockSizeLog2) * fs.getBlockSize();
+            if (extents.size() == 1) {
+                final MyExtentInformation extentInformation = extents.get(0);
+                final long offset = extentInformation.getExtentOffset();
+                final MyBlockDirectory myBlockDirectory = new MyBlockDirectory(devApi, offset, fs);
+                return myBlockDirectory.getEntries();
+            } else {
+                //TODO: Failing due to node directory file structure check after PTO
+                final MyExtentInformation leafExtent = extents.get(extents.size() - 1);
+                final Leaf leaf = new Leaf(devApi, leafExtent.getExtentOffset(), fs, extents.size() - 1);
+                List<MyBlockDirectoryEntry> entries = new ArrayList<>((int)leaf.getLeafInfo().getCount());
+                List<MyXfsDir3DataHdr> leafDirectories = new ArrayList<>(extents.size()-1);
+                for (int i = 0,l = extents.size()-1; i <l; i++) {
+                    final MyExtentInformation leafDirExtent = extents.get(i);
+                    final MyXfsDir3DataHdr leafDir = new MyXfsDir3DataHdr(devApi, leafDirExtent.getExtentOffset(), fs);
+                    leafDirectories.add(leafDir);
+                }
+                for (LeafEntry leafEntry : leaf.getLeafEntries()) {
+                    final long address = leafEntry.getAddress();
+                    if (address == 0) { continue; }
+                    final long relativeOffset = address * 8;
+                    final long blockNum = Math.floorDiv(relativeOffset, directoryBlockSize);
+                    if (blockNum >= leafDirectories.size()){
+                        System.out.println("edge case found getting directories for inode " + iNodeNumber + " unavailable block number " + blockNum);
+                        continue;
+                    }
+                    final long blockOffset = leafDirectories.get((int) blockNum).getDir3BlkHdr().getOffset();
+                    final long blockRelativeOffset = relativeOffset - (blockNum * directoryBlockSize);
+                    final MyBlockDirectoryEntry entry = new MyBlockDirectoryEntry(devApi, blockOffset + blockRelativeOffset, fs);
+                    if (entry.isFreeTag()) { continue; }
+                    entries.add(entry);
+                }
+
+                return entries;
             }
-
-            List<MyBlockDirectoryEntry> entries = new ArrayList<>(size);
-            for (List<MyBlockDirectoryEntry> myBlockDirectoryEntries : bag) {
-                entries.addAll(myBlockDirectoryEntries);
-            }
-
-//            final MyExtentInformation leafExtent = extents.get(extents.size() - 1);
-//            final Leaf leaf = new Leaf(devApi, leafExtent.getExtentOffset(), fs, extents.size() - 1);
-
-            return entries;
         }
-        throw new UnsupportedOperationException("getDirectories not supported for inode format " + format);
+        throw new UnsupportedOperationException("getDirectories not supported for inode format " + format + " on offset " + getOffset());
 
     }
 

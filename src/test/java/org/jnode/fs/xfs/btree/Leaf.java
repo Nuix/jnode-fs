@@ -14,7 +14,7 @@ public class Leaf {
     public Leaf(FSBlockDeviceAPI devApi, long superBlockStart, MyXfsFileSystem fs,int extentCount) throws IOException {
         leafInfo = new LeafInfo(devApi,superBlockStart,fs);
         final int infoCount = (int) leafInfo.getCount();
-        bestcount = extentCount - 1;
+        bestcount = extentCount;
         leafEntries = new ArrayList<>(infoCount);
         long leafEntryOffset = superBlockStart + 64;
         for (int i=0;i<infoCount;i++){

@@ -180,6 +180,11 @@ public class XfsFileSystemTypeTest {
             System.out.println(str + " --> " + inode.getSymLinkText());
             return;
         }
+
+        if (inode.isSocket()){
+            System.out.println(str + "[[SOCKET]]");
+            return;
+        }
         final List<? extends IMyDirectory> directories = inode.getDirectories();
         if (directories.size() == 0){
             System.out.println(str + "/");
