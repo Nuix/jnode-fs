@@ -263,51 +263,32 @@ public class MyInode extends MyXfsBaseAccessor {
                 throw new UnsupportedOperationException("Trying to get directories of a non directory inode");
             }
             final List<MyExtentInformation> extents = getExtentInfo();
-            final long directoryBlockSizeLog2 = fs.getMainSuperBlock().getDirectoryBlockSizeLog2();
-            final long directoryBlockSize = (long) Math.pow(2, directoryBlockSizeLog2) * fs.getBlockSize();
             if (extents.size() == 1) {
+                // Block Directory
                 final MyExtentInformation extentInformation = extents.get(0);
                 final long offset = extentInformation.getExtentOffset();
                 final MyBlockDirectory myBlockDirectory = new MyBlockDirectory(devApi, offset, fs);
                 return myBlockDirectory.getEntries();
-            } else if (extents.size() < 4){
-                final MyExtentInformation leafExtent = extents.get(extents.size() - 1);
-                final Leaf leaf = new Leaf(devApi, leafExtent.getExtentOffset(), fs, extents.size() - 1);
-                List<MyBlockDirectoryEntry> entries = new ArrayList<>((int)leaf.getLeafInfo().getCount());
-                List<MyXfsDir3DataHdr> leafDirectories = new ArrayList<>(extents.size()-1);
-                for (int i = 0,l = extents.size()-1; i <l; i++) {
-                    final MyExtentInformation leafDirExtent = extents.get(i);
-                    final MyXfsDir3DataHdr leafDir = new MyXfsDir3DataHdr(devApi, leafDirExtent.getExtentOffset(), fs);
-                    leafDirectories.add(leafDir);
-                }
-                for (LeafEntry leafEntry : leaf.getLeafEntries()) {
-                    final long address = leafEntry.getAddress();
-                    if (address == 0) { continue; }
-                    final long relativeOffset = address * 8;
-                    final long blockNum = Math.floorDiv(relativeOffset, directoryBlockSize);
-                    if (blockNum >= leafDirectories.size()){
-                        // TODO: Check logic for extents larger than 1 block
-                        System.out.println("edge case found getting directories for inode " + iNodeNumber + " unavailable block number " + blockNum);
-                        continue;
-                    }
-                    final long blockOffset = leafDirectories.get((int) blockNum).getDir3BlkHdr().getOffset();
-                    final long blockRelativeOffset = relativeOffset - (blockNum * directoryBlockSize);
-                    final MyBlockDirectoryEntry entry = new MyBlockDirectoryEntry(devApi, blockOffset + blockRelativeOffset, fs);
-                    if (entry.isFreeTag()) { continue; }
-                    entries.add(entry);
-                }
-
-                return entries;
             } else {
-                //TODO: Add logic for node directories
-                return Collections.emptyList();
+                long leafExtentIndex = MyLeafDirectory.getLeafExtentIndex(extents,fs);
+                if (leafExtentIndex == -1){
+                    throw new IOException("Cannot compute leaf extent for inode " + iNodeNumber);
+                }
+                if (leafExtentIndex == (extents.size()-1)) {
+                    final MyLeafDirectory directory = new MyLeafDirectory(devApi, fs, iNodeNumber, extents);
+                    return directory.getEntries();
+                } else {
+                    final MyNodeDirectory directory = new MyNodeDirectory(devApi, fs, iNodeNumber, extents, leafExtentIndex);
+                    return directory.getEntries();
+                }
             }
         } else if (format == INodeFormat.BTREE.val) {
             // TODO: B+Tree directories
         }
-        throw new UnsupportedOperationException("getDirectories not supported for inode format " + format + " on offset " + getOffset());
+        throw new UnsupportedOperationException("getDirectories not supported for inode format " + format + " on offset " + getOffset() + " For INode " + iNodeNumber);
 
     }
+
 
     public List<MyExtentInformation> getExtentInfo() throws IOException {
         long offset = getOffset() + getINodeSizeForOffset();

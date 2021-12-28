@@ -13,6 +13,8 @@ public class MyExtentInformation extends MyXfsBaseAccessor {
     private final long blockCount;
     private final long startOffset;
     private final long startBlock;
+
+    private final long extentOffset;
     private static final int EXTENT_BIT_LENGTH = 128;
     private static final int BLOCK_COUNT_BIT_LENGTH = 21;
     private static final int START_OFFSET_BIT_LENGTH = 52;
@@ -43,6 +45,16 @@ public class MyExtentInformation extends MyXfsBaseAccessor {
         startBlock = value_128bit_lower | ( value_128bit_upper & 0x1ffL );
         value_128bit_upper = value_128bit_upper >>> 9;
         startOffset = value_128bit_upper & 0x3fffffffffffffL;
+        extentOffset = calcExtentOffset();
+    }
+
+    private long calcExtentOffset() throws IOException {
+        final MySuperblock sb = fs.getMainSuperBlock();
+        final long agSizeLog2 = sb.getAGSizeLog2();
+        long allocationGroupIndex = startBlock >> agSizeLog2;
+        long relativeBlockNumber  = startBlock & ( ( (long) 1 << agSizeLog2 ) - 1 );
+        long allocationGroupBlockNumber = allocationGroupIndex * sb.getAGSize();
+        return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
     }
 
     @Override
@@ -55,30 +67,25 @@ public class MyExtentInformation extends MyXfsBaseAccessor {
         return 0L;
     }
 
-    public long getBlockCount() throws IOException {
+    public long getBlockCount() {
         return blockCount;
     }
-    public long getStartOffset() throws IOException {
+    public long getStartOffset() {
         return startOffset;
     }
-    public long getStartBlock() throws IOException {
+    public long getStartBlock() {
         return startBlock;
     }
     public long getState() throws IOException {
         return read(0,1);
     }
 
-    public long getExtentOffset() throws IOException {
-        final MySuperblock sb = fs.getMainSuperBlock();
-        final long agSizeLog2 = sb.getAGSizeLog2();
-        long allocationGroupIndex = startBlock >> agSizeLog2;
-        long relativeBlockNumber  = startBlock & ( ( (long) 1 << agSizeLog2 ) - 1 );
-        long allocationGroupBlockNumber = allocationGroupIndex * sb.getAGSize();
-        return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
+    public long getExtentOffset(){
+        return extentOffset;
     }
 
-    public void read(ByteBuffer buffer,int offset) {
-
+    public void read(ByteBuffer buffer,int offset) throws IOException {
+        devApi.read(extentOffset + offset,buffer);
     }
 
     @Override
