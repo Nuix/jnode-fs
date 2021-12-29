@@ -21,6 +21,7 @@ public class MyExtentOffsetManager {
         for (MyExtentInformation extent : extents) {
             final long extentSize = extent.getBlockCount() * blockSize;
             limits.add(new ExtentOffsetLimitData(accumulator, extentSize + accumulator, extent));
+            accumulator += extentSize;
         }
     }
 
@@ -28,7 +29,7 @@ public class MyExtentOffsetManager {
         final Optional<ExtentOffsetLimitData> limitData = limits.stream()
                 .filter(d -> d.start <= offset && d.end > offset)
                 .findFirst();
-        return limitData.orElseThrow(() -> new RuntimeException("Offset out of bounds"));
+        return limitData.orElse(null);
     }
 
     public static class ExtentOffsetLimitData {
@@ -52,6 +53,15 @@ public class MyExtentOffsetManager {
 
         public MyExtentInformation getExtent() {
             return extent;
+        }
+
+        @Override
+        public String toString() {
+            return "ExtentOffsetLimitData{" +
+                    "start=" + start +
+                    ", end=" + end +
+                    ", extent=" + extent +
+                    '}';
         }
     }
 }

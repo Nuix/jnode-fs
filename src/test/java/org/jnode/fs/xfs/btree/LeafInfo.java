@@ -5,12 +5,14 @@ import org.jnode.fs.xfs.MyXfsBaseAccessor;
 import org.jnode.fs.xfs.MyXfsFileSystem;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 public class LeafInfo extends MyXfsBaseAccessor {
 
-    public static final long MAGIC = 0x3df1;
+    public static final long LEAF_DIR_MAGIC = 0x3df1;
+    public static final long NODE_DIR_MAGIC = 0x3dfF;
     private final long forward;
     private final long backward;
     private final long crc;
@@ -42,7 +44,7 @@ public class LeafInfo extends MyXfsBaseAccessor {
 
     @Override
     protected List<Long> validSignatures() {
-        return Collections.singletonList(MAGIC);
+        return Arrays.asList(LEAF_DIR_MAGIC,NODE_DIR_MAGIC);
     }
 
     public long getForward() {

@@ -37,30 +37,16 @@ public class MyLeafDirectory {
 
     public List<? extends IMyDirectory> getEntries() throws IOException {
         final MyExtentInformation leafExtent = extents.get(extents.size() - 1);
-        final long directoryBlockSizeLog2 = fs.getMainSuperBlock().getDirectoryBlockSizeLog2();
-        final long directoryBlockSize = (long) Math.pow(2, directoryBlockSizeLog2) * fs.getBlockSize();
         final Leaf leaf = new Leaf(devApi, leafExtent.getExtentOffset(), fs, extents.size() - 1);
         List<MyBlockDirectoryEntry> entries = new ArrayList<>((int)leaf.getLeafInfo().getCount());
-        List<MyXfsDir3DataHdr> leafDirectories = new ArrayList<>(extents.size()-1);
-        for (int i = 0,l = extents.size()-1; i <l; i++) {
-            final MyExtentInformation leafDirExtent = extents.get(i);
-            final MyXfsDir3DataHdr leafDir = new MyXfsDir3DataHdr(devApi, leafDirExtent.getExtentOffset(), fs);
-            leafDirectories.add(leafDir);
-        }
-
+        final MyExtentOffsetManager extentOffsetManager = new MyExtentOffsetManager(extents.subList(0, extents.size() - 1), fs);
         for (LeafEntry leafEntry : leaf.getLeafEntries()) {
             final long address = leafEntry.getAddress();
             if (address == 0) { continue; }
-            final long relativeOffset = address * 8;
-            final long blockNum = Math.floorDiv(relativeOffset, directoryBlockSize);
-            if (blockNum >= leafDirectories.size()){
-                // TODO: Check logic for extents larger than 1 block
-                System.out.println("edge case found getting directories for inode " + iNodeNumber + " unavailable block number " + blockNum);
-                continue;
-            }
-            final long blockOffset = leafDirectories.get((int) blockNum).getDir3BlkHdr().getOffset();
-            final long blockRelativeOffset = relativeOffset - (blockNum * directoryBlockSize);
-            final MyBlockDirectoryEntry entry = new MyBlockDirectoryEntry(devApi, blockOffset + blockRelativeOffset, fs);
+            final long extentGroupOffset = address * 8;
+            final MyExtentOffsetManager.ExtentOffsetLimitData data = extentOffsetManager.getExtentDataForOffset(extentGroupOffset);
+            final long extentRelativeOffset = extentGroupOffset - data.getStart();
+            final MyBlockDirectoryEntry entry = new MyBlockDirectoryEntry(devApi, data.getExtent().getExtentOffset() + extentRelativeOffset, fs);
             if (entry.isFreeTag()) { continue; }
             entries.add(entry);
         }

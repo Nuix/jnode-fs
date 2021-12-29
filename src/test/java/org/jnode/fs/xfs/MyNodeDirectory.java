@@ -38,6 +38,18 @@ public class MyNodeDirectory {
         List<MyBlockDirectoryEntry> entries = new ArrayList<>(leafEntries.size());
         final MyExtentOffsetManager extentOffsetManager = new MyExtentOffsetManager(dataExtents, fs);
         for (LeafEntry leafEntry : leafEntries) {
+            final long address = leafEntry.getAddress();
+            if (address == 0) { continue; }
+            final long extentGroupOffset = address * 8;
+            final MyExtentOffsetManager.ExtentOffsetLimitData data = extentOffsetManager.getExtentDataForOffset(extentGroupOffset);
+            if (data == null){
+                System.out.println("# Error on Node Directory " + iNodeNumber + " No Relative address " + address + "(" +extentGroupOffset  + ") found");
+                continue;
+            }
+            final long extentRelativeOffset = extentGroupOffset - data.getStart();
+            final MyBlockDirectoryEntry entry = new MyBlockDirectoryEntry(devApi, data.getExtent().getExtentOffset() + extentRelativeOffset, fs);
+            if (entry.isFreeTag()) { continue; }
+            entries.add(entry);
 
         }
 
