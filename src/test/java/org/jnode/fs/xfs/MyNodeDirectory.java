@@ -27,7 +27,7 @@ public class MyNodeDirectory {
         this.leafExtentIndex = (int) leafExtentIndex;
     }
 
-    public List<? extends IMyDirectory> getEntries() throws IOException {
+    public List<MyBlockDirectoryEntry> getEntries() throws IOException {
         final List<MyExtentInformation> leafExtents = extents.subList(leafExtentIndex+1, extents.size() - 1);
         final List<MyExtentInformation> dataExtents = extents.subList(0, leafExtentIndex-1);
         final MyExtentInformation freeExtent = extents.get(extents.size() - 1);

@@ -2,8 +2,10 @@ package org.jnode.fs.xfs;
 
 import org.jnode.driver.block.FSBlockDeviceAPI;
 import org.jnode.fs.xfs.btree.*;
+import org.jnode.util.BigEndian;
 
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidParameterException;
@@ -283,7 +285,8 @@ public class MyInode extends MyXfsBaseAccessor {
                 }
             }
         } else if (format == INodeFormat.BTREE.val) {
-            // TODO: B+Tree directories
+            final MyBPlusTreeDirectory directory = new MyBPlusTreeDirectory(this);
+            return directory.getEntries();
         }
         throw new UnsupportedOperationException("getDirectories not supported for inode format " + format + " on offset " + getOffset() + " For INode " + iNodeNumber);
 

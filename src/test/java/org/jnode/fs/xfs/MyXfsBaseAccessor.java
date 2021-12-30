@@ -67,6 +67,14 @@ public abstract class MyXfsBaseAccessor {
                 + "-" + readAsHexString(offset + 10, 6);
     }
 
+    public FSBlockDeviceAPI getDevApi() {
+        return devApi;
+    }
+
+    public MyXfsFileSystem getFs() {
+        return fs;
+    }
+
     public long getOffset() {
         return offset;
     }

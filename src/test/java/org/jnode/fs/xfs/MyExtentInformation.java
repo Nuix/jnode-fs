@@ -48,13 +48,18 @@ public class MyExtentInformation extends MyXfsBaseAccessor {
         extentOffset = calcExtentOffset();
     }
 
-    private long calcExtentOffset() throws IOException {
+    public static long calcFsBlockOffset(long block,MyXfsFileSystem fs) throws IOException {
         final MySuperblock sb = fs.getMainSuperBlock();
         final long agSizeLog2 = sb.getAGSizeLog2();
-        long allocationGroupIndex = startBlock >> agSizeLog2;
-        long relativeBlockNumber  = startBlock & ( ( (long) 1 << agSizeLog2 ) - 1 );
+        long allocationGroupIndex = block >> agSizeLog2;
+        long relativeBlockNumber  = block & ( ( (long) 1 << agSizeLog2 ) - 1 );
         long allocationGroupBlockNumber = allocationGroupIndex * sb.getAGSize();
         return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
+
+    }
+
+    private long calcExtentOffset() throws IOException {
+        return calcFsBlockOffset(startBlock,fs);
     }
 
     @Override

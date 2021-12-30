@@ -35,7 +35,7 @@ public class MyLeafDirectory {
         return leafExtentIndex;
     }
 
-    public List<? extends IMyDirectory> getEntries() throws IOException {
+    public List<MyBlockDirectoryEntry> getEntries() throws IOException {
         final MyExtentInformation leafExtent = extents.get(extents.size() - 1);
         final Leaf leaf = new Leaf(devApi, leafExtent.getExtentOffset(), fs, extents.size() - 1);
         List<MyBlockDirectoryEntry> entries = new ArrayList<>((int)leaf.getLeafInfo().getCount());
