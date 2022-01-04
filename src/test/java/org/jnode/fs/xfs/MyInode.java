@@ -192,7 +192,7 @@ public class MyInode extends MyXfsBaseAccessor {
     }
 
     public long getAttributesFormat() throws IOException {
-        return read(82, 1);
+        return read(83, 1);
     }
 
     public long getFlags() throws IOException {
@@ -290,6 +290,27 @@ public class MyInode extends MyXfsBaseAccessor {
         }
         throw new UnsupportedOperationException("getDirectories not supported for inode format " + format + " on offset " + getOffset() + " For INode " + iNodeNumber);
 
+    }
+
+    public List<MyXfsAttribute> getAttributes() throws IOException {
+        long off =  getOffset() + getINodeSizeForOffset() + (getAttributesForkOffset() * 8);
+        final MyXfsAttributeHeader myXfsAttributeHeader = new MyXfsAttributeHeader(devApi, off, fs);
+        final long attributesFormat = getAttributesFormat();
+        if (attributesFormat == 1){
+            off += 4;  // header length remeber header has a 1 byte padding
+            final int count = (int) myXfsAttributeHeader.getCount();
+            List<MyXfsAttribute> attributes = new ArrayList<>(count);
+            for (int i = 0; i < count; i++) {
+                final MyXfsAttribute attribute = new MyXfsAttribute(devApi, off, fs);
+                attributes.add(attribute);
+                off += attribute.getAttributeSizeForOffset();
+            }
+            return attributes;
+        } else {
+            System.out.println(">>> Pending implementation due to lack of examples for attribute format " + attributesFormat
+            + " Found on Inode " + iNodeNumber);
+        }
+        return Collections.emptyList();
     }
 
 
