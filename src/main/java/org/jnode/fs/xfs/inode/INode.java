@@ -1,6 +1,17 @@
 package org.jnode.fs.xfs.inode;
 
 import org.jnode.fs.xfs.XfsObject;
+import org.jnode.fs.xfs.XfsValidSignature;
+import org.jnode.fs.xfs.attribute.XfsAttribute;
+import org.jnode.fs.xfs.attribute.XfsAttributeHeader;
+import org.jnode.fs.xfs.extent.DataExtent;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * A XFS inode ('xfs_dinode_core').
@@ -9,10 +20,58 @@ import org.jnode.fs.xfs.XfsObject;
  */
 public class INode extends XfsObject {
 
+    enum INodeFormat {
+        LOCAL(1),EXTENT(2),BTREE(3);
+        final int val;
+        INodeFormat(int val){
+            this.val = val;
+        }
+    }
+
+    enum FileMode {
+        // FILE PERMISSIONS
+        OTHER_X(0x0007 ,0x0001),
+        OTHER_W(0x0007,0x0002),
+        OTHER_R(0x0007,0x0004),
+        GROUP_X(0x0038 ,0x0008),
+        GROUP_W(0x0038,0x0010),
+        GROUP_R(0x0038,0x0020),
+        USER_X(0x01c0 ,0x0040),
+        USER_W(0x01c0,0x0080),
+        USER_R(0x01c0,0x0100),
+        //TODO: Check mask
+//        STICKY_BIT(0xFFFF,0x0200),
+//        SET_GID(0xFFFF,0x0400),
+//        SET_UID(0xFFFF,0x0800),
+        // FILE TYPE
+        NAMED_PIPE(0xf000,0x1000),
+        CHARACTER_DEVICE(0xf000,0x2000),
+        DIRECTORY(0xf000,0x4000),
+        BLOCK_DEVICE(0xf000,0x6000),
+        FILE(0xf000,0x8000),
+        SYM_LINK(0xf000,0xa000),
+        Socket(0xf000,0xc000);
+        final int mask;
+        final int val;
+
+        private FileMode(int mask,int val){
+            this.mask = mask;
+            this.val = val;
+        }
+
+        public static boolean is(int data,FileMode mode){
+            return (data & mode.mask) == mode.val;
+        }
+
+        public static List<FileMode> getModes(int data){
+            return Arrays.stream(FileMode.values()).filter(mode -> FileMode.is(data,mode)).collect(Collectors.toList());
+        }
+    }
+
     /**
      * The magic number ('IN').
      */
-    public static final int MAGIC = 0x494e;
+    public static final long MAGIC = 0x494e;
 
     /**
      * The offset to the inode data.
@@ -23,6 +82,11 @@ public class INode extends XfsObject {
      * The offset to the v3 inode data.
      */
     public static final int V3_DATA_OFFSET = 0xb0;
+
+    /**
+     * The offset to the v3 inode data.
+     */
+    public static final int V3 = 0x3;
 
     /**
      * The inode number.
@@ -38,20 +102,23 @@ public class INode extends XfsObject {
      */
     public INode(long inodeNr, byte[] data, int offset) {
         super(data, offset);
-
         this.inodeNr = inodeNr;
-
-        if (getMagic() != MAGIC) {
-            throw new IllegalStateException("Invalid inode magic: " + getMagic() + " for inode: " + inodeNr);
+        try {
+            if (!isValidSignature()) {
+                throw new XfsValidSignature(getAsciiSignature(), validSignatures(), (long)offset, this.getClass());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
 
-        if (getVersion() >= 3) {
+        if (getVersion() >= V3) {
             if (getV3INodeNumber() != inodeNr) {
                 throw new IllegalStateException("Stored inode (" + getV3INodeNumber() +
                     ") does not match passed in number:" + inodeNr);
             }
         }
     }
+    protected List<Long> validSignatures() { return Arrays.asList(MAGIC); }
 
     /**
      * Gets the inode number.
@@ -67,9 +134,7 @@ public class INode extends XfsObject {
      *
      * @return the magic.
      */
-    public int getMagic() {
-        return getUInt16(0);
-    }
+    public long getMagicSignature() { return getUInt16(0); }
 
     /**
      * Gets the mode stored in this inode.
@@ -78,6 +143,24 @@ public class INode extends XfsObject {
      */
     public int getMode() {
         return getUInt16(0x2);
+    }
+
+    /**
+     * Is Directory the current inode.
+     *
+     * @return true.
+     */
+    public boolean isDirectory() throws IOException {
+        return FileMode.is((int) getMode(),FileMode.DIRECTORY);
+    }
+
+    /**
+     * Gets the mode stored in this inode.
+     *
+     * @return the mode.
+     */
+    public boolean isFile() throws IOException {
+        return FileMode.is((int) getMode(),FileMode.FILE);
     }
 
     /**
@@ -136,9 +219,7 @@ public class INode extends XfsObject {
      *
      * @return the access time.
      */
-    public long getAccessTime() {
-        return getInt64(0x20);
-    }
+    public long getAccessTime() { return getInt64(0x20); }
 
     /**
      * Gets the modified time.
@@ -154,9 +235,7 @@ public class INode extends XfsObject {
      *
      * @return the created time.
      */
-    public long getCreatedTime() {
-        return getInt64(0x30);
-    }
+    public long getCreatedTime() { return getInt64(0x30); }
 
     /**
      * Gets the size.
@@ -219,6 +298,55 @@ public class INode extends XfsObject {
      */
     public long getV3Uuid() {
         return getInt64(0xa0);
+    }
+
+    public int getINodeSizeForOffset() throws IOException {
+        return getVersion() == V3 ? V3_DATA_OFFSET : DATA_OFFSET;
+    }
+
+    public boolean isSymLink() throws IOException {
+        return FileMode.is((int) getMode(),FileMode.SYM_LINK);
+    }
+
+    public List<DataExtent> getExtentInfo() throws IOException {
+        long offset = getOffset() + getINodeSizeForOffset();
+        final int count = (int) getExtentCount();
+        final ArrayList<DataExtent> list = new ArrayList<>(count);
+        for (int i=0;i<count;i++) {
+            final DataExtent info = new DataExtent(this.getData(), (int) offset);
+            list.add(info);
+            offset += 0x10;
+        }
+        return list;
+    }
+
+    public List<XfsAttribute> getAttributes() throws IOException {
+        long off =  getOffset() + getINodeSizeForOffset() + (getAttributesForkOffset() * 8);
+        final XfsAttributeHeader myXfsAttributeHeader = new XfsAttributeHeader(getData(), off);
+        final long attributesFormat = getAttributesFormat();
+        if (attributesFormat == 1){
+            off += 4;  // header length remeber header has a 1 byte padding
+            final int count = (int) myXfsAttributeHeader.getCount();
+            List<XfsAttribute> attributes = new ArrayList<>(count);
+            for (int i = 0; i < count; i++) {
+                final XfsAttribute attribute = new XfsAttribute(getData(), off);
+                attributes.add(attribute);
+                off += attribute.getAttributeSizeForOffset();
+            }
+            return attributes;
+        } else {
+            System.out.println(">>> Pending implementation due to lack of examples for attribute format " + attributesFormat
+                    + " Found on Inode " + inodeNr);
+        }
+        return Collections.emptyList();
+    }
+
+    public long getAttributesForkOffset() throws IOException {
+        return read(82, 1);
+    }
+
+    public long getAttributesFormat() throws IOException {
+        return read(83, 1);
     }
 
     @Override

@@ -9,8 +9,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.io.IOException;
+import java.util.Iterator;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -85,6 +85,48 @@ public class XfsFileSystemTest {
 
         } finally {
             testFile.delete();
+        }
+    }
+
+    @Test
+    public void testCentos() throws Exception {
+
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/centos-xfs.img");
+
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = new XfsFileSystemType();
+            XfsFileSystem fs = type.create(device, true);
+            FSEntry entry = fs.getRootEntry();
+            StringBuilder actual = new StringBuilder(1024*1024);
+            buildXfsDirStructure(entry, actual, "  ");
+            System.out.println(actual);
+        } finally {
+            testFile.delete();
+        }
+    }
+
+
+    public static void buildXfsDirStructure(FSEntry entry,StringBuilder actual, String indent) throws IOException
+    {
+        actual.append(indent);
+        actual.append(entry.getName());
+        actual.append("; \n");
+
+        if (entry.isDirectory()) {
+            FSDirectory directory = entry.getDirectory();
+
+            Iterator<? extends FSEntry> iterator = directory.iterator();
+
+            while (iterator.hasNext()) {
+                FSEntry child = iterator.next();
+
+                if (".".equals(child.getName()) || "..".equals(child.getName()))
+                {
+                    continue;
+                }
+
+                buildXfsDirStructure(child, actual, indent + "  ");
+            }
         }
     }
 }

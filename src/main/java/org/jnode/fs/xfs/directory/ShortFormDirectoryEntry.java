@@ -1,6 +1,9 @@
 package org.jnode.fs.xfs.directory;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
+import java.util.List;
+
 import org.jnode.fs.xfs.XfsObject;
 
 /**
@@ -77,6 +80,8 @@ public class ShortFormDirectoryEntry extends XfsObject {
     public int getLength() {
         return getNameLength() + 0x8;
     }
+
+    protected List<Long> validSignatures() { return Arrays.asList(0L); }
 
     @Override
     public String toString() {

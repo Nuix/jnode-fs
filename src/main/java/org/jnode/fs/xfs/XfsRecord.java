@@ -1,5 +1,8 @@
 package org.jnode.fs.xfs;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * A base class for XFS records.
  *
@@ -31,4 +34,6 @@ public abstract class XfsRecord extends XfsObject {
     public long getMagic() {
         return getUInt32(0x0);
     }
+
+    protected List<Long> validSignatures() { return Arrays.asList(0L); }
 }

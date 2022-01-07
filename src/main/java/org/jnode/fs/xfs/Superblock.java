@@ -173,6 +173,36 @@ public class Superblock extends XfsRecord {
         return getUInt32(0xc8);
     }
 
+
+    /**
+     * Allocation group size in log2
+     *     Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
+     */
+    public long getAGSizeLog2() throws IOException {
+        return getUInt8(0x7c);
+    }
+    /**
+     * Number of inodes per block in log2
+     *     Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
+     */
+    public long getINodePerBlockLog2() throws IOException {
+        return getUInt8(0x7b);
+    }
+    /**
+     * Directory block size in log2
+     */
+    public long getDirectoryBlockSizeLog2() throws IOException {
+        return read(0xc0, 1);
+    }
+
+    /**
+     * Journal device sector size in log2
+     */
+    public long getJournalDeviceSizeLog2() throws IOException {
+        return read(0xc1, 1);
+    }
+
+
     /*
     typedef struct xfs_sb
     {

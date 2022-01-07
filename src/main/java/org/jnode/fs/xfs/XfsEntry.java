@@ -117,7 +117,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
                     extentList = new ArrayList<DataExtent>();
 
                     for (int i = 0; i < inode.getExtentCount(); i++) {
-                        int inodeDataOffset = inode.getVersion() >= 3 ? INode.V3_DATA_OFFSET : INode.DATA_OFFSET;
+                        int inodeDataOffset = inode.getVersion() >= INode.V3 ? INode.V3_DATA_OFFSET : INode.DATA_OFFSET;
                         int inodeOffset = inode.getOffset() + inodeDataOffset;
                         int extentOffset = inodeOffset + i * DataExtent.PACKED_LENGTH;
                         DataExtent extent = new DataExtent(inode.getData(), extentOffset);

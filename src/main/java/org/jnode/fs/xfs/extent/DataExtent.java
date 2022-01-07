@@ -1,6 +1,12 @@
 package org.jnode.fs.xfs.extent;
 
+import org.jnode.fs.xfs.Superblock;
+import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * A data extent ('xfs_bmbt_rec_t' packed, or 'xfs_bmbt_irec_t' unpacked).
@@ -91,6 +97,26 @@ public class DataExtent extends XfsObject {
             fileOffset >= startOffset * blockSize &&
             fileOffset < (startOffset + blockCount) * blockSize;
     }
+
+    public long getExtentOffset(XfsFileSystem fs) throws IOException {
+        final Superblock sb = fs.getSuperblock();
+        final long agSizeLog2 = sb.getAGSizeLog2();
+        long allocationGroupIndex = startBlock >> agSizeLog2;
+        long relativeBlockNumber  = startBlock & ( ( (long) 1 << agSizeLog2 ) - 1 );
+        long allocationGroupBlockNumber = allocationGroupIndex * sb.getAGSize();
+        return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
+    }
+
+    public static long getFileSystemBlockOffset(long block,XfsFileSystem fs) throws IOException {
+        final Superblock sb = fs.getSuperblock();
+        final long agSizeLog2 = sb.getAGSizeLog2();
+        long allocationGroupIndex = block >> agSizeLog2;
+        long relativeBlockNumber  = block & ( ( (long) 1 << agSizeLog2 ) - 1 );
+        long allocationGroupBlockNumber = allocationGroupIndex * sb.getAGSize();
+        return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
+    }
+
+    protected List<Long> validSignatures() { return Arrays.asList(0L); }
 
     @Override
     public String toString() {

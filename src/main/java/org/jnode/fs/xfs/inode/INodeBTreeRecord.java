@@ -3,6 +3,9 @@ package org.jnode.fs.xfs.inode;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.btree.BTreeRecord;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * An inode b-tree record ('xfs_inobt_rec').
  *
@@ -70,6 +73,8 @@ public class INodeBTreeRecord extends XfsObject implements BTreeRecord {
     public boolean containsInode(long inode) {
         return inode >= getStartIno() && inode < getStartIno() + getRecordCount();
     }
+
+    protected List<Long> validSignatures() { return Arrays.asList(0L); }
 
     @Override
     public String toString() {

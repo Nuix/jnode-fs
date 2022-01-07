@@ -22,7 +22,7 @@ public class XfsFileSystemType implements BlockDeviceFileSystemType<XfsFileSyste
     public static final Class<XfsFileSystemType> ID = XfsFileSystemType.class;
 
     @Override
-    public XfsFileSystem create(Device device, boolean readOnly) throws FileSystemException {
+    public XfsFileSystem create(Device device, boolean readOnly) throws FileSystemException, IOException {
         XfsFileSystem fs = new XfsFileSystem(device, this);
         fs.read();
         return fs;

@@ -2,6 +2,7 @@ package org.jnode.fs.xfs;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 import com.google.common.base.Splitter;
 import org.jnode.driver.Device;
@@ -37,10 +38,28 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      */
     private INodeBTree inodeBTree;
 
+    private INode inode;
+
     /**
      * The inode size.
      */
     private int iNodeSize;
+
+    /**
+     * The allocation group size.
+     */
+    private long allocationGroupSize;
+
+    /**
+     * The allocation group block size.
+     */
+    private long blockSize;
+
+    /**
+     * The allocation group count.
+     */
+    private int aGCount;
+
 
     /**
      * Construct an XFS file system.
@@ -73,10 +92,13 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      *
      * @throws FileSystemException if an error occurs reading the file system.
      */
-    public final void read() throws FileSystemException {
+    public final void read() throws FileSystemException, IOException {
         superblock = new Superblock(this);
         agINode = new AllocationGroupINode(this);
         iNodeSize = superblock.getInodeSize();
+        blockSize = superblock.getBlockSize();
+        aGCount = (int) superblock.getAGCount();
+        allocationGroupSize = blockSize * superblock.getTotalBlocks() / aGCount;
 
         try {
             inodeBTree = new INodeBTree(this, agINode);
@@ -85,16 +107,29 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
         }
     }
 
-    public INode getINode(long iNodeNumber) {
-        ByteBuffer allocate = ByteBuffer.allocate(iNodeSize);
 
-        try {
-            this.getApi().read(iNodeSize * iNodeNumber, allocate);
-            return new INode(iNodeNumber, allocate.array() , 0);
-        } catch (IOException e) {
-            throw new RuntimeException("Error reading inode: " + iNodeNumber , e);
-        }
+
+    public INode getINode(long absoluteINodeNumber) throws IOException {
+
+        final long numberOfRelativeINodeBits = getSuperblock().getAGSizeLog2() + getSuperblock().getINodePerBlockLog2();
+        int allocationGroupIndex = (int) (absoluteINodeNumber >> numberOfRelativeINodeBits);
+        long allocationGroupBlockNumber = (long) allocationGroupIndex * getSuperblock().getAGSize();
+        long relativeINodeNumber  = absoluteINodeNumber & (((long)1 << numberOfRelativeINodeBits) - 1);
+        // Calculate the offset of the iNode number.
+        long offset = (allocationGroupBlockNumber * getSuperblock().getBlockSize()) + (relativeINodeNumber * getSuperblock().getInodeSize());
+        // Reserve the space to read the iNode
+        ByteBuffer allocate = ByteBuffer.allocate(getSuperblock().getInodeSize());
+        // Read the iNode data
+        this.getApi().read(offset, allocate);
+        return new INode(absoluteINodeNumber, allocate.array(), 0);
     }
+
+//    public String getSymLinkText() throws IOException {
+//        ByteBuffer buffer = ByteBuffer.allocate((int) getSuperblock().getInodeSize());
+//        this.getApi().read(getOffset() + getINodeSizeForOffset(),buffer);
+//        return new String(buffer.array(), StandardCharsets.US_ASCII);
+//    }
+
 
     @Override
     public long getTotalSpace() throws IOException {
@@ -130,7 +165,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     @Override
     protected XfsEntry createRootEntry() throws IOException {
         long rootIno = superblock.getRootInode();
-        return new XfsEntry(inodeBTree.getINode(rootIno), "/", 0, this, null);
+        return new XfsEntry(this.getINode(rootIno), "/", 0, this, null);
     }
 
     /**
