@@ -67,7 +67,6 @@ public class ShortFormDirectoryEntry extends XfsObject {
      * @return the inode number.
      */
     public long getINumber() {
-
         int numberOffset = getNameLength() + this.inodeSize;
         return inodeSize == 4 ? getUInt32(numberOffset) : getInt64(numberOffset);
     }
@@ -81,7 +80,12 @@ public class ShortFormDirectoryEntry extends XfsObject {
         return getNameLength() + 0x8;
     }
 
-    protected List<Long> validSignatures() { return Arrays.asList(0L); }
+    /**
+     * Validate the magic key data
+     */
+    protected List<Long> validSignatures() {
+        return Arrays.asList(0L);
+    }
 
     @Override
     public String toString() {

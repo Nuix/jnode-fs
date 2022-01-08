@@ -21,6 +21,7 @@ import java.util.*;
  */
 
 public class BlockDirectory extends XfsObject  {
+
     /**
      * The magic number XD2B on < v5 filesystem
      */
@@ -60,6 +61,8 @@ public class BlockDirectory extends XfsObject  {
 
     /**
      * Validate the magic key data
+     *
+     * @return a list of valid magic signatures
      */
     protected List<Long> validSignatures() { return Arrays.asList(MAGIC_V5,MAGIC_V4); }
 
@@ -71,6 +74,7 @@ public class BlockDirectory extends XfsObject  {
     public long getChecksum() throws IOException {
         return read(4,4);
     }
+
     /**
      * Gets the Block number of this directory block.
      *
@@ -79,6 +83,7 @@ public class BlockDirectory extends XfsObject  {
     public long getBlockNumber() throws IOException {
         return read(8,8);
     }
+
     /**
      * Gets the log sequence number of the last write to this block.
      *
@@ -87,6 +92,7 @@ public class BlockDirectory extends XfsObject  {
     public long getLogSequenceNumber() throws IOException {
         return read(16,8);
     }
+
     /**
      * Gets the UUID of this block
      *
@@ -95,6 +101,7 @@ public class BlockDirectory extends XfsObject  {
     public String getUuid() throws IOException {
         return readUuid(24,16);
     }
+
     /**
      * Gets the inode number that this directory block belongs to
      *
@@ -103,6 +110,7 @@ public class BlockDirectory extends XfsObject  {
     public long getParentInode() throws IOException {
         return read(40,8);
     }
+
     /**
      * Get the inode's entries
      *
@@ -114,9 +122,11 @@ public class BlockDirectory extends XfsObject  {
         int i=0;
         while (true) {
             final BlockDirectoryEntry entry = new BlockDirectoryEntry(getData(), offset, fs);
-            if (entry.getNameSize() == 0) break;
+            if (entry.getNameSize() == 0) {
+                break;
+            }
             INode iNode = fs.getINode(entry.getINodeNumber());
-            data.add( new XfsEntry( iNode, entry.getName(), i++, fs, parentDirectory ) );
+            data.add(new XfsEntry(iNode, entry.getName(), i++, fs, parentDirectory));
             offset += entry.getOffsetSize();
         }
         return data;

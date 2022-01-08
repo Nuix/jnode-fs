@@ -7,16 +7,22 @@ import java.util.List;
 
 public class XfsAttributeHeader extends XfsObject {
 
+    /**
+     * The size value of the value.
+     */
     private final long toSize;
+
+    /**
+     * The number of attributes to read.
+     */
     private final long count;
 
     /**
-     * A XFS SELinux Attribute header.
+     * Create a XFS SELinux attribute header.
      *
-     * @author
      */
     public XfsAttributeHeader(byte [] data, long offset) throws IOException {
-        super(data, (int)offset);
+        super(data, (int) offset);
         toSize = read(0,2);
         count = read(2,1);
     }
@@ -29,7 +35,6 @@ public class XfsAttributeHeader extends XfsObject {
     protected List<Long> validSignatures() {
         return Collections.singletonList(0L);
     }
-
 
     /**
      * Gets the magic signature.

@@ -98,17 +98,29 @@ public class DataExtent extends XfsObject {
             fileOffset < (startOffset + blockCount) * blockSize;
     }
 
-    public long getExtentOffset(XfsFileSystem fs) throws IOException {
-        final Superblock sb = fs.getSuperblock();
+    /**
+     * Gets the extent offset.
+     *
+     * @param fileSystem the file offset to check.
+     * @return the extent offset.
+     */
+    public long getExtentOffset(XfsFileSystem fileSystem) throws IOException {
+        final Superblock sb = fileSystem.getSuperblock();
         final long agSizeLog2 = sb.getAGSizeLog2();
         long allocationGroupIndex = startBlock >> agSizeLog2;
         long relativeBlockNumber  = startBlock & ( ( (long) 1 << agSizeLog2 ) - 1 );
         long allocationGroupBlockNumber = allocationGroupIndex * sb.getAGSize();
         return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
     }
-
-    public static long getFileSystemBlockOffset(long block,XfsFileSystem fs) throws IOException {
-        final Superblock sb = fs.getSuperblock();
+    /**
+     * Gets the FileSystem block offset.
+     *
+     * @param block the file offset to check.
+     * @param fileSystem the file system block size.
+     * @return the fileSystem block offset.
+     */
+    public static long getFileSystemBlockOffset(long block,XfsFileSystem fileSystem) throws IOException {
+        final Superblock sb = fileSystem.getSuperblock();
         final long agSizeLog2 = sb.getAGSizeLog2();
         long allocationGroupIndex = block >> agSizeLog2;
         long relativeBlockNumber  = block & ( ( (long) 1 << agSizeLog2 ) - 1 );
@@ -116,7 +128,14 @@ public class DataExtent extends XfsObject {
         return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
     }
 
-    protected List<Long> validSignatures() { return Arrays.asList(0L); }
+    /**
+     * Validate the magic key data
+     *
+     * @return a list of valid magic signatures
+     */
+    protected List<Long> validSignatures() {
+        return Arrays.asList(0L);
+    }
 
     @Override
     public String toString() {

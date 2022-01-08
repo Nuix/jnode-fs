@@ -40,13 +40,20 @@ public class XfsAttribute extends XfsObject {
      */
     private final String attributeValue;
 
+    /**
+     * Creates an attribute instance.
+     *
+     * @param data of the inode.
+     * @param offset of the inode's data
+     * @throws IOException if an error occurs reading in the super block.
+     */
     public XfsAttribute(byte[] data, long offset) throws IOException {
-        super(data, (int)offset);
+        super(data, (int) offset);
         nameLength = (int) read(0, 1);
         valueLength = (int) read(1, 1);
         flags = (int) read(2, 1);
         ByteBuffer buffer = ByteBuffer.allocate(nameLength + valueLength);
-        System.arraycopy(data, (int)offset + 3 , buffer.array(), 0 , (nameLength + valueLength) );
+        System.arraycopy(data, (int) offset + 3, buffer.array(), 0, (nameLength + valueLength));
         final String nameval = new String(buffer.array(), StandardCharsets.US_ASCII);
         attributeName = nameval.substring(0, nameLength);
         attributeValue = nameval.substring(nameLength).replaceAll("\0", "");
@@ -57,7 +64,9 @@ public class XfsAttribute extends XfsObject {
      *
      * @return the valid magic values.
      */
-    protected List<Long> validSignatures() { return Arrays.asList(0L); }
+    protected List<Long> validSignatures() {
+        return Arrays.asList(0L);
+    }
 
     /**
      * Gets the magic signature.
@@ -74,7 +83,9 @@ public class XfsAttribute extends XfsObject {
      *
      * @return the inode number.
      */
-    public int getAttributeSizeForOffset(){ return nameLength + valueLength + 3; }
+    public int getAttributeSizeForOffset() {
+        return nameLength + valueLength + 3;
+    }
 
     /**
      * Gets flags of the attribute.
@@ -90,7 +101,9 @@ public class XfsAttribute extends XfsObject {
      *
      * @return the length of the attribute name.
      */
-    public int getNameLength() { return nameLength; }
+    public int getNameLength() {
+        return nameLength;
+    }
 
     /**
      * Gets the length of the attribute value.
@@ -115,7 +128,9 @@ public class XfsAttribute extends XfsObject {
      *
      * @return the value.
      */
-    public String getValue() { return attributeValue; }
+    public String getValue() {
+        return attributeValue;
+    }
 
     /**
      * Gets the string of the data.

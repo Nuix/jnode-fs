@@ -99,7 +99,7 @@ public class XfsFileSystemTest {
             FSEntry entry = fs.getRootEntry();
             StringBuilder actual = new StringBuilder(1024*1024);
             buildXfsDirStructure(entry, actual, "  ");
-            System.out.println(actual);
+            //System.out.println(actual);
         } finally {
             testFile.delete();
         }
@@ -111,6 +111,7 @@ public class XfsFileSystemTest {
         actual.append(indent);
         actual.append(entry.getName());
         actual.append("; \n");
+        System.out.println(actual);
 
         if (entry.isDirectory()) {
             FSDirectory directory = entry.getDirectory();

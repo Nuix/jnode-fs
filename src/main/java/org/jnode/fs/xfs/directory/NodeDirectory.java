@@ -20,21 +20,54 @@ import java.util.stream.Collectors;
 
 public class NodeDirectory extends XfsObject {
 
+    /**
+     * The list of extents of this block directory.
+     */
     private final List<DataExtent> extents;
+
+    /**
+     * The filesystem.
+     */
     private final XfsFileSystem fs;
+
+    /**
+     * The number of the inode.
+     */
     private final long iNodeNumber;
 
+    /**
+     *  The extent index of the leaf.
+     */
     private final int leafExtentIndex;
+
+    /**
+     * The leaf block offset (XFS_DIR2_LEAF_OFFSET).
+     */
     private static final long BYTES_IN_32G = 34359738368L;
 
-    public NodeDirectory(byte[] data, long offset, XfsFileSystem fs, long iNodeNumber, List<DataExtent> extents, long leafExtentIndex) {
+    /**
+     * Creates a Leaf directory entry.
+     *
+     * @param data of the inode.
+     * @param offset of the inode's data
+     * @param fileSystem of the image
+     * @param iNodeNumber of the inode
+     * @param extents of the block directory
+     * @param leafExtentIndex of the block directory
+     */
+    public NodeDirectory(byte[] data, long offset, XfsFileSystem fileSystem, long iNodeNumber, List<DataExtent> extents, long leafExtentIndex) {
         super(data,(int)offset);
         this.extents = extents;
-        this.fs = fs;
+        this.fs = fileSystem;
         this.iNodeNumber = iNodeNumber;
         this.leafExtentIndex = (int) leafExtentIndex;
     }
 
+    /**
+     * Get the node block entries
+     *
+     * @return a list of inode entries
+     */
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
         final List<DataExtent> leafExtents = extents.subList(leafExtentIndex+1, extents.size() - 1);
         final List<DataExtent> dataExtents = extents.subList(0, leafExtentIndex-1);
@@ -42,7 +75,7 @@ public class NodeDirectory extends XfsObject {
         final DataExtent directoryDataExtent = extents.get(leafExtentIndex);
         final long directoryBlockSizeLog2 = fs.getSuperblock().getDirectoryBlockSizeLog2();
         final long directoryBlockSize = (long) Math.pow(2, directoryBlockSizeLog2) * fs.getSuperblock().getBlockSize();
-        final List<LeafEntry> leafEntries = leafExtentsToLeafs(leafExtents).stream().flatMap(leaf -> leaf.getLeafEntries().stream()).collect(Collectors.toList());
+        final List<LeafEntry> leafEntries = leafExtentsToLeaves(leafExtents).stream().flatMap(leaf -> leaf.getLeafEntries().stream()).collect(Collectors.toList());
         final DataExtentOffsetManager extentOffsetManager = new DataExtentOffsetManager(dataExtents, fs);
         List<FSEntry> entries = new ArrayList<>(leafEntries.size());
         int i=0;
@@ -72,7 +105,13 @@ public class NodeDirectory extends XfsObject {
         return entries;
     }
 
-    private List<Leaf> leafExtentsToLeafs(List<DataExtent> extent){
+
+    /**
+     * Gets the list of leaves of the node directory.
+     *
+     * @return a list of leases
+     */
+    private List<Leaf> leafExtentsToLeaves(List<DataExtent> extent){
         return extent.stream().map(e -> {
             try {
                 final long extOffset = e.getExtentOffset(fs);
@@ -89,6 +128,13 @@ public class NodeDirectory extends XfsObject {
         }).collect(Collectors.toList());
     }
 
+    /**
+     * Validate the magic key data
+     *
+     * @return a list of valid magic signatures
+     */
     @Override
-    protected List<Long> validSignatures() { return Arrays.asList(0L); }
+    protected List<Long> validSignatures() {
+        return Arrays.asList(0L);
+    }
 }

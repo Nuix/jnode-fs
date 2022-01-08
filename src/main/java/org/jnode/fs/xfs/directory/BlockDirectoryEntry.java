@@ -9,10 +9,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Classname: BlockDirectoryEntry
+ * A XFS block directory entry inode.
  *
- * Date: Jan/07/2022
- *
+ * @author
  */
 public class BlockDirectoryEntry extends XfsObject {
 
@@ -41,6 +40,14 @@ public class BlockDirectoryEntry extends XfsObject {
      */
     private XfsFileSystem fileSystem;
 
+    /**
+     * Creates a b+tree directory entry.
+     *
+     * @param data of the inode.
+     * @param offset of the inode's data
+     * @param fileSystem of the image
+     * @throws IOException if an error occurs reading in the super block.
+     */
     public BlockDirectoryEntry(byte [] data, long offset, XfsFileSystem fileSystem) throws IOException {
         super(data , (int) offset);
         this.fileSystem = fileSystem;
@@ -58,34 +65,76 @@ public class BlockDirectoryEntry extends XfsObject {
         }
     }
 
+    /**
+     * Validate the magic key data
+     *
+     * @return a list of valid magic signatures
+     */
+    @Override
     protected List<Long> validSignatures() {
         return Collections.singletonList(0L);
     }
 
-    public long getSignature() throws IOException {
+    /**
+     * Gets the magic signature.
+     *
+     * @return the magic signature.
+     */
+    @Override
+    public long getMagicSignature() throws IOException {
         return 0L;
     }
 
+    /**
+     * Gets the inode number of this entry.
+     *
+     * @return the inode number
+     */
     public long getINodeNumber() throws IOException {
         return iNodeNumber;
     }
 
+    /**
+     * Gets the name size of this entry.
+     *
+     * @return the name size.
+     */
     public long getNameSize() throws IOException {
         return nameSize;
     }
 
+    /**
+     * Gets the name of this entry.
+     *
+     * @return the name entry.
+     */
     public String getName() throws IOException {
         return name;
     }
 
+    /**
+     * Gets the offset of the directory block.
+     *
+     * @return the offset directory block
+     */
     public long getOffsetFromBlock() throws IOException {
         return read(getNameSize() + 9, 2);
     }
 
+    /**
+     * Gets the free tag value of the directory block.
+     *
+     * @return the free tag.
+     */
     public boolean isFreeTag() {
         return isFreeTag;
     }
 
+    /**
+     * Gets the offset size of the directory block.
+     *
+     * @return the offset size.
+     */
     public long getOffsetSize() throws IOException {
         if (!isFreeTag) {
             final long l = 12 + nameSize;
