@@ -1,6 +1,8 @@
 package org.jnode.fs.xfs.extent;
 
 import org.jnode.fs.xfs.XfsFileSystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,9 +12,15 @@ import java.util.Optional;
  * Data extent offset manager
  * Provides the infrastructure to handle list of extents
  *
- * @author
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 public class DataExtentOffsetManager {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(DataExtentOffsetManager.class);
 
     /**
      * The list of extents found in the block.

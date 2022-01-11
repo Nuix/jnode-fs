@@ -7,6 +7,7 @@ import java.util.List;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntryCreated;
 import org.jnode.fs.FSEntryLastAccessed;
+import org.jnode.fs.FSEntryLastChanged;
 import org.jnode.fs.spi.AbstractFSEntry;
 import org.jnode.fs.util.UnixFSConstants;
 import org.jnode.fs.xfs.extent.DataExtent;
@@ -17,8 +18,9 @@ import org.jnode.fs.xfs.inode.INode;
  *
  * @author Luke Quinane
  */
-public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntryLastAccessed {
+public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntryLastAccessed, FSEntryLastChanged {
 
+    long NANO_SECOND = 1000000000;
     /**
      * The inode.
      */
@@ -63,17 +65,17 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
 
     @Override
     public long getCreated() throws IOException {
-        return (inode.getCreatedTime() >> 32) * 1000;
+        return (inode.getCreatedTimeSec() * 1000) + ((long) inode.getCreatedTimeNsec() / NANO_SECOND);
     }
 
     @Override
     public long getLastAccessed() throws IOException {
-        return (inode.getAccessTime() >> 32) * 1000;
+        return (inode.getAccessTimeSec() * 1000) + ((long) inode.getAccessTimeNsec() / NANO_SECOND);
     }
 
     @Override
-    public long getLastModified() throws IOException {
-        return (inode.getModifiedTime() >> 32) * 1000;
+    public long getLastChanged() throws IOException {
+        return (inode.getChangedTimeSec() * 1000) + ((long) inode.getChangedTimeNsec() / NANO_SECOND);
     }
 
     /**
@@ -144,7 +146,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
      * @throws IOException if an error occurs reading.
      */
     private void readFromExtentList(long offset, ByteBuffer destBuf) throws IOException {
-        int blockSize = fileSystem.getSuperblock().getBlockSize();
+        long blockSize = fileSystem.getSuperblock().getBlockSize();
         long extentOffset = 0;
 
         for (DataExtent extent : extentList) {

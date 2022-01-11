@@ -11,6 +11,8 @@ import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.extent.DataExtentOffsetManager;
 import org.jnode.fs.xfs.inode.INode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
@@ -26,9 +28,15 @@ import java.util.List;
  * Leaf Directories
  * Once a Block Directory has filled the block, the directory data is changed into a new format called leaf.
  *
- * @author
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 public class LeafDirectory extends XfsObject {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(LeafDirectory.class);
 
     /**
      * The list of extents of this block directory.
@@ -103,7 +111,7 @@ public class LeafDirectory extends XfsObject {
 
             // Read the memory block with the required information.
             final long extOffset = data.getExtent().getExtentOffset(fileSystem);
-            ByteBuffer buffer = ByteBuffer.allocate(fileSystem.getSuperblock().getBlockSize() * (int) data.getExtent().getBlockCount());
+            ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize() * (int) data.getExtent().getBlockCount());
             try {
                 fileSystem.getFSApi().read(extOffset,buffer);
             } catch (ApiNotFoundException e) {
@@ -118,14 +126,5 @@ public class LeafDirectory extends XfsObject {
             entries.add(new XfsEntry(inode, entry.getName(), i++, fileSystem, parentDirectory));
         }
         return entries;
-    }
-
-    /**
-     * Validate the magic key data
-     *
-     * @return a list of valid magic signatures
-     */
-    protected List<Long> validSignatures() {
-        return Arrays.asList(0L);
     }
 }

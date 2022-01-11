@@ -3,6 +3,9 @@ package org.jnode.fs.xfs.extent;
 import org.jnode.fs.xfs.Superblock;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
+import org.jnode.fs.xfs.directory.LeafInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -14,6 +17,11 @@ import java.util.List;
  * @author Luke Quinane
  */
 public class DataExtent extends XfsObject {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(DataExtent.class);
 
     /**
      * The length of the structure when packed for storage on disk.
@@ -41,7 +49,18 @@ public class DataExtent extends XfsObject {
     private int state;
 
     /**
+     * The msb.
+     */
+    private long msb;
+
+
+    /**
      * Creates a new extent from the packed on disk format.
+     *
+     * See XFS Algorithms & Data Structures
+     * Chapter 16 - page 115
+     *
+     * TODO Add structure.
      *
      * @param data the data to read from.
      * @param offset the offset to read from.
@@ -51,11 +70,12 @@ public class DataExtent extends XfsObject {
 
         long valueUpper128bit = getInt64(0);
         long valueLower128bit = getInt64(8);
-        blockCount = (int) (valueLower128bit & 0x1fffffL);
+        blockCount = (int) (valueLower128bit & 0x1f_ff_ffL);            // 21 bits
         valueLower128bit = valueLower128bit >>> 21;
-        startBlock = valueLower128bit | (valueUpper128bit & 0x1ffL);
+        startBlock = valueLower128bit | (valueUpper128bit & 0x1ffL);    // 52 bits
         valueUpper128bit = valueUpper128bit >>> 9;
-        startOffset = valueUpper128bit & 0x3fffffffffffffL;
+        startOffset = valueUpper128bit & 0x3f_ff_ff_ff_ff_ff_ffL;       // 54 bits
+        msb = (valueUpper128bit >>> 54);
     }
 
     /**
@@ -86,6 +106,15 @@ public class DataExtent extends XfsObject {
     }
 
     /**
+     * Gets the msb value.
+     *
+     * @return the msb.
+     */
+    public long getMsb() {
+        return msb;
+    }
+
+    /**
      * Checks if the given file offset is within the range covered by this extent.
      *
      * @param fileOffset the file offset to check.
@@ -104,7 +133,7 @@ public class DataExtent extends XfsObject {
      * @param fileSystem the file offset to check.
      * @return the extent offset.
      */
-    public long getExtentOffset(XfsFileSystem fileSystem) throws IOException {
+    public long getExtentOffset(XfsFileSystem fileSystem)  {
         final Superblock sb = fileSystem.getSuperblock();
         final long agSizeLog2 = sb.getAGSizeLog2();
         long allocationGroupIndex = startBlock >> agSizeLog2;
@@ -119,7 +148,7 @@ public class DataExtent extends XfsObject {
      * @param fileSystem the file system block size.
      * @return the fileSystem block offset.
      */
-    public static long getFileSystemBlockOffset(long block,XfsFileSystem fileSystem) throws IOException {
+    public static long getFileSystemBlockOffset(long block,XfsFileSystem fileSystem) {
         final Superblock sb = fileSystem.getSuperblock();
         final long agSizeLog2 = sb.getAGSizeLog2();
         long allocationGroupIndex = block >> agSizeLog2;
@@ -128,14 +157,6 @@ public class DataExtent extends XfsObject {
         return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
     }
 
-    /**
-     * Validate the magic key data
-     *
-     * @return a list of valid magic signatures
-     */
-    protected List<Long> validSignatures() {
-        return Arrays.asList(0L);
-    }
 
     @Override
     public String toString() {

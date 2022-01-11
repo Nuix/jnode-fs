@@ -1,10 +1,11 @@
 package org.jnode.fs.xfs.inode;
 
 import org.jnode.fs.xfs.XfsObject;
-import org.jnode.fs.xfs.XfsValidSignature;
 import org.jnode.fs.xfs.attribute.XfsAttribute;
 import org.jnode.fs.xfs.attribute.XfsAttributeHeader;
 import org.jnode.fs.xfs.extent.DataExtent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -20,6 +21,11 @@ import java.util.stream.Collectors;
  */
 public class INode extends XfsObject {
 
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(INode.class);
+
     enum INodeFormat {
         LOCAL(1),EXTENT(2),BTREE(3);
         final int val;
@@ -28,7 +34,7 @@ public class INode extends XfsObject {
         }
     }
 
-    enum FileMode {
+    public enum FileMode {
         // FILE PERMISSIONS
         OTHER_X(0x0007 ,0x0001),
         OTHER_W(0x0007,0x0002),
@@ -50,7 +56,7 @@ public class INode extends XfsObject {
         BLOCK_DEVICE(0xf000,0x6000),
         FILE(0xf000,0x8000),
         SYM_LINK(0xf000,0xa000),
-        Socket(0xf000,0xc000);
+        SOCKET(0xf000,0xc000);
         final int mask;
         final int val;
 
@@ -100,17 +106,14 @@ public class INode extends XfsObject {
      * @param data the data.
      * @param offset the offset to this inode in the data.
      */
-    public INode(long inodeNr, byte[] data, int offset) {
+    public INode(long inodeNr, byte[] data, int offset) throws IOException {
         super(data, offset);
-        this.inodeNr = inodeNr;
-        try {
-            if (!isValidSignature()) {
-                throw new XfsValidSignature(getAsciiSignature(), validSignatures(), (long)offset, this.getClass());
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+
+        if (getMagicSignature() != MAGIC) {
+            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature());
         }
 
+        this.inodeNr = inodeNr;
         if (getVersion() >= V3) {
             if (getV3INodeNumber() != inodeNr) {
                 throw new IllegalStateException("Stored inode (" + getV3INodeNumber() +
@@ -118,7 +121,6 @@ public class INode extends XfsObject {
             }
         }
     }
-    protected List<Long> validSignatures() { return Arrays.asList(MAGIC); }
 
     /**
      * Gets the inode number.
@@ -134,6 +136,7 @@ public class INode extends XfsObject {
      *
      * @return the magic.
      */
+    @Override
     public long getMagicSignature() { return getUInt16(0); }
 
     /**
@@ -215,27 +218,51 @@ public class INode extends XfsObject {
     }
 
     /**
-     * Gets the access time.
+     * (last) access time
+     * Contains a POSIX timestamp in seconds
      *
      * @return the access time.
      */
-    public long getAccessTime() { return getInt64(0x20); }
+    public long getAccessTimeSec() { return getUInt32(0x20); }
 
     /**
-     * Gets the modified time.
+     * Gets the (last) access time fraction of second
+     * Contains number of nano seconds
+     *
+     * @return the access time.
+     */
+    public long getAccessTimeNsec() { return getUInt32(0x24); }
+
+    /**
+     * Gets the (last) modification time
+     * Contains a POSIX timestamp in seconds
      *
      * @return the modified time.
      */
-    public long getModifiedTime() {
-        return getInt64(0x28);
-    }
+    public long getChangedTimeSec() { return getUInt32(0x28); }
 
     /**
-     * Gets the created time.
+     * Gets the (last) modification time fraction of second
+     * Contains number of nano seconds
+     *
+     * @return the modified time.
+     */
+    public long getChangedTimeNsec() { return getUInt32(0x2c); }
+
+    /**
+     * Gets the (last) inode change time
+     * Contains a POSIX timestamp in seconds
      *
      * @return the created time.
      */
-    public long getCreatedTime() { return getInt64(0x30); }
+    public long getCreatedTimeSec() { return getUInt32(0x30); }
+    /**
+     * Gets the (last) inode change time fraction of second
+     * Contains number of nano seconds
+     *
+     * @return the created time.
+     */
+    public long getCreatedTimeNsec() { return getUInt32(0x34); }
 
     /**
      * Gets the size.
@@ -335,18 +362,18 @@ public class INode extends XfsObject {
             }
             return attributes;
         } else {
-            System.out.println(">>> Pending implementation due to lack of examples for attribute format " + attributesFormat
+            log.warn(">>> Pending implementation due to lack of examples for attribute format " + attributesFormat
                     + " Found on Inode " + inodeNr);
         }
         return Collections.emptyList();
     }
 
     public long getAttributesForkOffset() throws IOException {
-        return read(82, 1);
+        return getUInt8(82);
     }
 
     public long getAttributesFormat() throws IOException {
-        return read(83, 1);
+        return getUInt8(83);
     }
 
     @Override

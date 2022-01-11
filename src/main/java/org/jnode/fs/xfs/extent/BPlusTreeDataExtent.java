@@ -3,77 +3,33 @@ package org.jnode.fs.xfs.extent;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
+
 import java.util.List;
 
-
 import org.jnode.fs.xfs.XfsObject;
-import org.jnode.fs.xfs.XfsFileSystem;
-import org.jnode.fs.xfs.XfsValidSignature;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
- *
  * B+tree data extent
  * Provides the infrastructure to read the b+tree data.
  *
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 public class BPlusTreeDataExtent extends XfsObject {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(BPlusTreeDataExtent.class);
 
     /**
      * The magic number for a BMBT block (V5).
      */
     private final static Long MAGIC = asciiToHex("BMA3");
-
-    /**
-     * The level of the tree in which this block is found.
-     */
-    private final long level;
-
-    /**
-     *  The number of records in this block.
-     */
-    private final long numrecs;
-
-    /**
-     *  block number of the right sibling of this B+tree node.
-     */
-    private final long right;
-
-    /**
-     *  block number of the left sibling of this B+tree node.
-     */
-    private final long left;
-
-    /**
-     *  block number of this B+tree block.
-     */
-    private final long blockNo;
-
-    /**
-     *  Log sequence number of the last write to this block.
-     */
-    private final long lsn;
-
-    /**
-     *  The UUID of this block.
-     */
-    private final String uuid;
-
-    /**
-     *  The AG number that this B+tree block ought to be in
-     */
-    private final long owner;
-
-    /**
-     *  List of data extent
-     */
-    private final List<DataExtent> extents;
-
-    /**
-     *  Checksum of the B+tree block.
-     */
-    private final long crc;
 
     /**
      * Creates a b+tree data extent.
@@ -84,23 +40,10 @@ public class BPlusTreeDataExtent extends XfsObject {
      */
     public BPlusTreeDataExtent(byte[] data, long offset) throws IOException {
         super(data, (int) offset);
-        try {
-            if (!isValidSignature()) {
-                throw new XfsValidSignature(getAsciiSignature(), validSignatures(), (long) offset, this.getClass());
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+
+        if (getMagicSignature() != MAGIC) {
+            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature());
         }
-        this.level = read(4, 2);
-        this.numrecs = read(6, 2);
-        this.right = read(8, 8);
-        this.left = read(16, 8);
-        this.blockNo = read(24, 8);
-        this.lsn = read(32, 8);
-        this.uuid = readUuid(40, 16);
-        this.owner = read(56, 8);
-        this.crc = read(64, 4);
-        this.extents = getExtentInfo();
     }
 
     /**
@@ -109,8 +52,8 @@ public class BPlusTreeDataExtent extends XfsObject {
      */
     private List<DataExtent> getExtentInfo() {
         long offset = getOffset() + 72;
-        final List<DataExtent> list = new ArrayList<>((int)numrecs);
-        for (int i=0; i<numrecs; i++) {
+        final List<DataExtent> list = new ArrayList<>((int) getNumrecs());
+        for (int i=0; i < getNumrecs(); i++) {
             final DataExtent info = new DataExtent(getData(), (int) offset);
             list.add(info);
             offset += 0x10;
@@ -123,18 +66,14 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      * @return the level
      */
-    public long getLevel() {
-        return level;
-    }
+    public long getLevel() { return getUInt16(4); }
 
     /**
      * Gets the number of records in this block.
      *
      * @return the numrecs
      */
-    public long getNumrecs() {
-        return numrecs;
-    }
+    public long getNumrecs() { return getUInt16(6); }
 
     /**
      * Gets the block number of the right sibling of this B+tree node.
@@ -142,7 +81,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      * @return block number of the right sibling node
      */
     public long getRight() {
-        return right;
+        return getInt64(8);
     }
 
     /**
@@ -150,9 +89,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      * @return block number of the left sibling node
      */
-    public long getLeft() {
-        return left;
-    }
+    public long getLeft() { return getInt64(16); }
 
     /**
      * Gets the block number of this B+tree block.
@@ -160,7 +97,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      * @return the block number
      */
     public long getBlockNo() {
-        return blockNo;
+        return getInt64(24);
     }
 
     /**
@@ -169,7 +106,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      * @return the log sequence number
      */
     public long getLsn() {
-        return lsn;
+        return getInt64(32);
     }
 
     /**
@@ -178,7 +115,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      * @return  the UUID
      */
     public String getUuid() {
-        return uuid;
+        return readUuid(40);
     }
 
     /**
@@ -187,7 +124,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      * @return the AG number owner of this block.
      */
     public long getOwner() {
-        return owner;
+        return getInt64(56);
     }
 
     /**
@@ -196,7 +133,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      * @return the list of extents.
      */
     public List<DataExtent> getExtents() {
-        return extents;
+        return getExtentInfo();
     }
 
     /**
@@ -205,16 +142,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      * @return the checksum
      */
     public long getCrc() {
-        return crc;
-    }
-
-    /**
-     * Validate the magic key data
-     *
-     * @return a list of valid magic signatures
-     */
-    protected List<Long> validSignatures() {
-        return Arrays.asList(MAGIC);
+        return getUInt32(64);
     }
 
 }

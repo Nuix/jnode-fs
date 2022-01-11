@@ -9,11 +9,12 @@ import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.extent.BPlusTreeDataExtent;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.inode.INode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -23,9 +24,15 @@ import java.util.List;
  * When the extent map in an inode grows beyond the inode’s space,
  * the inode format is changed to a “btree”.
  *
- * @author
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 public class BPlusTreeDirectory extends XfsObject {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(BPlusTreeDirectory.class);
 
     /**
      * The level value determines if the node is an intermediate node or a leaf.
@@ -66,11 +73,11 @@ public class BPlusTreeDirectory extends XfsObject {
         this.fileSystem = fileSystem;
         this.iNodeNumber = iNodeNumber;
         this.inode =   fileSystem.getINode(iNodeNumber);
-        long btreeInfoOffset = inode.getOffset() + fileSystem.getINode(iNodeNumber).getINodeSizeForOffset();
-        this.level = (int) read(btreeInfoOffset, 2);
-        this.numrecs = (int) read(btreeInfoOffset + 2, 2);
+        int btreeInfoOffset = inode.getOffset() + fileSystem.getINode(iNodeNumber).getINodeSizeForOffset();
+        this.level = getUInt16(btreeInfoOffset);
+        this.numrecs = getUInt16(btreeInfoOffset + 2);
         if (level > 1) {
-            System.out.println("## Inode " + inode.getINodeNr() + " has (numrec,level) (" + numrecs + "," + level + ")" );
+            log.debug("## Inode " + inode.getINodeNr() + " has (numrecs,level) (" + numrecs + "," + level + ")");
         }
     }
 
@@ -80,7 +87,7 @@ public class BPlusTreeDirectory extends XfsObject {
      * @param parentDirectory of the inode.
      * @throws IOException if an error occurs reading in the super block.
      *
-     * Note :  When level > 1 this won't work need an example with more than 1 level to introduce recursively
+     * Note :  When level &gt; 1 this won't work need an example with more than 1 level to introduce recursively
      */
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
         final long forkOffset = inode.getAttributesForkOffset() * 8;
@@ -89,14 +96,14 @@ public class BPlusTreeDirectory extends XfsObject {
         List<FSEntry> entries = new ArrayList<>();
 
         for (int i = 0; i < numrecs; i++) {
-            final long fsBlockNo = read(btreeBlockOffset, 4);
+            final long fsBlockNo = getUInt32((int) btreeBlockOffset);
             btreeBlockOffset += 4;
             final long offset = DataExtent.getFileSystemBlockOffset(fsBlockNo, fileSystem);
-            ByteBuffer buffer = ByteBuffer.allocate(fileSystem.getSuperblock().getBlockSize());
+            ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize());
             try {
                 fileSystem.getFSApi().read(offset, buffer);
             } catch (ApiNotFoundException e) {
-                e.printStackTrace();
+                log.warn("Failed to read FS entry list at offset: " + offset, e);
             }
             final BPlusTreeDataExtent extentList = new BPlusTreeDataExtent(buffer.array(), 0);
             extentListsList.add(extentList);
@@ -107,25 +114,15 @@ public class BPlusTreeDirectory extends XfsObject {
             final long leafExtentIndex = LeafDirectory.getLeafExtentIndex(extents, fileSystem);
             final DataExtent extentInformation = extents.get((int) leafExtentIndex);
             final long extOffset = extentInformation.getExtentOffset(fileSystem);
-            ByteBuffer buffer = ByteBuffer.allocate(fileSystem.getSuperblock().getBlockSize() * (int) extentInformation.getBlockCount());
+            ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize() * (int) extentInformation.getBlockCount());
             try {
                 fileSystem.getFSApi().read(extOffset, buffer);
             } catch (ApiNotFoundException e) {
-                e.printStackTrace();
+                log.warn("Failed to read node directory at offset: " + extOffset, e);
             }
             final NodeDirectory leafDirectory = new NodeDirectory(buffer.array(), 0, fileSystem, this.iNodeNumber, extents, leafExtentIndex);
             entries = leafDirectory.getEntries(parentDirectory);
         }
         return entries;
-    }
-
-    /**
-     * Validate the magic key data
-     *
-     * @return a list of valid magic signatures
-     */
-    @Override
-    protected List<Long> validSignatures() {
-        return Collections.singletonList(0L);
     }
 }

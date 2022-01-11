@@ -58,23 +58,27 @@ public class Superblock extends XfsRecord {
      *
      * @return the block size.
      */
-    public int getBlockSize() {
-        return (int) getUInt32(0x4);
-    }
+    public long getBlockSize() { return getUInt32(0x4); }
 
-    public long getTotalBlocks() throws IOException {
-        return (int) getInt64(0x8);
-    }
+    /**
+     * Gets the total block size stored in the super block.
+     *
+     * @return the total block size.
+     */
+    public long getTotalBlocks() { return getInt64(0x8); }
 
-    public long getFreeBlocks() throws IOException {
-        return (int) getInt64(144);
-    }
+    /**
+     * Gets the total free block size stored in the super block.
+     *
+     * @return the free block size.
+     */
+    public long getFreeBlocks() { return getInt64(144); }
+
     /**
      * Gets the UUID for the volume stored in the super block.
      *
      * @return the UUID.
      */
-
     public byte[] getUuid() {
         byte[] uuid = new byte[16];
         System.arraycopy(getData(), 0x20, uuid, 0, uuid.length);
@@ -122,9 +126,7 @@ public class Superblock extends XfsRecord {
      *
      * @return the inode size.
      */
-    public int getInodeSize() {
-        return getUInt16(0x68);
-    }
+    public int getInodeSize() { return getUInt16(0x68);}
 
     /**
      * Gets the number of inodes per block (should be the same as block size / inode size).
@@ -143,7 +145,7 @@ public class Superblock extends XfsRecord {
     public String getName() {
         byte[] buffer = new byte[12];
         System.arraycopy(getData(), getOffset() + 0x6c, buffer, 0, buffer.length);
-        return new String(buffer, UTF8);
+        return new String(buffer, UTF8).replaceAll("\0", "");
     }
 
     /**
@@ -178,29 +180,22 @@ public class Superblock extends XfsRecord {
      * Allocation group size in log2
      *     Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
      */
-    public long getAGSizeLog2() throws IOException {
-        return getUInt8(0x7c);
-    }
+    public long getAGSizeLog2() { return getUInt8(0x7c); }
+
     /**
      * Number of inodes per block in log2
      *     Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
      */
-    public long getINodePerBlockLog2() throws IOException {
-        return getUInt8(0x7b);
-    }
+    public long getINodePerBlockLog2() { return getUInt8(0x7b); }
     /**
      * Directory block size in log2
      */
-    public long getDirectoryBlockSizeLog2() throws IOException {
-        return read(0xc0, 1);
-    }
+    public long getDirectoryBlockSizeLog2() { return getUInt8(0xc0); }
 
     /**
      * Journal device sector size in log2
      */
-    public long getJournalDeviceSizeLog2() throws IOException {
-        return read(0xc1, 1);
-    }
+    public long getJournalDeviceSizeLog2() { return getUInt8(0xc1); }
 
 
     /*

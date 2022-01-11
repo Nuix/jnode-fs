@@ -1,8 +1,9 @@
 package org.jnode.fs.xfs.attribute;
 
 import org.jnode.fs.xfs.XfsObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -11,9 +12,15 @@ import java.util.List;
 /**
  * A XFS SELinux Attribute.
  *
- * @author
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 public class XfsAttribute extends XfsObject {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(XfsAttribute.class);
 
     /**
      * The value of the flags.
@@ -45,37 +52,17 @@ public class XfsAttribute extends XfsObject {
      *
      * @param data of the inode.
      * @param offset of the inode's data
-     * @throws IOException if an error occurs reading in the super block.
      */
-    public XfsAttribute(byte[] data, long offset) throws IOException {
+    public XfsAttribute(byte[] data, long offset) {
         super(data, (int) offset);
-        nameLength = (int) read(0, 1);
-        valueLength = (int) read(1, 1);
-        flags = (int) read(2, 1);
+        nameLength = getUInt8(0);
+        valueLength = getUInt8(1);
+        flags = getUInt8(2);
         ByteBuffer buffer = ByteBuffer.allocate(nameLength + valueLength);
         System.arraycopy(data, (int) offset + 3, buffer.array(), 0, (nameLength + valueLength));
-        final String nameval = new String(buffer.array(), StandardCharsets.US_ASCII);
+        final String nameval = new String(buffer.array(), StandardCharsets.UTF_8);
         attributeName = nameval.substring(0, nameLength);
         attributeValue = nameval.substring(nameLength).replaceAll("\0", "");
-    }
-
-    /**
-     * Gets the validSignatures.
-     *
-     * @return the valid magic values.
-     */
-    protected List<Long> validSignatures() {
-        return Arrays.asList(0L);
-    }
-
-    /**
-     * Gets the magic signature.
-     *
-     * @return the magic signature.
-     */
-    @Override
-    public long getMagicSignature() throws IOException {
-        return 0L;
     }
 
     /**

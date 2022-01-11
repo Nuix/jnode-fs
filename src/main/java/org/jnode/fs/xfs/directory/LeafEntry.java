@@ -2,12 +2,25 @@ package org.jnode.fs.xfs.directory;
 
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Leaf entry.
+ *
+ * @author Ricardo Garza
+ * @author Julio Parra
+ */
 public class LeafEntry  extends XfsObject {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(LeafEntry.class);
 
     /**
      * The Hash value of the name of the directory entry.
@@ -32,31 +45,11 @@ public class LeafEntry  extends XfsObject {
      * @param fileSystem of the image
      * @throws IOException if an error occurs reading in the leaf directory.
      */
-    public LeafEntry(byte [] data , long offset, XfsFileSystem fileSystem) throws IOException {
+    public LeafEntry(byte [] data , long offset, XfsFileSystem fileSystem) {
         super(data, (int) offset);
         this.fileSystem = fileSystem;
-        hashval = read(0,4);
-        address = read(4,4);
-    }
-
-    /**
-     * Gets the magic signature of the leaf.
-     *
-     * @return the magic value of the leaf block
-     */
-    @Override
-    public long getMagicSignature() throws IOException {
-        return 0L;
-    }
-
-    /**
-     * Validate the magic key data
-     *
-     * @return a list of valid magic signatures
-     */
-    @Override
-    protected List<Long> validSignatures() {
-        return Collections.singletonList(0L);
+        hashval = getUInt32(0);
+        address = getUInt32(4);
     }
 
     /**
