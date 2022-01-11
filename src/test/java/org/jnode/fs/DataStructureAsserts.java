@@ -21,7 +21,7 @@ public class DataStructureAsserts
         StringBuilder actual = new StringBuilder(expected.length());
 
         actual.append(String.format("type: %s vol:%s total:%d free:%d\n",
-                fileSystem.getType().getName(), fileSystem.getVolumeName(),
+                fileSystem.getType().getName(), fileSystem.getVolumeName().replaceAll("\0", ""),
                 fileSystem.getTotalSpace(), fileSystem.getFreeSpace()));
 
         FSEntry entry = fileSystem.getRootEntry();
@@ -133,82 +133,5 @@ public class DataStructureAsserts
         return builder.toString();
     }
 
-    /**
-     * Builds up the structure for the given file system entry to get the metadata.
-     *
-     * @param entry  the entry to process.
-     * @param actual the string to append to.
-     * @param indent the indent level.
-     * @throws IOException if an error occurs.
-     */
-    public static void buildXfsMetaDataStructure(FSEntry entry, StringBuilder actual, String indent) throws IOException
-    {
-        actual.append(indent);
-        actual.append(entry.getName());
-        actual.append("; \n");
 
-        if (entry.isDirectory()) {
-            getXfsMetadata(entry, actual, indent);
-        }
-        if (entry.isFile()) {
-            FSFile file = entry.getFile();
-            getXfsMetadata(entry, actual, indent);
-        }
-        else {
-            FSDirectory directory = entry.getDirectory();
-
-            Iterator<? extends FSEntry> iterator = directory.iterator();
-
-            while (iterator.hasNext()) {
-                FSEntry child = iterator.next();
-
-                if (".".equals(child.getName()) || "..".equals(child.getName()))
-                {
-                    continue;
-                }
-
-                buildXfsMetaDataStructure(child, actual, indent + "  ");
-            }
-        }
-    }
-
-    /**
-     * Get the metadata.
-     *
-     * @param entry  the entry to process.
-     * @param actual the string to append to.
-     * @param indent the indent level.
-     *
-     */
-    private static StringBuilder getXfsMetadata(FSEntry entry, StringBuilder actual,String indent)  throws IOException {
-        actual.append(indent);
-        actual.append(indent);
-        actual.append("atime : " +  getDate(((XfsEntry) entry).getLastAccessed() ));
-        actual.append("; ");
-        actual.append("ctime : " +  getDate(((XfsEntry) entry).getCreated()));
-        actual.append("; ");
-        actual.append("mtime : " +  getDate(((XfsEntry) entry).getLastModified()) +"\n" );
-        actual.append(indent);
-        actual.append(indent);
-        actual.append("owner : " + ((XfsEntry) entry).getINode().getUid() );
-        actual.append("; ");
-        actual.append("group : " + ((XfsEntry) entry).getINode().getGid() );
-        actual.append("; ");
-        actual.append("size : " +  ((XfsEntry) entry).getINode().getSize() );
-        actual.append("; ");
-        String mode = Integer.toOctalString(((XfsEntry) entry).getINode().getMode());
-        actual.append("mode : " +  mode.substring(mode.length()-3));
-        actual.append("; \n");
-
-        return actual;
-    }
-
-    /**
-     * Convert epoch to human-readable date.
-     *
-     * @param date  the epoch value.
-     */
-    private static String getDate(long date) {
-        return new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").format(new java.util.Date(date));
-    }
 }

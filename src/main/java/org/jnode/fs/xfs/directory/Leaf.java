@@ -1,6 +1,8 @@
 package org.jnode.fs.xfs.directory;
 
 import org.jnode.fs.xfs.XfsFileSystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -12,9 +14,15 @@ import java.util.List;
  * Leaf Directories
  * Once a Block Directory has filled the block, the directory data is changed into a new format called leaf.
  *
- * @author
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 public class Leaf {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(Leaf.class);
 
     /**
      * The leaf information of this block directory.
@@ -41,7 +49,7 @@ public class Leaf {
      *
      * @throws IOException if an error occurs reading in the leaf directory.
      */
-    public Leaf(byte[] data, long offset, XfsFileSystem fileSystem, int extentCount) throws IOException {
+    public Leaf(byte[] data, long offset, XfsFileSystem fileSystem, int extentCount) throws IOException{
         leafInfo = new LeafInfo(data,offset,fileSystem);
         final int infoCount = (int) leafInfo.getCount();
         bestCount = extentCount;

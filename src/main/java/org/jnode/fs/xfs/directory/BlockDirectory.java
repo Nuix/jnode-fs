@@ -6,6 +6,8 @@ import org.jnode.fs.xfs.XfsEntry;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.inode.INode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
@@ -17,15 +19,21 @@ import java.util.*;
  * directory data is moved into a new single directory block outside the inode.
  * The inode’s format is changed from “local” to “extent”
  *
- * @author
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 
 public class BlockDirectory extends XfsObject  {
 
     /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(BlockDirectory.class);
+
+    /**
      * The magic number XD2B on < v5 filesystem
      */
-    private static final long MAGIC_V4 =asciiToHex("XD2B");
+    private static final long MAGIC_V4 = asciiToHex("XD2B");
 
     /**
      * The magic number XDB3 on a v5 filesystem
@@ -54,34 +62,29 @@ public class BlockDirectory extends XfsObject  {
      *  @param offset the offset.
      *  @param fs the filesystem instance.
      */
-    public BlockDirectory(byte[] data, int offset, XfsFileSystem fs) {
+    public BlockDirectory(byte[] data, int offset, XfsFileSystem fs) throws IOException {
         super(data, offset);
+
+        if ((getMagicSignature() != MAGIC_V5) && (getMagicSignature() != MAGIC_V4)) {
+            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature());
+        }
         this.fs = fs;
     }
-
-    /**
-     * Validate the magic key data
-     *
-     * @return a list of valid magic signatures
-     */
-    protected List<Long> validSignatures() { return Arrays.asList(MAGIC_V5,MAGIC_V4); }
 
     /**
      * Gets the Checksum of the directory block.
      *
      * @return the Checksum
      */
-    public long getChecksum() throws IOException {
-        return read(4,4);
-    }
+    public long getChecksum() { return getUInt32(4); }
 
     /**
      * Gets the Block number of this directory block.
      *
      * @return the Block number
      */
-    public long getBlockNumber() throws IOException {
-        return read(8,8);
+    public long getBlockNumber() {
+        return getInt64(8);
     }
 
     /**
@@ -89,8 +92,8 @@ public class BlockDirectory extends XfsObject  {
      *
      * @return the log sequence number
      */
-    public long getLogSequenceNumber() throws IOException {
-        return read(16,8);
+    public long getLogSequenceNumber() {
+        return getInt64(16);
     }
 
     /**
@@ -98,8 +101,8 @@ public class BlockDirectory extends XfsObject  {
      *
      * @return the UUID
      */
-    public String getUuid() throws IOException {
-        return readUuid(24,16);
+    public String getUuid() {
+        return readUuid(24);
     }
 
     /**
@@ -107,8 +110,8 @@ public class BlockDirectory extends XfsObject  {
      *
      * @return the parent inode
      */
-    public long getParentInode() throws IOException {
-        return read(40,8);
+    public long getParentInode() {
+        return getInt64(40);
     }
 
     /**
@@ -116,10 +119,10 @@ public class BlockDirectory extends XfsObject  {
      *
      * @return a list of inode entries
      */
-    public List<FSEntry> getEntries( FSDirectory parentDirectory ) throws IOException {
+    public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
         long offset = getOffset() + V5_LENGTH;
         List<FSEntry> data = new ArrayList<>(10);
-        int i=0;
+        int i = 0;
         while (true) {
             final BlockDirectoryEntry entry = new BlockDirectoryEntry(getData(), offset, fs);
             if (entry.getNameSize() == 0) {

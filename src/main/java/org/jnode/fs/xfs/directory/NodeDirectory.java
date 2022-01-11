@@ -10,6 +10,8 @@ import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.extent.DataExtentOffsetManager;
 import org.jnode.fs.xfs.inode.INode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -18,7 +20,18 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * A XFS Node Directory.
+ *
+ * @author Ricardo Garza
+ * @author Julio Parra
+ */
 public class NodeDirectory extends XfsObject {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(NodeDirectory.class);
 
     /**
      * The list of extents of this block directory.
@@ -85,56 +98,44 @@ public class NodeDirectory extends XfsObject {
             final long extentGroupOffset = address * 8;
             final DataExtentOffsetManager.ExtentOffsetLimitData data = extentOffsetManager.getExtentDataForOffset(extentGroupOffset);
             if (data == null){
-                System.out.println("# Error on Node Directory " + iNodeNumber + " No Relative address " + address + "(" +extentGroupOffset  + ") found");
+                log.warn("Error on Node Directory " + iNodeNumber + " No Relative address " + address + "(" +extentGroupOffset  + ") found");
                 continue;
             }
             final long extOffset = data.getExtent().getExtentOffset(fs);
-            ByteBuffer buffer = ByteBuffer.allocate(fs.getSuperblock().getBlockSize() * (int) data.getExtent().getBlockCount());
+            ByteBuffer buffer = ByteBuffer.allocate((int) fs.getSuperblock().getBlockSize() * (int) data.getExtent().getBlockCount());
             try {
                 fs.getFSApi().read(extOffset,buffer);
             } catch (ApiNotFoundException e) {
-                e.printStackTrace();
+                throw new IOException("Error reading entry data at offset:" + extOffset, e);
             }
             final long extentRelativeOffset = extentGroupOffset - data.getStart();
             final BlockDirectoryEntry entry = new BlockDirectoryEntry(buffer.array(), extentRelativeOffset, fs);
             if (entry.isFreeTag()) { continue; }
             INode inode = fs.getINode(entry.getINodeNumber());
             entries.add(new XfsEntry(inode, entry.getName(), i++, fs, parentDirectory));
-
         }
         return entries;
     }
-
 
     /**
      * Gets the list of leaves of the node directory.
      *
      * @return a list of leases
      */
-    private List<Leaf> leafExtentsToLeaves(List<DataExtent> extent){
+    private List<Leaf> leafExtentsToLeaves(List<DataExtent> extent) throws IOException {
         return extent.stream().map(e -> {
             try {
                 final long extOffset = e.getExtentOffset(fs);
-                ByteBuffer buffer = ByteBuffer.allocate(fs.getSuperblock().getBlockSize() * (int) e.getBlockCount());
+                ByteBuffer buffer = ByteBuffer.allocate((int) fs.getSuperblock().getBlockSize() * (int) e.getBlockCount());
                 try {
                     fs.getFSApi().read(extOffset,buffer);
                 } catch (ApiNotFoundException exc) {
-                    exc.printStackTrace();
+                    throw new IOException("Error reading leaf extent data at offset:" + extOffset, exc);
                 }
                 return new Leaf(buffer.array(), 0, fs, extents.size() - 1);
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }
         }).collect(Collectors.toList());
-    }
-
-    /**
-     * Validate the magic key data
-     *
-     * @return a list of valid magic signatures
-     */
-    @Override
-    protected List<Long> validSignatures() {
-        return Arrays.asList(0L);
     }
 }

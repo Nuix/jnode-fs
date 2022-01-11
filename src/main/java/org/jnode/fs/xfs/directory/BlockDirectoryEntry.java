@@ -2,23 +2,28 @@ package org.jnode.fs.xfs.directory;
 
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * A XFS block directory entry inode.
  *
- * @author
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 public class BlockDirectoryEntry extends XfsObject {
 
     /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(BlockDirectoryEntry.class);
+
+    /**
      * Length of the name, in bytes
      */
-    private final long nameSize;
+    private final int nameSize;
 
     /**
      * Magic number signifying that this is an unused entry. Must be 0xFFFF.
@@ -45,19 +50,18 @@ public class BlockDirectoryEntry extends XfsObject {
      *
      * @param data of the inode.
      * @param offset of the inode's data
-     * @param fileSystem of the image
-     * @throws IOException if an error occurs reading in the super block.
+     * @param fileSystem of the image.
      */
-    public BlockDirectoryEntry(byte [] data, long offset, XfsFileSystem fileSystem) throws IOException {
-        super(data , (int) offset);
+    public BlockDirectoryEntry(byte [] data, long offset, XfsFileSystem fileSystem) {
+        super(data, (int) offset);
         this.fileSystem = fileSystem;
-        isFreeTag = read(0,2) == 0xFFFF;
+        isFreeTag = getUInt16(0) == 0xFFFF;
         if (!isFreeTag()) {
-            nameSize = read(8, 1);
-            iNodeNumber = read(0, 8);
+            nameSize = getUInt8(8);
+            iNodeNumber = getInt64(0);
             byte [] buffer = new byte[(int)nameSize];
-            System.arraycopy(data, (int)offset + 9 , buffer, 0 , (int) nameSize);
-            name = new String(buffer, StandardCharsets.US_ASCII);
+            System.arraycopy(data, (int)offset + 9, buffer, 0, (int) nameSize);
+            name = new String(buffer, StandardCharsets.UTF_8);
         } else {
             nameSize = 0;
             iNodeNumber=0;
@@ -66,31 +70,11 @@ public class BlockDirectoryEntry extends XfsObject {
     }
 
     /**
-     * Validate the magic key data
-     *
-     * @return a list of valid magic signatures
-     */
-    @Override
-    protected List<Long> validSignatures() {
-        return Collections.singletonList(0L);
-    }
-
-    /**
-     * Gets the magic signature.
-     *
-     * @return the magic signature.
-     */
-    @Override
-    public long getMagicSignature() throws IOException {
-        return 0L;
-    }
-
-    /**
      * Gets the inode number of this entry.
      *
      * @return the inode number
      */
-    public long getINodeNumber() throws IOException {
+    public long getINodeNumber() {
         return iNodeNumber;
     }
 
@@ -99,7 +83,7 @@ public class BlockDirectoryEntry extends XfsObject {
      *
      * @return the name size.
      */
-    public long getNameSize() throws IOException {
+    public int getNameSize() {
         return nameSize;
     }
 
@@ -108,7 +92,7 @@ public class BlockDirectoryEntry extends XfsObject {
      *
      * @return the name entry.
      */
-    public String getName() throws IOException {
+    public String getName() {
         return name;
     }
 
@@ -117,8 +101,8 @@ public class BlockDirectoryEntry extends XfsObject {
      *
      * @return the offset directory block
      */
-    public long getOffsetFromBlock() throws IOException {
-        return read(getNameSize() + 9, 2);
+    public long getOffsetFromBlock() {
+        return getUInt16(getNameSize() + 9);
     }
 
     /**
@@ -135,13 +119,13 @@ public class BlockDirectoryEntry extends XfsObject {
      *
      * @return the offset size.
      */
-    public long getOffsetSize() throws IOException {
+    public long getOffsetSize() {
         if (!isFreeTag) {
             final long l = 12 + nameSize;
             final double v = l / 8.0;
             return (long) Math.ceil(v) * 8;
         } else {
-            return read(2,2);
+            return getUInt16(2);
         }
     }
 

@@ -35,5 +35,4 @@ public abstract class XfsRecord extends XfsObject {
         return getUInt32(0x0);
     }
 
-    protected List<Long> validSignatures() { return Arrays.asList(0L); }
 }

@@ -2,13 +2,24 @@ package org.jnode.fs.xfs.directory;
 
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
-import org.jnode.fs.xfs.XfsValidSignature;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
 
+/**
+ * A XFS leaf info.
+ *
+ * @author Ricardo Garza
+ * @author Julio Parra
+ */
 public class LeafInfo extends XfsObject {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(LeafInfo.class);
 
     /**
      * The magic signature of a leaf directory entry.
@@ -80,23 +91,21 @@ public class LeafInfo extends XfsObject {
      */
     public LeafInfo(byte [] data, long offset, XfsFileSystem fileSystem) throws IOException {
         super(data, (int) offset);
-        try {
-            if (!isValidSignature()) {
-                throw new XfsValidSignature(getAsciiSignature(), validSignatures(), (long) offset, this.getClass());
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+
+        if ((getMagicSignature() != LEAF_DIR_MAGIC) && (getMagicSignature() != NODE_DIR_MAGIC)) {
+            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature());
         }
+
         this.fileSystem = fileSystem;
-        forward = read(0,4);
-        backward = read(4,4);
-        crc = read(12,4);
-        blockNumber = read(16,8);
-        logSequenceNumber = read(24,8);
-        owner = read(48,8);
-        uuid = readUuid(32,16);
-        count = read(56,2);
-        stale = read(58,2);
+        forward = getUInt32(0);
+        backward = getUInt32(4);
+        crc = getUInt32(12);
+        blockNumber = getInt64(16);
+        logSequenceNumber = getInt64(24);
+        owner = getInt64(48);
+        uuid = readUuid(32);
+        count = getUInt16(56);
+        stale = getUInt16(58);
         // 4 byte padding at the end
     }
 
@@ -106,18 +115,10 @@ public class LeafInfo extends XfsObject {
      * @return the magic value of the leaf block
      */
     @Override
-    public long getMagicSignature() throws IOException {
-        return read(8,2);
+    public long getMagicSignature() {
+        return getUInt16(8);
     }
 
-    /**
-     * Validate the magic key data
-     *
-     * @return a list of valid magic signatures
-     */
-    protected List<Long> validSignatures() {
-        return Arrays.asList(LEAF_DIR_MAGIC,NODE_DIR_MAGIC);
-    }
 
     /**
      * Gets the Logical block offset of the previous block at this level.

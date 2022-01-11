@@ -74,8 +74,6 @@ public class INodeBTreeRecord extends XfsObject implements BTreeRecord {
         return inode >= getStartIno() && inode < getStartIno() + getRecordCount();
     }
 
-    protected List<Long> validSignatures() { return Arrays.asList(0L); }
-
     @Override
     public String toString() {
         return String.format("b-tree record:[start-ino:%d free-count:%d free-mask:%x]", getStartIno(), getFreeCount(),

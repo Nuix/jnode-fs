@@ -1,11 +1,26 @@
 package org.jnode.fs.xfs.attribute;
 
 import org.jnode.fs.xfs.XfsObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * A XFS Attribute header.
+ *
+ * @author Ricardo Garza
+ * @author Julio Parra
+ */
+
 public class XfsAttributeHeader extends XfsObject {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(XfsAttributeHeader.class);
 
     /**
      * The size value of the value.
@@ -21,29 +36,10 @@ public class XfsAttributeHeader extends XfsObject {
      * Create a XFS SELinux attribute header.
      *
      */
-    public XfsAttributeHeader(byte [] data, long offset) throws IOException {
+    public XfsAttributeHeader(byte [] data, long offset) {
         super(data, (int) offset);
-        toSize = read(0,2);
-        count = read(2,1);
-    }
-
-    /**
-     * Gets the validSignatures.
-     *
-     * @return the valid magic values.
-     */
-    protected List<Long> validSignatures() {
-        return Collections.singletonList(0L);
-    }
-
-    /**
-     * Gets the magic signature.
-     *
-     * @return the magic signature.
-     */
-    @Override
-    public long getMagicSignature() throws IOException {
-        return 0L;
+        toSize = getUInt8(0);
+        count = getUInt8(2);
     }
 
     /**
