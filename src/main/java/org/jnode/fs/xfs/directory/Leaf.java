@@ -49,7 +49,7 @@ public class Leaf {
      *
      * @throws IOException if an error occurs reading in the leaf directory.
      */
-    public Leaf(byte[] data, long offset, XfsFileSystem fileSystem, int extentCount) throws IOException {
+    public Leaf(byte[] data, long offset, XfsFileSystem fileSystem, int extentCount) throws IOException{
         leafInfo = new LeafInfo(data,offset,fileSystem);
         final int infoCount = (int) leafInfo.getCount();
         bestCount = extentCount;
