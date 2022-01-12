@@ -46,7 +46,7 @@ public class Superblock extends XfsRecord {
             buffer.position(0);
             buffer.get(getData());
 
-            if ( getMagic() != XFS_SUPER_MAGIC ) {
+            if (getMagic() != XFS_SUPER_MAGIC) {
                 throw new FileSystemException("Wrong magic number for XFS: " + getMagic());
             }
         } catch (IOException e) {

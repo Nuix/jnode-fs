@@ -21,7 +21,7 @@ public class DataStructureAsserts
         StringBuilder actual = new StringBuilder(expected.length());
 
         actual.append(String.format("type: %s vol:%s total:%d free:%d\n",
-                fileSystem.getType().getName(), fileSystem.getVolumeName().replaceAll("\0", ""),
+                fileSystem.getType().getName(), fileSystem.getVolumeName(),
                 fileSystem.getTotalSpace(), fileSystem.getFreeSpace()));
 
         FSEntry entry = fileSystem.getRootEntry();
