@@ -1,8 +1,6 @@
 package org.jnode.fs.xfs.directory;
 
 import java.io.UnsupportedEncodingException;
-import java.util.Arrays;
-import java.util.List;
 
 import org.jnode.fs.xfs.XfsObject;
 
@@ -57,7 +55,5 @@ public class DirectoryDataEntry extends XfsObject {
     public int getTag() {
         return getUInt16(getNameLength() + 0x9);
     }
-
-    protected List<Long> validSignatures() { return Arrays.asList(0L); }
 
 }

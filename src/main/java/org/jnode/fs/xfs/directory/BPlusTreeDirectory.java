@@ -120,7 +120,7 @@ public class BPlusTreeDirectory extends XfsObject {
             } catch (ApiNotFoundException e) {
                 log.warn("Failed to read node directory at offset: " + extOffset, e);
             }
-            final NodeDirectory leafDirectory = new NodeDirectory(buffer.array(), 0, fileSystem, this.iNodeNumber, extents, leafExtentIndex);
+            final NodeDirectory leafDirectory = new NodeDirectory(buffer.array(), 0, fileSystem, iNodeNumber, extents, leafExtentIndex);
             entries = leafDirectory.getEntries(parentDirectory);
         }
         return entries;

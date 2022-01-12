@@ -42,7 +42,6 @@ public class DataExtentOffsetManager {
      */
     private final long blockSize;
 
-
     /**
      * Creates a DataExtentOffsetManager.
      *

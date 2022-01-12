@@ -1,13 +1,8 @@
 package org.jnode.fs.xfs;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Locale;
 
-import com.google.common.base.Splitter;
 import org.jnode.util.BigEndian;
 
 /**
@@ -159,17 +154,13 @@ public class XfsObject {
      * @param hexString value to convert to ascii.
      * @return the ascii value.
      */
-    public static String hexToAscii(String hexString) {
-        try {
-            StringBuilder ascii = new StringBuilder();
-            final Iterable<String> chars = Splitter.fixedLength(2).split(hexString);
-            for (String c : chars) {
-                ascii.append((char) Byte.parseByte(c, 16));
-            }
-            return ascii.toString();
-        } catch (Exception e) {
-            return "Invalid";
+    private static String hexToAscii(String hexString) {
+        StringBuilder asciiString = new StringBuilder("");
+        for (int i = 0; i < hexString.length(); i += 2) {
+            String string = hexString.substring(i, i + 2);
+            asciiString.append((char) Integer.parseInt(string, 16));
         }
+        return asciiString.toString();
     }
 
     /**
@@ -184,9 +175,10 @@ public class XfsObject {
     /**
      * Gets signature as ascii.
      *
+     * @param signature Xfs magic number
      * @return the ascii value.
      */
-    public String getAsciiSignature() {
-        return hexToAscii(Long.toHexString(getMagicSignature()));
+    protected String getAsciiSignature(long signature) {
+        return hexToAscii(Long.toHexString(signature));
     }
 }

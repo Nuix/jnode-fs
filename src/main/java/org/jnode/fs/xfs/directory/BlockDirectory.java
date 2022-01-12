@@ -66,7 +66,7 @@ public class BlockDirectory extends XfsObject  {
         super(data, offset);
 
         if ((getMagicSignature() != MAGIC_V5) && (getMagicSignature() != MAGIC_V4)) {
-            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature());
+            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature(getMagicSignature()));
         }
         this.fs = fs;
     }
@@ -76,7 +76,9 @@ public class BlockDirectory extends XfsObject  {
      *
      * @return the Checksum
      */
-    public long getChecksum() { return getUInt32(4); }
+    public long getChecksum() {
+        return getUInt32(4);
+    }
 
     /**
      * Gets the Block number of this directory block.

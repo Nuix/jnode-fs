@@ -110,7 +110,7 @@ public class INode extends XfsObject {
         super(data, offset);
 
         if (getMagicSignature() != MAGIC) {
-            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature());
+            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature(getMagicSignature()));
         }
 
         this.inodeNr = inodeNr;
@@ -137,7 +137,9 @@ public class INode extends XfsObject {
      * @return the magic.
      */
     @Override
-    public long getMagicSignature() { return getUInt16(0); }
+    public long getMagicSignature() {
+        return getUInt16(0);
+    }
 
     /**
      * Gets the mode stored in this inode.
@@ -223,7 +225,9 @@ public class INode extends XfsObject {
      *
      * @return the access time.
      */
-    public long getAccessTimeSec() { return getUInt32(0x20); }
+    public long getAccessTimeSec() {
+        return getUInt32(0x20);
+    }
 
     /**
      * Gets the (last) access time fraction of second
@@ -231,7 +235,9 @@ public class INode extends XfsObject {
      *
      * @return the access time.
      */
-    public long getAccessTimeNsec() { return getUInt32(0x24); }
+    public long getAccessTimeNsec() {
+        return getUInt32(0x24);
+    }
 
     /**
      * Gets the (last) modification time
@@ -239,7 +245,9 @@ public class INode extends XfsObject {
      *
      * @return the modified time.
      */
-    public long getChangedTimeSec() { return getUInt32(0x28); }
+    public long getChangedTimeSec() {
+        return getUInt32(0x28);
+    }
 
     /**
      * Gets the (last) modification time fraction of second
@@ -247,7 +255,9 @@ public class INode extends XfsObject {
      *
      * @return the modified time.
      */
-    public long getChangedTimeNsec() { return getUInt32(0x2c); }
+    public long getChangedTimeNsec() {
+        return getUInt32(0x2c);
+    }
 
     /**
      * Gets the (last) inode change time
@@ -255,14 +265,18 @@ public class INode extends XfsObject {
      *
      * @return the created time.
      */
-    public long getCreatedTimeSec() { return getUInt32(0x30); }
+    public long getCreatedTimeSec() {
+        return getUInt32(0x30);
+    }
     /**
      * Gets the (last) inode change time fraction of second
      * Contains number of nano seconds
      *
      * @return the created time.
      */
-    public long getCreatedTimeNsec() { return getUInt32(0x34); }
+    public long getCreatedTimeNsec() {
+        return getUInt32(0x34);
+    }
 
     /**
      * Gets the size.
@@ -327,15 +341,30 @@ public class INode extends XfsObject {
         return getInt64(0xa0);
     }
 
-    public int getINodeSizeForOffset() throws IOException {
+    /**
+     * Gets the inode size for offset.
+     *
+     * @return the size for offset.
+     */
+    public int getINodeSizeForOffset()  {
         return getVersion() == V3 ? V3_DATA_OFFSET : DATA_OFFSET;
     }
 
-    public boolean isSymLink() throws IOException {
+    /**
+     * Checks if the current is a symlink file.
+     *
+     * @return true if is a symblink.
+     */
+    public boolean isSymLink() {
         return FileMode.is((int) getMode(),FileMode.SYM_LINK);
     }
 
-    public List<DataExtent> getExtentInfo() throws IOException {
+    /**
+     * Gets all the entries of the current b+tree directory.
+     *
+     * @return the list of extents entries.
+     */
+    public List<DataExtent> getExtentInfo() {
         long offset = getOffset() + getINodeSizeForOffset();
         final int count = (int) getExtentCount();
         final ArrayList<DataExtent> list = new ArrayList<>(count);
@@ -347,11 +376,16 @@ public class INode extends XfsObject {
         return list;
     }
 
+    /**
+     * Gets the inode attributes.
+     *
+     * @return list of inode attributes.
+     */
     public List<XfsAttribute> getAttributes() throws IOException {
         long off =  getOffset() + getINodeSizeForOffset() + (getAttributesForkOffset() * 8);
         final XfsAttributeHeader myXfsAttributeHeader = new XfsAttributeHeader(getData(), off);
         final long attributesFormat = getAttributesFormat();
-        if (attributesFormat == 1){
+        if (attributesFormat == 1) {
             off += 4;  // header length remeber header has a 1 byte padding
             final int count = (int) myXfsAttributeHeader.getCount();
             List<XfsAttribute> attributes = new ArrayList<>(count);
@@ -368,11 +402,21 @@ public class INode extends XfsObject {
         return Collections.emptyList();
     }
 
-    public long getAttributesForkOffset() throws IOException {
+    /**
+     * Gets the offset of the fork attribute.
+     *
+     * @return the offset.
+     */
+    public long getAttributesForkOffset() {
         return getUInt8(82);
     }
 
-    public long getAttributesFormat() throws IOException {
+    /**
+     * Gets attribute format value.
+     *
+     * @return the attribute format value.
+     */
+    public long getAttributesFormat() {
         return getUInt8(83);
     }
 

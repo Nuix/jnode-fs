@@ -59,7 +59,7 @@ public class BlockDirectoryEntry extends XfsObject {
         if (!isFreeTag()) {
             nameSize = getUInt8(8);
             iNodeNumber = getInt64(0);
-            byte [] buffer = new byte[(int)nameSize];
+            byte [] buffer = new byte[(int) nameSize];
             System.arraycopy(data, (int)offset + 9, buffer, 0, (int) nameSize);
             name = new String(buffer, StandardCharsets.UTF_8);
         } else {

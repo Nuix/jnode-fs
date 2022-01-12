@@ -93,7 +93,7 @@ public class LeafInfo extends XfsObject {
         super(data, (int) offset);
 
         if ((getMagicSignature() != LEAF_DIR_MAGIC) && (getMagicSignature() != NODE_DIR_MAGIC)) {
-            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature());
+            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature(getMagicSignature()));
         }
 
         this.fileSystem = fileSystem;
@@ -118,7 +118,6 @@ public class LeafInfo extends XfsObject {
     public long getMagicSignature() {
         return getUInt16(8);
     }
-
 
     /**
      * Gets the Logical block offset of the previous block at this level.

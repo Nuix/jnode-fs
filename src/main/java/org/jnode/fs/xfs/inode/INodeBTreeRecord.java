@@ -3,9 +3,6 @@ package org.jnode.fs.xfs.inode;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.btree.BTreeRecord;
 
-import java.util.Arrays;
-import java.util.List;
-
 /**
  * An inode b-tree record ('xfs_inobt_rec').
  *

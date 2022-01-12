@@ -1,8 +1,5 @@
 package org.jnode.fs.xfs;
 
-import java.util.Arrays;
-import java.util.List;
-
 /**
  * A base class for XFS records.
  *

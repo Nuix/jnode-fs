@@ -1,6 +1,5 @@
 package org.jnode.fs.xfs.extent;
 
-
 import java.io.IOException;
 import java.util.ArrayList;
 
@@ -42,7 +41,7 @@ public class BPlusTreeDataExtent extends XfsObject {
         super(data, (int) offset);
 
         if (getMagicSignature() != MAGIC) {
-            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature());
+            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature(getMagicSignature()));
         }
     }
 
@@ -66,14 +65,18 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      * @return the level
      */
-    public long getLevel() { return getUInt16(4); }
+    public long getLevel() {
+        return getUInt16(4);
+    }
 
     /**
      * Gets the number of records in this block.
      *
      * @return the numrecs
      */
-    public long getNumrecs() { return getUInt16(6); }
+    public long getNumrecs() {
+        return getUInt16(6);
+    }
 
     /**
      * Gets the block number of the right sibling of this B+tree node.
@@ -89,7 +92,9 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      * @return block number of the left sibling node
      */
-    public long getLeft() { return getInt64(16); }
+    public long getLeft() {
+        return getInt64(16);
+    }
 
     /**
      * Gets the block number of this B+tree block.
