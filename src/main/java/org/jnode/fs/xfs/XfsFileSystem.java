@@ -95,7 +95,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     /**
      * Reads in the file system from the block device.
      *
-     * @throws FileSystemException if an error occurs reading the file system.
+     * * @throws IOException if an error occurs reading the file system.
      */
     public INode getINode(long absoluteINodeNumber) throws IOException {
 

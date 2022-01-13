@@ -8,7 +8,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 /**
- * A XFS SELinux Attribute.
+ * A XFS extended Attribute.
  *
  * @author Ricardo Garza
  * @author Julio Parra
