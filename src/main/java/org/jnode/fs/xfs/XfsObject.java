@@ -164,15 +164,6 @@ public class XfsObject {
     }
 
     /**
-     * Gets magic signature.
-     *
-     * @return the hex value.
-     */
-    public long getMagicSignature()  {
-        return getUInt32(0);
-    }
-
-    /**
      * Gets signature as ascii.
      *
      * @param signature Xfs magic number

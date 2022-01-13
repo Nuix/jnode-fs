@@ -72,6 +72,15 @@ public class BlockDirectory extends XfsObject  {
     }
 
     /**
+     * Gets magic signature.
+     *
+     * @return the hex value.
+     */
+    public long getMagicSignature()  {
+        return getUInt32(0);
+    }
+
+    /**
      * Gets the Checksum of the directory block.
      *
      * @return the Checksum

@@ -136,7 +136,6 @@ public class INode extends XfsObject {
      *
      * @return the magic.
      */
-    @Override
     public long getMagicSignature() {
         return getUInt16(0);
     }
@@ -151,21 +150,21 @@ public class INode extends XfsObject {
     }
 
     /**
-     * Is Directory the current inode.
+     * Returns {@code true} if the current inode is a directory
      *
-     * @return true.
+     * @return {@code true} if this is a directory, {@code false} otherwise.
      */
     public boolean isDirectory() throws IOException {
-        return FileMode.is((int) getMode(),FileMode.DIRECTORY);
+        return FileMode.is(getMode(), FileMode.DIRECTORY);
     }
 
     /**
-     * Gets the mode stored in this inode.
+     * Returns {@code true} if the current inode is a file.
      *
-     * @return the mode.
+     * @return {@code true} if this is a file, {@code false} otherwise.
      */
     public boolean isFile() throws IOException {
-        return FileMode.is((int) getMode(),FileMode.FILE);
+        return FileMode.is(getMode(), FileMode.FILE);
     }
 
     /**

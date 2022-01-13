@@ -46,6 +46,15 @@ public class BPlusTreeDataExtent extends XfsObject {
     }
 
     /**
+     * Gets magic signature.
+     *
+     * @return the hex value.
+     */
+    public long getMagicSignature()  {
+        return getUInt32(0);
+    }
+
+    /**
      * Gets all the entries of the current b+tree directory.
      *
      */

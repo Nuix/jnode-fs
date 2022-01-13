@@ -114,7 +114,6 @@ public class LeafInfo extends XfsObject {
      *
      * @return the magic value of the leaf block
      */
-    @Override
     public long getMagicSignature() {
         return getUInt16(8);
     }
