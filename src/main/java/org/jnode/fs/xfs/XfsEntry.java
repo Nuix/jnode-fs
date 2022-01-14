@@ -70,22 +70,22 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
 
     @Override
     public String getId() {
-        return Long.toString(inode.getINodeNr()) + '-' + Long.toString(directoryRecordId);
+        return Long.toString(inode.getINodeNr()) + '-' + directoryRecordId;
     }
 
     @Override
     public long getCreated() throws IOException {
-        return (inode.getCreatedTimeSec() * 1000) + ((long) inode.getCreatedTimeNsec() / NANO_SECOND);
+        return (inode.getCreatedTimeSec() * 1000) + (inode.getCreatedTimeNsec() / NANO_SECOND);
     }
 
     @Override
     public long getLastAccessed() throws IOException {
-        return (inode.getAccessTimeSec() * 1000) + ((long) inode.getAccessTimeNsec() / NANO_SECOND);
+        return (inode.getAccessTimeSec() * 1000) + (inode.getAccessTimeNsec() / NANO_SECOND);
     }
 
     @Override
     public long getLastChanged() throws IOException {
-        return (inode.getChangedTimeSec() * 1000) + ((long) inode.getChangedTimeNsec() / NANO_SECOND);
+        return (inode.getChangedTimeSec() * 1000) + (inode.getChangedTimeNsec() / NANO_SECOND);
     }
 
     /**
@@ -130,7 +130,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
                 }
             case XfsConstants.XFS_DINODE_FMT_EXTENTS:
                 if (extentList == null) {
-                    extentList = new ArrayList<DataExtent>();
+                    extentList = new ArrayList<>((int)inode.getExtentCount());
 
                     for (int i = 0; i < inode.getExtentCount(); i++) {
                         int inodeOffset = inode.getVersion() >= INode.V3 ? INode.V3_DATA_OFFSET : INode.DATA_OFFSET;
@@ -169,9 +169,8 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
             if (extent.isWithinExtent(offset, blockSize)) {
                 ByteBuffer readBuffer = destBuf.duplicate();
 
-                long blockOffset = (offset - extentOffset) / blockSize;
-                int offsetWithinBlock = (int) (offset % blockSize);
-                int bytesToRead = (int) Math.min(extent.getBlockCount() * blockSize, destBuf.remaining());
+                long offsetWithinBlock = offset - extentOffset;
+                int bytesToRead = (int) Math.min(extent.getBlockCount() * blockSize - offsetWithinBlock, destBuf.remaining());
                 readBuffer.limit(readBuffer.position() + bytesToRead);
                 fileSystem.getApi().read(extent.getFileSystemBlockOffset(fileSystem) + offsetWithinBlock, readBuffer);
 
