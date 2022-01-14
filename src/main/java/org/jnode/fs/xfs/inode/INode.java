@@ -8,6 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -356,6 +358,17 @@ public class INode extends XfsObject {
      */
     public boolean isSymLink() {
         return FileMode.is((int) getMode(),FileMode.SYM_LINK);
+    }
+
+    /**
+     * Gets the text of the symlink file.
+     *
+     * @return as string, where the symblink point to.
+     */
+    public String getSymLinkText() {
+        ByteBuffer buffer = ByteBuffer.allocate((int) getSize());
+        System.arraycopy(getData(), getOffset() + getINodeSizeForOffset(), buffer.array(), 0, (int) getSize());
+        return new String(buffer.array(), StandardCharsets.UTF_8);
     }
 
     /**

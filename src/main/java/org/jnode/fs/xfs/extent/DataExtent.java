@@ -163,6 +163,10 @@ public class DataExtent extends XfsObject {
         return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
     }
 
+    public long getFileSystemBlockOffset(XfsFileSystem fileSystem) {
+        return getFileSystemBlockOffset(startBlock,fileSystem);
+    }
+
     @Override
     public String toString() {
         return String.format("extent:[start: 0x%x start-block:0x%x block-count:%d]",
