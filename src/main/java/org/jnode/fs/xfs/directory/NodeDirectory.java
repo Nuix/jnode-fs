@@ -16,7 +16,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -91,6 +93,7 @@ public class NodeDirectory extends XfsObject {
         final DataExtentOffsetManager extentOffsetManager = new DataExtentOffsetManager(dataExtents, fs);
         List<FSEntry> entries = new ArrayList<>(leafEntries.size());
         int i = 0;
+        Map<DataExtent,ByteBuffer> bufferMap = new HashMap<>();
         for (LeafEntry leafEntry : leafEntries) {
             final long address = leafEntry.getAddress();
             if (address == 0) {
@@ -102,12 +105,18 @@ public class NodeDirectory extends XfsObject {
                 log.warn("Error on Node Directory " + iNodeNumber + " No Relative address " + address + "(" + extentGroupOffset + ") found");
                 continue;
             }
-            final long extOffset = data.getExtent().getExtentOffset(fs);
-            ByteBuffer buffer = ByteBuffer.allocate((int) fs.getSuperblock().getBlockSize() * (int) data.getExtent().getBlockCount());
-            try {
-                fs.getFSApi().read(extOffset, buffer);
-            } catch (ApiNotFoundException e) {
-                throw new IOException("Error reading entry data at offset:" + extOffset, e);
+            ByteBuffer buffer;
+            if (!bufferMap.containsKey(data.getExtent())){
+                final long extOffset = data.getExtent().getExtentOffset(fs);
+                buffer = ByteBuffer.allocate((int) fs.getSuperblock().getBlockSize() * (int) data.getExtent().getBlockCount());
+                try {
+                    fs.getFSApi().read(extOffset, buffer);
+                } catch (ApiNotFoundException e) {
+                    throw new IOException("Error reading entry data at offset:" + extOffset, e);
+                }
+                bufferMap.put(data.getExtent(),buffer);
+            } else {
+                buffer = bufferMap.get(data.getExtent());
             }
             final long extentRelativeOffset = extentGroupOffset - data.getStart();
             final BlockDirectoryEntry entry = new BlockDirectoryEntry(buffer.array(), extentRelativeOffset, fs);
