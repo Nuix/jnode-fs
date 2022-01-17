@@ -82,7 +82,7 @@ public class NodeDirectory extends XfsObject {
      */
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
         final List<DataExtent> leafExtents = extents.subList(leafExtentIndex + 1, extents.size() - 1);
-        final List<DataExtent> dataExtents = extents.subList(0, leafExtentIndex - 1);
+        final List<DataExtent> dataExtents = extents.subList(0, leafExtentIndex);
         final DataExtent freeExtent = extents.get(extents.size() - 1);
         final DataExtent directoryDataExtent = extents.get(leafExtentIndex);
         final long directoryBlockSizeLog2 = fs.getSuperblock().getDirectoryBlockSizeLog2();
