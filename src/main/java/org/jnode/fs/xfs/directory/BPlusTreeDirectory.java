@@ -73,7 +73,7 @@ public class BPlusTreeDirectory extends XfsObject {
         this.fileSystem = fileSystem;
         this.iNodeNumber = iNodeNumber;
         this.inode =   fileSystem.getINode(iNodeNumber);
-        int btreeInfoOffset = inode.getOffset() + fileSystem.getINode(iNodeNumber).getINodeSizeForOffset();
+        int btreeInfoOffset = inode.getOffset() + inode.getINodeSizeForOffset();
         this.level = getUInt16(btreeInfoOffset);
         this.numrecs = getUInt16(btreeInfoOffset + 2);
         if (level > 1) {
@@ -92,12 +92,13 @@ public class BPlusTreeDirectory extends XfsObject {
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
         final long forkOffset = inode.getAttributesForkOffset() * 8;
         long btreeBlockOffset = (inode.getOffset() + inode.getINodeSizeForOffset() + (forkOffset/2));
-        List<BPlusTreeDataExtent> extentListsList = new ArrayList<>(numrecs);
-        List<FSEntry> entries = new ArrayList<>();
-
+        // 8 byte alignment. not sure if it should be a 16 byte alignment?
+        btreeBlockOffset = btreeBlockOffset + (btreeBlockOffset % 8);
+        final List<DataExtent> extents = new ArrayList<>(200);
         for (int i = 0; i < numrecs; i++) {
             final long fsBlockNo = getUInt32((int) btreeBlockOffset);
-            btreeBlockOffset += 4;
+            // 8 byte alignment
+            btreeBlockOffset += 0x8;
             final long offset = DataExtent.getFileSystemBlockOffset(fsBlockNo, fileSystem);
             ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize());
             try {
@@ -106,23 +107,19 @@ public class BPlusTreeDirectory extends XfsObject {
                 log.warn("Failed to read FS entry list at offset: " + offset, e);
             }
             final BPlusTreeDataExtent extentList = new BPlusTreeDataExtent(buffer.array(), 0);
-            extentListsList.add(extentList);
+            extents.addAll(extentList.getExtents());
         }
 
-        for (BPlusTreeDataExtent bPlusTreeExtentList : extentListsList) {
-            final List<DataExtent> extents = bPlusTreeExtentList.getExtents();
-            final long leafExtentIndex = LeafDirectory.getLeafExtentIndex(extents, fileSystem);
-            final DataExtent extentInformation = extents.get((int) leafExtentIndex);
-            final long extOffset = extentInformation.getExtentOffset(fileSystem);
-            ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize() * (int) extentInformation.getBlockCount());
-            try {
-                fileSystem.getFSApi().read(extOffset, buffer);
-            } catch (ApiNotFoundException e) {
-                log.warn("Failed to read node directory at offset: " + extOffset, e);
-            }
-            final NodeDirectory leafDirectory = new NodeDirectory(buffer.array(), 0, fileSystem, iNodeNumber, extents, leafExtentIndex);
-            entries = leafDirectory.getEntries(parentDirectory);
+        final long leafExtentIndex = LeafDirectory.getLeafExtentIndex(extents, fileSystem);
+        final DataExtent extentInformation = extents.get((int) leafExtentIndex);
+        final long extOffset = extentInformation.getExtentOffset(fileSystem);
+        ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize() * (int) extentInformation.getBlockCount());
+        try {
+            fileSystem.getFSApi().read(extOffset, buffer);
+        } catch (ApiNotFoundException e) {
+            log.warn("Failed to read node directory at offset: " + extOffset, e);
         }
-        return entries;
+        final NodeDirectory leafDirectory = new NodeDirectory(buffer.array(), 0, fileSystem, iNodeNumber, extents, leafExtentIndex);
+        return leafDirectory.getEntries(parentDirectory);
     }
 }

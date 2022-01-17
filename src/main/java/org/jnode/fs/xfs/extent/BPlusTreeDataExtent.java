@@ -41,7 +41,7 @@ public class BPlusTreeDataExtent extends XfsObject {
         super(data, (int) offset);
 
         if (getMagicSignature() != MAGIC) {
-            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature(getMagicSignature()));
+            throw new IOException("Wrong magic number for XFS: Required[" + getAsciiSignature(MAGIC) + " found[" + getAsciiSignature(getMagicSignature()) + "]" ) ;
         }
     }
 
