@@ -28,6 +28,10 @@ public class Superblock extends XfsRecord {
      * The super block magic number ('XFSB').
      */
     public static final long XFS_SUPER_MAGIC = 0x58465342;
+    private final long blockSize;
+    private final int iNodeSize;
+    private final int aGSizeLog2;
+    private final int iNodePerBlockLog2;
 
     /**
      * Creates a new super block.
@@ -52,6 +56,10 @@ public class Superblock extends XfsRecord {
         } catch (IOException e) {
             throw new FileSystemException(e);
         }
+        blockSize = getUInt32(0x4);
+        iNodeSize = getUInt16(0x68);
+        aGSizeLog2=getUInt8(0x7c);
+        iNodePerBlockLog2 = getUInt8(0x7b);
     }
 
     /**
@@ -60,7 +68,7 @@ public class Superblock extends XfsRecord {
      * @return the block size.
      */
     public long getBlockSize() {
-        return getUInt32(0x4);
+        return blockSize;
     }
 
     /**
@@ -134,7 +142,7 @@ public class Superblock extends XfsRecord {
      * @return the inode size.
      */
     public int getInodeSize() {
-        return getUInt16(0x68);
+        return iNodeSize;
     }
 
     /**
@@ -189,7 +197,7 @@ public class Superblock extends XfsRecord {
      * Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
      */
     public long getAGSizeLog2() {
-        return getUInt8(0x7c);
+        return aGSizeLog2;
     }
 
     /**
@@ -197,7 +205,7 @@ public class Superblock extends XfsRecord {
      * Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
      */
     public long getINodePerBlockLog2() {
-        return getUInt8(0x7b);
+        return iNodePerBlockLog2;
     }
 
     /**
