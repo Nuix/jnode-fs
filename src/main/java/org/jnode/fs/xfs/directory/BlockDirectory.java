@@ -132,15 +132,20 @@ public class BlockDirectory extends XfsObject  {
      */
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
         long offset = getOffset() + V5_LENGTH;
-        List<FSEntry> data = new ArrayList<>(10);
+        final long stale = getUInt32(getData().length - 4);
+        final long count = getUInt32(getData().length - 8);
+        final long activeDirs = count - stale;
+        List<FSEntry> data = new ArrayList<>((int)activeDirs);
         int i = 0;
-        while (true) {
+        while (i < activeDirs) {
             final BlockDirectoryEntry entry = new BlockDirectoryEntry(getData(), offset, fs);
-            if (entry.getNameSize() == 0) {
-                break;
+            if (!entry.isFreeTag()) {
+                if (entry.getNameSize() == 0) {
+                    break;
+                }
+                INode iNode = fs.getINode(entry.getINodeNumber());
+                data.add(new XfsEntry(iNode, entry.getName(), i++, fs, parentDirectory));
             }
-            INode iNode = fs.getINode(entry.getINodeNumber());
-            data.add(new XfsEntry(iNode, entry.getName(), i++, fs, parentDirectory));
             offset += entry.getOffsetSize();
         }
         return data;

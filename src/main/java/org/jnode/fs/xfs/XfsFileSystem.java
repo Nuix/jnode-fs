@@ -98,18 +98,21 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      * * @throws IOException if an error occurs reading the file system.
      */
     public INode getINode(long absoluteINodeNumber) throws IOException {
-
-        final long numberOfRelativeINodeBits = getSuperblock().getAGSizeLog2() + getSuperblock().getINodePerBlockLog2();
-        int allocationGroupIndex = (int) (absoluteINodeNumber >> numberOfRelativeINodeBits);
-        long allocationGroupBlockNumber = (long) allocationGroupIndex * getSuperblock().getAGSize();
-        long relativeINodeNumber  = absoluteINodeNumber & (((long)1 << numberOfRelativeINodeBits) - 1);
-        // Calculate the offset of the iNode number.
-        long offset = (allocationGroupBlockNumber * getSuperblock().getBlockSize()) + (relativeINodeNumber * getSuperblock().getInodeSize());
+        long offset = getINodeAbsoluteOffset(absoluteINodeNumber);
         // Reserve the space to read the iNode
         ByteBuffer allocate = ByteBuffer.allocate(getSuperblock().getInodeSize());
         // Read the iNode data
         getApi().read(offset, allocate);
         return new INode(absoluteINodeNumber, allocate.array(), 0);
+    }
+
+    public long getINodeAbsoluteOffset(long absoluteINodeNumber) {
+        final long numberOfRelativeINodeBits = getSuperblock().getAGSizeLog2() + getSuperblock().getINodePerBlockLog2();
+        int allocationGroupIndex = (int) (absoluteINodeNumber >> numberOfRelativeINodeBits);
+        long allocationGroupBlockNumber = (long) allocationGroupIndex * getSuperblock().getAGSize();
+        long relativeINodeNumber  = absoluteINodeNumber & (((long)1 << numberOfRelativeINodeBits) - 1);
+        // Calculate the offset of the iNode number.
+        return (allocationGroupBlockNumber * getSuperblock().getBlockSize()) + (relativeINodeNumber * getSuperblock().getInodeSize());
     }
 
     /**
