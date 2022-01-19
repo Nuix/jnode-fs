@@ -96,7 +96,9 @@ public class LeafDirectory extends XfsObject {
      */
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
         final Leaf leaf = new Leaf(getData(), getOffset(), fileSystem, extents.size() - 1);
-        List<FSEntry> entries = new ArrayList<>((int)leaf.getLeafInfo().getCount());
+        final LeafInfo leafInfo = leaf.getLeafInfo();
+        final int entryCount = (int) (leafInfo.getCount() - leafInfo.getStale());
+        List<FSEntry> entries = new ArrayList<>(entryCount);
         final DataExtentOffsetManager extentOffsetManager = new DataExtentOffsetManager(extents.subList(0, extents.size() - 1), fileSystem);
         int i=0;
         for (LeafEntry leafEntry : leaf.getLeafEntries()) {

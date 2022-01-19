@@ -89,9 +89,15 @@ public class NodeDirectory extends XfsObject {
         final DataExtent directoryDataExtent = extents.get(leafExtentIndex);
         final long directoryBlockSizeLog2 = fs.getSuperblock().getDirectoryBlockSizeLog2();
         final long directoryBlockSize = (long) Math.pow(2, directoryBlockSizeLog2) * fs.getSuperblock().getBlockSize();
-        final List<LeafEntry> leafEntries = leafExtentsToLeaves(leafExtents).stream().flatMap(leaf -> leaf.getLeafEntries().stream()).collect(Collectors.toList());
+        final List<Leaf> leaves = leafExtentsToLeaves(leafExtents);
+        final List<LeafEntry> leafEntries = new ArrayList<>();
+        int dirCount = 0;
+        for (Leaf leaf : leaves) {
+            dirCount += (int) (leaf.getLeafInfo().getCount() - leaf.getLeafInfo().getStale());
+            leafEntries.addAll(leaf.getLeafEntries());
+        }
         final DataExtentOffsetManager extentOffsetManager = new DataExtentOffsetManager(dataExtents, fs);
-        List<FSEntry> entries = new ArrayList<>(leafEntries.size());
+        List<FSEntry> entries = new ArrayList<>(dirCount);
         int i = 0;
         Map<DataExtent,ByteBuffer> bufferMap = new HashMap<>();
         for (LeafEntry leafEntry : leafEntries) {
