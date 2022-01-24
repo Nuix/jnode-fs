@@ -72,7 +72,7 @@ public class ShortFormDirectoryEntry extends XfsObject {
      * @return the inode number.
      */
     public long getINumber() {
-        int numberOffset = this.getLength();
+        int numberOffset = getNameLength() + inodeSize;
         return inodeSize == 4 ? getUInt32(numberOffset) : getInt64(numberOffset);
     }
 
@@ -81,7 +81,7 @@ public class ShortFormDirectoryEntry extends XfsObject {
      *
      * @return the entry length.
      */
-    public int getLength() { return  getNameLength() + inodeSize; }
+    public int getLength() { return getNameLength() + 0x8; }
 
     @Override
     public String toString() {
