@@ -80,8 +80,8 @@ public class XfsFileSystemTest {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
 
-            FSEntry entry = fs.getRootEntry();
-                StringBuilder actual = new StringBuilder(expectedStructure.length());
+            FSEntry entry = (XfsEntry) fs.getRootEntry();
+            StringBuilder actual = new StringBuilder(expectedStructure.length());
 
             buildXfsMetaDataStructure(entry, actual, "  ");
 
@@ -183,7 +183,7 @@ public class XfsFileSystemTest {
             FSEntry entry = fs.getRootEntry();
             StringBuilder actual = new StringBuilder(1024);
             buildXfsDirStructure(entry, actual, "  ");
-            System.out.println(actual);
+            //System.out.println(actual);
         } finally {
             testFile.delete();
         }
