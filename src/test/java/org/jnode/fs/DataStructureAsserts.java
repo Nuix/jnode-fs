@@ -1,5 +1,7 @@
 package org.jnode.fs;
 
+import org.jnode.fs.xfs.XfsEntry;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
@@ -19,8 +21,8 @@ public class DataStructureAsserts
         StringBuilder actual = new StringBuilder(expected.length());
 
         actual.append(String.format("type: %s vol:%s total:%d free:%d\n",
-                                    fileSystem.getType().getName(), fileSystem.getVolumeName(),
-                                    fileSystem.getTotalSpace(), fileSystem.getFreeSpace()));
+                fileSystem.getType().getName(), fileSystem.getVolumeName(),
+                fileSystem.getTotalSpace(), fileSystem.getFreeSpace()));
 
         FSEntry entry = fileSystem.getRootEntry();
         buildStructure(entry, actual, "  ");
@@ -130,4 +132,6 @@ public class DataStructureAsserts
 
         return builder.toString();
     }
+
+
 }

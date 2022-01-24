@@ -5,6 +5,8 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import org.jnode.fs.xfs.AllocationGroupINode;
 import org.jnode.fs.xfs.XfsFileSystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A b-tree for inodes.
@@ -12,6 +14,11 @@ import org.jnode.fs.xfs.XfsFileSystem;
  * @author Luke Quinane.
  */
 public class INodeBTree {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(INode.class);
 
     /**
      * The block offset to the root inode.
@@ -43,7 +50,7 @@ public class INodeBTree {
     public INodeBTree(XfsFileSystem fileSystem, AllocationGroupINode agINode) throws IOException {
         this.fileSystem = fileSystem;
 
-        ByteBuffer buffer = ByteBuffer.allocate(fileSystem.getSuperblock().getBlockSize());
+        ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize());
         fileSystem.readBlocks(agINode.getRootBlock(), buffer);
         header = new INodeBTreeHeader(buffer.array());
     }
@@ -74,7 +81,7 @@ public class INodeBTree {
             throw new IOException("Failed to find an inode for: " + inode);
         }
 
-        int blockSize = fileSystem.getSuperblock().getBlockSize();
+        int blockSize = (int) fileSystem.getSuperblock().getBlockSize();
         int inodeSize = fileSystem.getSuperblock().getInodeSize();
         int chunkSize = inodeSize * INODE_CHUNK_COUNT;
         int offset = (int) ((inode % INODE_CHUNK_COUNT) * inodeSize);

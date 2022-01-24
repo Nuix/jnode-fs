@@ -31,4 +31,5 @@ public abstract class XfsRecord extends XfsObject {
     public long getMagic() {
         return getUInt32(0x0);
     }
+
 }

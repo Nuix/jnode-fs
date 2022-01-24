@@ -2,23 +2,35 @@ package org.jnode.fs.xfs;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntryCreated;
 import org.jnode.fs.FSEntryLastAccessed;
+import org.jnode.fs.FSEntryLastChanged;
 import org.jnode.fs.spi.AbstractFSEntry;
 import org.jnode.fs.util.UnixFSConstants;
+import org.jnode.fs.xfs.directory.BlockDirectoryEntry;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.inode.INode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * An entry in a XFS file system.
  *
  * @author Luke Quinane
  */
-public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntryLastAccessed {
+public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntryLastAccessed, FSEntryLastChanged {
 
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(BlockDirectoryEntry.class);
+
+    long NANO_SECOND = 1000000000;
     /**
      * The inode.
      */
@@ -58,22 +70,22 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
 
     @Override
     public String getId() {
-        return Long.toString(inode.getINodeNr()) + '-' + Long.toString(directoryRecordId);
+        return Long.toString(inode.getINodeNr()) + '-' + directoryRecordId;
     }
 
     @Override
     public long getCreated() throws IOException {
-        return inode.getCreatedTime();
+        return (inode.getCreatedTimeSec() * 1000) + (inode.getCreatedTimeNsec() / NANO_SECOND);
     }
 
     @Override
     public long getLastAccessed() throws IOException {
-        return inode.getAccessTime();
+        return (inode.getAccessTimeSec() * 1000) + (inode.getAccessTimeNsec() / NANO_SECOND);
     }
 
     @Override
-    public long getLastModified() throws IOException {
-        return inode.getModifiedTime();
+    public long getLastChanged() throws IOException {
+        return (inode.getChangedTimeSec() * 1000) + (inode.getChangedTimeNsec() / NANO_SECOND);
     }
 
     /**
@@ -110,21 +122,23 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
     public void readUnchecked(long offset, ByteBuffer destBuf) throws IOException {
         switch (inode.getFormat()) {
             case XfsConstants.XFS_DINODE_FMT_LOCAL:
-                throw new UnsupportedOperationException();
-
+                if(getINode().isSymLink()) {
+                    ByteBuffer buffer = StandardCharsets.UTF_8.encode(getINode().getSymLinkText());
+                    destBuf.put(buffer);
+                } else {
+                    throw new UnsupportedOperationException();
+                }
             case XfsConstants.XFS_DINODE_FMT_EXTENTS:
                 if (extentList == null) {
-                    extentList = new ArrayList<DataExtent>();
+                    extentList = new ArrayList<>((int)inode.getExtentCount());
 
                     for (int i = 0; i < inode.getExtentCount(); i++) {
-                        int inodeDataOffset = inode.getVersion() >= 3 ? INode.V3_DATA_OFFSET : INode.DATA_OFFSET;
-                        int inodeOffset = inode.getOffset() + inodeDataOffset;
+                        int inodeOffset = inode.getVersion() >= INode.V3 ? INode.V3_DATA_OFFSET : INode.DATA_OFFSET;
                         int extentOffset = inodeOffset + i * DataExtent.PACKED_LENGTH;
                         DataExtent extent = new DataExtent(inode.getData(), extentOffset);
                         extentList.add(extent);
                     }
                 }
-
                 readFromExtentList(offset, destBuf);
                 return;
 
@@ -144,7 +158,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
      * @throws IOException if an error occurs reading.
      */
     private void readFromExtentList(long offset, ByteBuffer destBuf) throws IOException {
-        int blockSize = fileSystem.getSuperblock().getBlockSize();
+        long blockSize = fileSystem.getSuperblock().getBlockSize();
         long extentOffset = 0;
 
         for (DataExtent extent : extentList) {
@@ -155,12 +169,10 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
             if (extent.isWithinExtent(offset, blockSize)) {
                 ByteBuffer readBuffer = destBuf.duplicate();
 
-                long blockOffset = (offset - extentOffset) / blockSize;
-                int offsetWithinBlock = (int) (offset % blockSize);
-                int bytesToRead = (int) Math.min(extent.getBlockCount() * blockSize, destBuf.remaining());
+                long offsetWithinBlock = offset - extentOffset;
+                int bytesToRead = (int) Math.min(extent.getBlockCount() * blockSize - offsetWithinBlock, destBuf.remaining());
                 readBuffer.limit(readBuffer.position() + bytesToRead);
-
-                fileSystem.readBlocks(extent.getStartBlock() + blockOffset, offsetWithinBlock, readBuffer);
+                fileSystem.getApi().read(extent.getFileSystemBlockOffset(fileSystem) + offsetWithinBlock, readBuffer);
 
                 offset += bytesToRead;
                 destBuf.position(destBuf.position() + bytesToRead);

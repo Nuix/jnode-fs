@@ -2,6 +2,7 @@ package org.jnode.fs.xfs;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+
 import org.jnode.driver.Device;
 import org.jnode.driver.block.BlockDeviceAPI;
 import org.jnode.fs.FSDirectory;
@@ -12,7 +13,7 @@ import org.jnode.fs.FileSystemException;
 import org.jnode.fs.FileSystemType;
 import org.jnode.fs.spi.AbstractFileSystem;
 import org.jnode.fs.xfs.inode.INodeBTree;
-
+import org.jnode.fs.xfs.inode.INode;
 /**
  * An XFS file system.
  *
@@ -35,6 +36,29 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      */
     private INodeBTree inodeBTree;
 
+    private INode inode;
+
+    /**
+     * The inode size.
+     */
+    private int iNodeSize;
+
+    /**
+     * The allocation group size.
+     */
+    private long allocationGroupSize;
+
+    /**
+     * The allocation group block size.
+     */
+    private long blockSize;
+
+    /**
+     * The allocation group count.
+     */
+    private int aGCount;
+
+
     /**
      * Construct an XFS file system.
      *
@@ -56,6 +80,10 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     public final void read() throws FileSystemException {
         superblock = new Superblock(this);
         agINode = new AllocationGroupINode(this);
+        iNodeSize = superblock.getInodeSize();
+        blockSize = superblock.getBlockSize();
+        aGCount = (int) superblock.getAGCount();
+        allocationGroupSize = blockSize * superblock.getTotalBlocks() / aGCount;
 
         try {
             inodeBTree = new INodeBTree(this, agINode);
@@ -64,40 +92,88 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
         }
     }
 
-    @Override
-    public long getTotalSpace() throws IOException {
-        return 0;
+    /**
+     * Reads in the file system from the block device.
+     *
+     * * @throws IOException if an error occurs reading the file system.
+     */
+    public INode getINode(long absoluteINodeNumber) throws IOException {
+        long offset = getINodeAbsoluteOffset(absoluteINodeNumber);
+        // Reserve the space to read the iNode
+        ByteBuffer allocate = ByteBuffer.allocate(getSuperblock().getInodeSize());
+        // Read the iNode data
+        getApi().read(offset, allocate);
+        return new INode(absoluteINodeNumber, allocate.array(), 0);
     }
 
-    @Override
-    public long getFreeSpace() throws IOException {
-        return 0;
+    public long getINodeAbsoluteOffset(long absoluteINodeNumber) {
+        final long numberOfRelativeINodeBits = getSuperblock().getAGSizeLog2() + getSuperblock().getINodePerBlockLog2();
+        int allocationGroupIndex = (int) (absoluteINodeNumber >> numberOfRelativeINodeBits);
+        long allocationGroupBlockNumber = (long) allocationGroupIndex * getSuperblock().getAGSize();
+        long relativeINodeNumber  = absoluteINodeNumber & (((long)1 << numberOfRelativeINodeBits) - 1);
+        // Calculate the offset of the iNode number.
+        return (allocationGroupBlockNumber * getSuperblock().getBlockSize()) + (relativeINodeNumber * getSuperblock().getInodeSize());
     }
 
+    /**
+     * Gets the total space value stored in the superblock.
+     *
+     */
     @Override
-    public long getUsableSpace() throws IOException {
-        return 0;
+    public long getTotalSpace() {
+        return superblock.getBlockSize() * superblock.getTotalBlocks();
     }
 
+    /**
+     * Gets the total free space value stored in the superblock.
+     *
+     */
     @Override
-    public String getVolumeName() throws IOException {
-        return null;
+    public long getFreeSpace() {
+        return superblock.getBlockSize() * superblock.getFreeBlocks();
     }
 
+    /**
+     * Gets the total usable space value.
+     *
+     */
+    @Override
+    public long getUsableSpace() {
+        return superblock.getBlockSize() * (superblock.getTotalBlocks() - superblock.getFreeBlocks());
+    }
+
+    /**
+     * Gets the valume name.
+     *
+     */
+    @Override
+    public String getVolumeName() {
+        return superblock.getName();
+    }
+
+    /**
+     * @see org.jnode.fs.spi.AbstractFileSystem#createFile(FSEntry entry)
+     */
     @Override
     protected FSFile createFile(FSEntry entry) throws IOException {
         return new XfsFile((XfsEntry) entry);
     }
 
+    /**
+     * @see org.jnode.fs.spi.AbstractFileSystem#createDirectory(FSEntry entry)
+     */
     @Override
     protected FSDirectory createDirectory(FSEntry entry) throws IOException {
         return new XfsDirectory((XfsEntry) entry);
     }
 
+    /**
+     * @see org.jnode.fs.spi.AbstractFileSystem#createRootEntry()
+     */
     @Override
     protected XfsEntry createRootEntry() throws IOException {
         long rootIno = superblock.getRootInode();
-        return new XfsEntry(inodeBTree.getINode(rootIno), "/", 0, this, null);
+        return new XfsEntry(this.getINode(rootIno), "/", 0, this, null);
     }
 
     /**

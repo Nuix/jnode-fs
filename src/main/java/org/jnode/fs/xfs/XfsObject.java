@@ -1,6 +1,8 @@
 package org.jnode.fs.xfs;
 
 import java.nio.charset.Charset;
+import java.util.Locale;
+
 import org.jnode.util.BigEndian;
 
 /**
@@ -79,6 +81,16 @@ public class XfsObject {
     }
 
     /**
+     * Gets a uint-24.
+     *
+     * @param relativeOffset the offset to read from.
+     * @return the value.
+     */
+    public int getUInt24(int relativeOffset) {
+        return BigEndian.getUInt24(data, offset + relativeOffset);
+    }
+
+    /**
      * Gets a uint-32.
      *
      * @param relativeOffset the offset to read from.
@@ -89,6 +101,16 @@ public class XfsObject {
     }
 
     /**
+     * Gets a uint-48.
+     *
+     * @param relativeOffset the offset to read from.
+     * @return the value.
+     */
+    public long getUInt48(int relativeOffset) {
+        return BigEndian.getUInt48(data, offset + relativeOffset);
+    }
+
+    /**
      * Gets an int-64.
      *
      * @param relativeOffset the offset to read from.
@@ -96,5 +118,58 @@ public class XfsObject {
      */
     public long getInt64(int relativeOffset) {
         return BigEndian.getInt64(data, offset + relativeOffset);
+    }
+
+    /**
+     * Gets the UUID value.
+     *
+     * @param offset the offset to read from.
+     * @return the uuid value.
+     */
+    protected String readUuid(int offset) {
+                 return Long.toHexString(getUInt32(offset))
+                + "-" + Long.toHexString(getUInt16(offset + 4))
+                + "-" + Long.toHexString(getUInt16(offset + 6))
+                + "-" + Long.toHexString(getUInt16(offset + 8))
+                + "-" + Long.toHexString(getUInt16(offset + 10));
+    }
+
+    /**
+     * Converts ascii to hex.
+     *
+     * @param asciiString value to convert to hex.
+     * @return the hex value.
+     */
+    public static long asciiToHex(String asciiString) {
+        StringBuilder hex = new StringBuilder();
+        for (char c : asciiString.toCharArray()) {
+            hex.append(Integer.toHexString(c).toUpperCase(Locale.ROOT));
+        }
+        return Long.parseLong(hex.toString(), 16);
+    }
+
+    /**
+     * Converts hex to ascii.
+     *
+     * @param hexString value to convert to ascii.
+     * @return the ascii value.
+     */
+    private static String hexToAscii(String hexString) {
+        StringBuilder asciiString = new StringBuilder("");
+        for (int i = 0; i < hexString.length(); i += 2) {
+            String string = hexString.substring(i, i + 2);
+            asciiString.append((char) Integer.parseInt(string, 16));
+        }
+        return asciiString.toString();
+    }
+
+    /**
+     * Gets signature as ascii.
+     *
+     * @param signature Xfs magic number
+     * @return the ascii value.
+     */
+    protected String getAsciiSignature(long signature) {
+        return hexToAscii(Long.toHexString(signature));
     }
 }
