@@ -30,7 +30,10 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
      */
     private static final Logger log = LoggerFactory.getLogger(BlockDirectoryEntry.class);
 
-    long NANO_SECOND = 1000000000;
+    /**
+     * Constant used to convert nano seconds to milliseconds.
+     */
+    private static final long ONE_MILLISECOND = 1_000_000;
     /**
      * The inode.
      */
@@ -75,17 +78,17 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
 
     @Override
     public long getCreated() throws IOException {
-        return (inode.getCreatedTimeSec() * 1000) + (inode.getCreatedTimeNsec() / NANO_SECOND);
+        return (inode.getCreatedTimeSec() * 1000) + (inode.getCreatedTimeNsec() / ONE_MILLISECOND);
     }
 
     @Override
     public long getLastAccessed() throws IOException {
-        return (inode.getAccessTimeSec() * 1000) + (inode.getAccessTimeNsec() / NANO_SECOND);
+        return (inode.getAccessTimeSec() * 1000) + (inode.getAccessTimeNsec() / ONE_MILLISECOND);
     }
 
     @Override
     public long getLastChanged() throws IOException {
-        return (inode.getChangedTimeSec() * 1000) + (inode.getChangedTimeNsec() / NANO_SECOND);
+        return (inode.getChangedTimeSec() * 1000) + (inode.getChangedTimeNsec() / ONE_MILLISECOND);
     }
 
     /**

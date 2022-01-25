@@ -24,6 +24,11 @@ public class ShortFormDirectoryEntry extends XfsObject {
     private int inodeSize;
 
     /**
+     * The number of bytes to get the next offset.
+     */
+    static int BYTES_FOR_NEXT_OFFSET = 0x8;
+
+    /**
      * Creates a new short-form directory entry.
      *
      * @param data the data.
@@ -77,12 +82,12 @@ public class ShortFormDirectoryEntry extends XfsObject {
     }
 
     /**
-     * Get the length for this entry.
+     * Get the next offset.
      *
-     * @return the entry length.
+     * @return the offset of the next entry.
      */
-    public int getLength() {
-        return getNameLength() + 0x8;
+    public int getNextEntryOffset() {
+        return getNameLength() + BYTES_FOR_NEXT_OFFSET;
     }
 
     @Override

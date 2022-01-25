@@ -5,16 +5,15 @@ import org.jnode.fs.DataStructureAsserts;
 import org.jnode.fs.FileSystemTestUtils;
 import org.jnode.fs.*;
 import org.jnode.fs.service.FileSystemService;
-import org.jnode.fs.spi.FSEntryTable;
+
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.file.Files;
+
 import java.text.SimpleDateFormat;
-import java.util.Date;
+
 import java.util.Iterator;
 import java.util.TimeZone;
 
@@ -58,30 +57,30 @@ public class XfsFileSystemTest {
         // Arrange
         String expectedStructure =
                 "  /; \n" +
-                "    atime : 2021-11-17T06:50:04.000+0000; ctime : 2021-11-17T06:48:33.000+0000; mtime : 2021-11-17T06:48:33.000+0000\n" +
+                "    atime : 2021-11-17T06:50:04.416+0000; ctime : 2021-11-17T06:48:33.735+0000; mtime : 2021-11-17T06:48:33.735+0000\n" +
                 "    owner : 0; group : 0; size : 57; mode : 777; \n" +
                 "    folder1; \n" +
-                "        atime : 2021-11-17T06:50:07.000+0000; ctime : 2021-11-17T06:50:07.000+0000; mtime : 2021-11-17T06:50:07.000+0000\n" +
+                "        atime : 2021-11-17T06:50:07.494+0000; ctime : 2021-11-17T06:50:07.430+0000; mtime : 2021-11-17T06:50:07.430+0000\n" +
                 "        owner : 1000; group : 1000; size : 30; mode : 775; \n" +
                 "      this_is_fine.jpg; \n" +
-                "            atime : 2021-11-17T06:50:07.000+0000; ctime : 2021-11-17T06:50:07.000+0000; mtime : 2019-05-19T23:45:52.000+0000\n" +
+                "            atime : 2021-11-17T06:50:07.430+0000; ctime : 2021-11-17T06:50:07.462+0000; mtime : 2019-05-19T23:45:52.237+0000\n" +
                 "            owner : 1000; group : 1000; size : 53072; mode : 744; \n" +
                 "    folder 2; \n" +
-                "        atime : 2021-11-17T06:52:07.000+0000; ctime : 2021-11-17T06:52:07.000+0000; mtime : 2021-11-17T06:52:07.000+0000\n" +
+                "        atime : 2021-11-17T06:52:07.433+0000; ctime : 2021-11-17T06:52:07.421+0000; mtime : 2021-11-17T06:52:07.421+0000\n" +
                 "        owner : 1000; group : 1000; size : 21; mode : 775; \n" +
                 "      xfs.zip; \n" +
-                "            atime : 2021-11-17T06:52:07.000+0000; ctime : 2021-11-17T06:52:07.000+0000; mtime : 2021-11-17T06:52:03.000+0000\n" +
+                "            atime : 2021-11-17T06:52:07.421+0000; ctime : 2021-11-17T06:52:07.425+0000; mtime : 2021-11-17T06:52:03.068+0000\n" +
                 "            owner : 1000; group : 1000; size : 20103; mode : 744; \n" +
                 "    testfile.txt; \n" +
-                "        atime : 2021-11-17T06:48:33.000+0000; ctime : 2021-11-17T06:48:33.000+0000; mtime : 2021-11-17T06:48:33.000+0000\n" +
+                "        atime : 2021-11-17T06:48:33.735+0000; ctime : 2021-11-17T06:48:33.735+0000; mtime : 2021-11-17T06:48:33.735+0000\n" +
                 "        owner : 1000; group : 1000; size : 20; mode : 664; \n";
 
         try (FileDevice device = new FileDevice(testFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
 
-            FSEntry entry = fs.getRootEntry();
-                StringBuilder actual = new StringBuilder(expectedStructure.length());
+            XfsEntry entry = fs.getRootEntry();
+            StringBuilder actual = new StringBuilder(expectedStructure.length());
 
             buildXfsMetaDataStructure(entry, actual, "  ");
 
@@ -100,7 +99,7 @@ public class XfsFileSystemTest {
      * @param indent the indent level.
      * @throws IOException if an error occurs.
      */
-    public static void buildXfsMetaDataStructure(FSEntry entry, StringBuilder actual, String indent) throws IOException
+    private static void buildXfsMetaDataStructure(XfsEntry entry, StringBuilder actual, String indent) throws IOException
     {
         actual.append(indent);
         actual.append(entry.getName());
@@ -126,7 +125,7 @@ public class XfsFileSystemTest {
                     continue;
                 }
 
-                buildXfsMetaDataStructure(child, actual, indent + "  ");
+                buildXfsMetaDataStructure((XfsEntry)child, actual, indent + "  ");
             }
         }
     }
@@ -139,7 +138,7 @@ public class XfsFileSystemTest {
      * @param indent the indent level.
      *
      */
-    private static StringBuilder getXfsMetadata(FSEntry entry, StringBuilder actual,String indent) throws IOException {
+    private static StringBuilder getXfsMetadata(XfsEntry entry, StringBuilder actual,String indent) throws IOException {
         actual.append(indent);
         actual.append(indent);
         actual.append("atime : " +  getDate(((FSEntryLastAccessed) entry).getLastAccessed() ));
@@ -149,13 +148,13 @@ public class XfsFileSystemTest {
         actual.append("mtime : " +  getDate(((FSEntryLastChanged) entry).getLastChanged()) +"\n" );
         actual.append(indent);
         actual.append(indent);
-        actual.append("owner : " + ((XfsEntry) entry).getINode().getUid() );
+        actual.append("owner : " + entry.getINode().getUid() );
         actual.append("; ");
-        actual.append("group : " + ((XfsEntry) entry).getINode().getGid() );
+        actual.append("group : " + entry.getINode().getGid() );
         actual.append("; ");
-        actual.append("size : " +  ((XfsEntry) entry).getINode().getSize() );
+        actual.append("size : " +  entry.getINode().getSize() );
         actual.append("; ");
-        String mode = Integer.toOctalString(((XfsEntry) entry).getINode().getMode());
+        String mode = Integer.toOctalString(entry.getINode().getMode());
         actual.append("mode : " +  mode.substring(mode.length()-3));
         actual.append("; \n");
 
@@ -180,7 +179,7 @@ public class XfsFileSystemTest {
         try (FileDevice device = new FileDevice(testFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
-            FSEntry entry = fs.getRootEntry();
+            XfsEntry entry = fs.getRootEntry();
             StringBuilder actual = new StringBuilder(1024);
             buildXfsDirStructure(entry, actual, "  ");
             System.out.println(actual);
@@ -198,7 +197,7 @@ public class XfsFileSystemTest {
      *
      * @throws IOException
      */
-    private void buildXfsDirStructure(FSEntry entry,StringBuilder actual, String indent) throws IOException {
+    private static void buildXfsDirStructure(XfsEntry entry,StringBuilder actual, String indent) throws IOException {
 
         actual.append(indent);
         actual.append(entry.getName() );
@@ -215,7 +214,7 @@ public class XfsFileSystemTest {
                 if ( ".".equals(child.getName()) || "..".equals(child.getName()) ) {
                     continue;
                 }
-                buildXfsDirStructure(child, actual, indent + "  ");
+                buildXfsDirStructure((XfsEntry)child, actual, indent + "  ");
             }
         }
     }
