@@ -182,7 +182,7 @@ public class XfsFileSystemTest {
             XfsEntry entry = fs.getRootEntry();
             StringBuilder actual = new StringBuilder(1024);
             buildXfsDirStructure(entry, actual, "  ");
-            System.out.println(actual);
+            //System.out.println(actual);
         } finally {
             testFile.delete();
         }
