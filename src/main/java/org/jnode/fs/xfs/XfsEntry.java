@@ -76,6 +76,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
         return Long.toString(inode.getINodeNr()) + '-' + directoryRecordId;
     }
 
+
     @Override
     public long getCreated() throws IOException {
         return (inode.getCreatedTimeSec() * 1000) + (inode.getCreatedTimeNsec() / ONE_MILLISECOND);

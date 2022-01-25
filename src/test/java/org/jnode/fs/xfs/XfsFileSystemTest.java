@@ -51,6 +51,7 @@ public class XfsFileSystemTest {
         }
     }
 
+
     @Test
     public void testXfsMetaData() throws Exception {
         File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/test-xfs-1.img");

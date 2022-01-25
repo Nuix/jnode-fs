@@ -83,7 +83,6 @@ public class ShortFormDirectoryEntry extends XfsObject {
 
     /**
      * Get the next offset.
-     *
      * @return the offset of the next entry.
      */
     public int getNextEntryOffset() {
