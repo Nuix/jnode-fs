@@ -142,11 +142,11 @@ public class XfsFileSystemTest {
     private static StringBuilder getXfsMetadata(XfsEntry entry, StringBuilder actual,String indent) throws IOException {
         actual.append(indent);
         actual.append(indent);
-        actual.append("atime : " +  getDate(((FSEntryLastAccessed) entry).getLastAccessed() ));
+        actual.append("atime : " + getDate(entry.getLastAccessed()));
         actual.append("; ");
-        actual.append("ctime : " +  getDate(((FSEntryCreated) entry).getCreated()));
+        actual.append("ctime : " + getDate(entry.getCreated()));
         actual.append("; ");
-        actual.append("mtime : " +  getDate(((FSEntryLastChanged) entry).getLastChanged()) +"\n" );
+        actual.append("mtime : " + getDate(entry.getLastChanged()) +"\n" );
         actual.append(indent);
         actual.append(indent);
         actual.append("owner : " + entry.getINode().getUid() );
@@ -183,7 +183,6 @@ public class XfsFileSystemTest {
             XfsEntry entry = fs.getRootEntry();
             StringBuilder actual = new StringBuilder(1024);
             buildXfsDirStructure(entry, actual, "  ");
-            //System.out.println(actual);
         } finally {
             testFile.delete();
         }
