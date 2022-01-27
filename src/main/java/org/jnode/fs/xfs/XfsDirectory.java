@@ -104,7 +104,8 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                         INode childInode = fileSystem.getINode(entry.getINumber());
                         entries.add(new XfsEntry(childInode, entry.getName(), entries.size(), fileSystem, this));
 
-                        offset += entry.getLength();
+                        offset += entry.getNextEntryOffset();
+
                     }
                 } else {
 

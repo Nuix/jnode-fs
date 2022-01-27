@@ -29,7 +29,6 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
      */
     private static final Logger log = LoggerFactory.getLogger(BlockDirectoryEntry.class);
 
-    long NANO_SECOND = 1000000000;
     /**
      * The inode.
      */
@@ -72,19 +71,35 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
         return Long.toString(inode.getINodeNr()) + '-' + directoryRecordId;
     }
 
-    @Override
-    public long getCreated() throws IOException {
-        return (inode.getCreatedTimeSec() * 1000) + (inode.getCreatedTimeNsec() / NANO_SECOND);
+
+    /**
+      * Converts an entry's time value from the seconds/nanoseconds values to a millisecond
+      * value, usable by {@link #getCreated()}, {@link #getLastAccessed()}, and {@link #getLastChanged()}.
+      *
+      * @param seconds     the seconds value from the entry.
+      * @param nanoseconds the nanoseconds value from the entry.
+      * @return the milliseconds value.
+      * @see #getCreated()
+      * @see #getLastAccessed()
+      * @see #getLastChanged()
+      */
+    private long getMilliseconds(long seconds, long nanoseconds) {
+       return (seconds * 1_000) + (nanoseconds / 1_000_000);
     }
 
     @Override
-    public long getLastAccessed() throws IOException {
-        return (inode.getAccessTimeSec() * 1000) + (inode.getAccessTimeNsec() / NANO_SECOND);
+    public long getCreated() {
+        return getMilliseconds(inode.getCreatedTimeSec(), inode.getCreatedTimeNsec());
     }
 
     @Override
-    public long getLastChanged() throws IOException {
-        return (inode.getChangedTimeSec() * 1000) + (inode.getChangedTimeNsec() / NANO_SECOND);
+    public long getLastAccessed() {
+        return getMilliseconds(inode.getAccessTimeSec(), inode.getAccessTimeNsec());
+    }
+
+    @Override
+    public long getLastChanged() {
+        return getMilliseconds(inode.getChangedTimeSec(), inode.getChangedTimeNsec());
     }
 
     /**
@@ -159,6 +174,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
     private void readFromExtentList(long offset, ByteBuffer destBuf) throws IOException {
         long blockSize = fileSystem.getSuperblock().getBlockSize();
         long extentOffset = 0;
+        int bytesToRead = 0;
 
         for (DataExtent extent : extentList) {
             if (!destBuf.hasRemaining()) {
@@ -169,7 +185,12 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
                 ByteBuffer readBuffer = destBuf.duplicate();
 
                 long offsetWithinBlock = offset - extentOffset;
-                int bytesToRead = (int) Math.min(extent.getBlockCount() * blockSize - offsetWithinBlock, destBuf.remaining());
+                if ((extent.getBlockCount() * blockSize - offsetWithinBlock) > 0) {
+                    bytesToRead = (int) Math.min(extent.getBlockCount() * blockSize - offsetWithinBlock, destBuf.remaining());
+                } else {
+                    bytesToRead = destBuf.remaining();
+                }
+
                 readBuffer.limit(readBuffer.position() + bytesToRead);
                 fileSystem.getApi().read(extent.getFileSystemBlockOffset(fileSystem) + offsetWithinBlock, readBuffer);
 
