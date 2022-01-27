@@ -96,6 +96,6 @@ public class INodeBTree {
         buffer.get(data);
 
 
-        return new INode(inode, data, offset);
+        return new INode(inode, data, offset,fileSystem);
     }
 }

@@ -4,11 +4,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import org.jnode.fs.FSDirectory;
-import org.jnode.fs.FSEntryCreated;
-import org.jnode.fs.FSEntryLastAccessed;
-import org.jnode.fs.FSEntryLastChanged;
+
+import org.jnode.fs.*;
 import org.jnode.fs.spi.AbstractFSEntry;
 import org.jnode.fs.util.UnixFSConstants;
 import org.jnode.fs.xfs.directory.BlockDirectoryEntry;
@@ -201,5 +200,15 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
             return AbstractFSEntry.FILE_ENTRY;
         else
             return AbstractFSEntry.OTHER_ENTRY;
+    }
+
+    @Override
+    public List<FSAttribute> getAttributes() {
+        try {
+            return inode.getAttributes();
+        } catch (IOException e) {
+            log.error("An error occurred reading Attributes for inode {}",inode,e);
+        }
+        return Collections.emptyList();
     }
 }

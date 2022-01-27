@@ -103,7 +103,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
         ByteBuffer allocate = ByteBuffer.allocate(getSuperblock().getInodeSize());
         // Read the iNode data
         getApi().read(offset, allocate);
-        return new INode(absoluteINodeNumber, allocate.array(), 0);
+        return new INode(absoluteINodeNumber, allocate.array(), 0,this);
     }
 
     public long getINodeAbsoluteOffset(long absoluteINodeNumber) {
