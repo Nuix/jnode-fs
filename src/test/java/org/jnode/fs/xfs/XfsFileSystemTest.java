@@ -16,8 +16,11 @@ import org.junit.Test;
 import java.io.File;
 import java.io.IOException;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.TimeZone;
@@ -145,24 +148,24 @@ public class XfsFileSystemTest {
      * @param indent the indent level.
      *
      */
-    private static StringBuilder getXfsMetadata(XfsEntry entry, StringBuilder actual,String indent) throws IOException {
+    private static StringBuilder getXfsMetadata(XfsEntry entry, StringBuilder actual,String indent) {
         actual.append(indent);
         actual.append(indent);
-        actual.append("atime : " + getDate(entry.getLastAccessed()));
+        actual.append("atime : ").append(getDate(entry.getLastAccessed()));
         actual.append("; ");
-        actual.append("ctime : " + getDate(entry.getCreated()));
+        actual.append("ctime : ").append(getDate(entry.getCreated()));
         actual.append("; ");
-        actual.append("mtime : " + getDate(entry.getLastChanged()) +"\n" );
+        actual.append("mtime : ").append(getDate(entry.getLastChanged())).append("\n");
         actual.append(indent);
         actual.append(indent);
-        actual.append("owner : " + entry.getINode().getUid() );
+        actual.append("owner : ").append(entry.getINode().getUid());
         actual.append("; ");
-        actual.append("group : " + entry.getINode().getGid() );
+        actual.append("group : ").append(entry.getINode().getGid());
         actual.append("; ");
-        actual.append("size : " +  entry.getINode().getSize() );
+        actual.append("size : ").append(entry.getINode().getSize());
         actual.append("; ");
         String mode = Integer.toOctalString(entry.getINode().getMode());
-        actual.append("mode : " +  mode.substring(mode.length()-3));
+        actual.append("mode : ").append(mode.substring(mode.length() - 3));
         actual.append("; \n");
 
         return actual;
@@ -237,6 +240,35 @@ public class XfsFileSystemTest {
         }
     }
 
+    @Test
+    public void testSparseFiles() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = new XfsFileSystemType();
+            XfsFileSystem fs = type.create(device, true);
+            final long blockSize = fs.getSuperblock().getBlockSize();
+            final INode sparseFileINode = fs.getINode(11078L);
+            final XfsEntry entry = new XfsEntry(sparseFileINode, "sparse.dat", 0, fs, null);
+            final long fileSize = sparseFileINode.getSize();
+            for (int offset = 0; offset < fileSize; offset += blockSize) {
+                final int bufferSize = (int) Math.min(blockSize, fileSize - offset);
+                ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
+                entry.read(offset,buffer);
+                if (blockSize == bufferSize) {
+                    // in case of sparse data the buffer should be left untouched
+                    assertThat(buffer.position(), is(0));
+                } else {
+                    final byte[] array = buffer.array();
+                    final String stringData = new String(array, StandardCharsets.UTF_8);
+                    assertThat(stringData,is("Just a little bit of data right at the end...\n"));
+                }
+
+            }
+        } finally {
+            testFile.delete();
+        }
+    }
+
     private Matcher<FSAttribute> getSampleAttributeMatcher(){
         return new BaseMatcher<FSAttribute>() {
             private final Pattern namePattern = Pattern.compile("sample-attr([0-9]+)");
@@ -289,7 +321,6 @@ public class XfsFileSystemTest {
      * @param actual the string to append to.
      * @param indent the indent level.
      *
-     * @throws IOException
      */
     private static void buildXfsDirStructure(XfsEntry entry,StringBuilder actual, String indent) throws IOException {
 
