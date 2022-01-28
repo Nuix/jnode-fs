@@ -25,7 +25,8 @@ public class XfsLeafAttribute extends XfsObject implements FSAttribute {
 
     @Override
     public String getValue() {
-        return new String(getData(),getNameLength() + getOffset()+3 ,getValueLength(),StandardCharsets.UTF_8);
+        return new String(getData(),getNameLength() + getOffset()+3 ,getValueLength(),StandardCharsets.UTF_8)
+                .replace("\0","");
     }
 
     @Override

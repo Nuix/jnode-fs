@@ -1,11 +1,15 @@
 package org.jnode.fs.xfs;
 
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
+import org.hamcrest.Matcher;
 import org.jnode.driver.block.FileDevice;
 import org.jnode.fs.DataStructureAsserts;
 import org.jnode.fs.FileSystemTestUtils;
 import org.jnode.fs.*;
 import org.jnode.fs.service.FileSystemService;
 
+import org.jnode.fs.xfs.inode.INode;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -15,10 +19,12 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.TimeZone;
+import java.util.regex.Pattern;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.*;
 
 public class XfsFileSystemTest {
 
@@ -171,6 +177,94 @@ public class XfsFileSystemTest {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
         return simpleDateFormat.format(new java.util.Date(date));
+    }
+
+    @Test
+    public void testShortFormAttribute() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = new XfsFileSystemType();
+            XfsFileSystem fs = type.create(device, true);
+            final INode shortAttributeINode = fs.getINode(11075L);
+            assertThat(shortAttributeINode.getAttributesFormat(),is(1L));// Short form attribute format
+            final List<FSAttribute> attributes = shortAttributeINode.getAttributes();
+            assertThat(attributes,hasSize(1));
+            final FSAttribute attribute = attributes.get(0);
+            assertThat(attribute.getName(),is("selinux"));
+            assertThat(attribute.getValue(),is("unconfined_u:object_r:unlabeled_t:s0"));
+        } finally {
+            testFile.delete();
+        }
+    }
+
+    @Test
+    public void testLeafAttributes() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = new XfsFileSystemType();
+            XfsFileSystem fs = type.create(device, true);
+            final INode leafAttributeINode = fs.getINode(11076L);
+            // leaf/node form attribute format
+            assertThat(leafAttributeINode.getAttributesFormat(),is(2L));
+            // leaf only has 1 extent
+            assertThat(leafAttributeINode.getAttributeExtentCount(),is(1));
+
+            final List<FSAttribute> attributes = leafAttributeINode.getAttributes();
+            assertThat(attributes,hasSize(31));
+            assertThat(attributes,everyItem(getSampleAttributeMatcher()));
+        } finally {
+            testFile.delete();
+        }
+    }
+
+    @Test
+    public void testNodeAttributes() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = new XfsFileSystemType();
+            XfsFileSystem fs = type.create(device, true);
+            final INode leafAttributeINode = fs.getINode(11077L);
+            // leaf/node form attribute format
+            assertThat(leafAttributeINode.getAttributesFormat(),is(2L));
+            // node has more than 1 extent
+            assertThat(leafAttributeINode.getAttributeExtentCount(),greaterThan(1));
+
+            final List<FSAttribute> attributes = leafAttributeINode.getAttributes();
+            assertThat(attributes,hasSize(201));
+            assertThat(attributes,everyItem(getSampleAttributeMatcher()));
+        } finally {
+            testFile.delete();
+        }
+    }
+
+    private Matcher<FSAttribute> getSampleAttributeMatcher(){
+        return new BaseMatcher<FSAttribute>() {
+            private final Pattern namePattern = Pattern.compile("sample-attr([0-9]+)");
+            private final Pattern valuePattern = Pattern.compile("sample-value([0-9]+)");
+
+            @Override
+            public boolean matches(Object o) {
+                if (o instanceof FSAttribute){
+                    final FSAttribute attr = (FSAttribute) o;
+                    final String name = attr.getName();
+                    final String value = attr.getValue();
+                    if (name.equals("selinux")){
+                        return value.equals("unconfined_u:object_r:unlabeled_t:s0");
+                    }
+                    final java.util.regex.Matcher nameMatcher = namePattern.matcher(name);
+                    final java.util.regex.Matcher valueMatcher = valuePattern.matcher(value);
+                    if (nameMatcher.matches() && valueMatcher.matches()){
+                        return nameMatcher.group(1).equals(valueMatcher.group(1));
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendText("Does not conform to sample attributeMatcher");
+            }
+        };
     }
 
     @Test
