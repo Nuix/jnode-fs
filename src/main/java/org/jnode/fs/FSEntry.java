@@ -128,7 +128,11 @@ public interface FSEntry extends FSObject {
      */
     public boolean isDirty() throws IOException;
 
-    default public List<FSAttribute> getAttributes(){
+    /**
+     * Returns a List of FSAttributes representing the Extended Attributes allocated for each entry
+     * @return List of FSAttributes, Defaults to an empty list when not implemented
+     */
+    default public List<FSAttribute> getAttributes() throws IOException {
         return Collections.emptyList();
     }
 }

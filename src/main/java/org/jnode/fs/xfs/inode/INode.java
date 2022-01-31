@@ -1,6 +1,7 @@
 package org.jnode.fs.xfs.inode;
 
 import org.jnode.fs.FSAttribute;
+import org.jnode.fs.xfs.XfsConstants;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.attribute.*;
@@ -30,14 +31,6 @@ public class INode extends XfsObject {
      */
     private static final Logger log = LoggerFactory.getLogger(INode.class);
     private final XfsFileSystem fs;
-
-    enum INodeFormat {
-        LOCAL(1),EXTENT(2),BTREE(3);
-        final int val;
-        INodeFormat(int val){
-            this.val = val;
-        }
-    }
 
     public enum FileMode {
         // FILE PERMISSIONS
@@ -399,57 +392,13 @@ public class INode extends XfsObject {
      */
     public List<FSAttribute> getAttributes() throws IOException {
         long off =  getOffset() + getINodeSizeForOffset() + (getAttributesForkOffset() * 8);
-        final XfsAttributeHeader myXfsAttributeHeader = new XfsAttributeHeader(getData(), off);
         final long attributesFormat = getAttributesFormat();
-        if (attributesFormat == 1) {
-            off += 4;  // header length remeber header has a 1 byte padding
-            final int count = (int) myXfsAttributeHeader.getCount();
-            List<FSAttribute> attributes = new ArrayList<>(count);
-            for (int i = 0; i < count; i++) {
-                final XfsAttribute attribute = new XfsAttribute(getData(), off);
-                attributes.add(attribute);
-                off += attribute.getAttributeSizeForOffset();
-            }
-            return attributes;
-        } else if (attributesFormat == 2) {
-            final int extentCount = getAttributeExtentCount();
-            List<DataExtent> extents = new ArrayList<>(extentCount);
-            int extentBlockCount = 0;
-            for (int i = 0; i < extentCount; i++) {
-                final DataExtent dataExtent = new DataExtent(getData(), (int) off);
-                extents.add(dataExtent);
-                off += DataExtent.PACKED_LENGTH;
-                extentBlockCount += dataExtent.getBlockCount();
-            }
-            if (extentCount > 0){
-                // Leaf Attribute Format
-                final long blockSize = fs.getSuperblock().getBlockSize();
-                int attributeCount = 0;
-                List<XfsLeafAttributeBlock> attributeBlocks = new ArrayList<>(extentBlockCount);
-                for (DataExtent extent : extents) {
-                    // Note this code ignores Node type extents
-                    final long blockCount = extent.getBlockCount();
-                    final int bufferSize = (int) (blockCount * blockSize);
-                    final ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
-                    final long blockAbsoluteOffset = extent.getExtentOffset(fs);
-                    fs.getApi().read(blockAbsoluteOffset,buffer);
-                    final byte[] bytes = buffer.array();
-                    for (int i = 0; i < blockCount; i++) {
-                        int bufferOffset = (int) (blockSize * i);
-                        final int signature = BigEndian.getUInt16(bytes,bufferOffset + 8);
-                        if (signature == XfsLeafAttributeBlock.MAGIC){
-                            final XfsLeafAttributeBlock attributeBlock = new XfsLeafAttributeBlock(bytes, bufferOffset);
-                            attributeBlocks.add(attributeBlock);
-                            attributeCount += attributeBlock.getEntryCount();
-                        }
-                    }
-                }
-                List<FSAttribute> attributes = new ArrayList<>(attributeCount);
-                for (XfsLeafAttributeBlock attributeBlock : attributeBlocks) {
-                    attributes.addAll(attributeBlock.getAttributes());
-                }
-                return attributes;
-            }
+        if (attributesFormat == XfsConstants.XFS_DINODE_FMT_LOCAL) {
+            final XfsShortFormAttributeReader attributeReader = new XfsShortFormAttributeReader(getData(), (int) off);
+            return attributeReader.getAttributes();
+        } else if (attributesFormat == XfsConstants.XFS_DINODE_FMT_EXTENTS) {
+            final XfsLeafOrNodeAttributeReader attributeReader = new XfsLeafOrNodeAttributeReader(getData(), (int) off, this, fs);
+            return attributeReader.getAttributes();
         } else {
             log.warn(">>> Pending implementation due to lack of examples for attribute format " + attributesFormat
                     + " Found on Inode " + inodeNr);

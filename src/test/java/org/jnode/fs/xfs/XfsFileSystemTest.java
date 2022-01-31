@@ -189,8 +189,9 @@ public class XfsFileSystemTest {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
             final INode shortAttributeINode = fs.getINode(11075L);
+            final XfsEntry entry = new XfsEntry(shortAttributeINode, "", 0, fs, null);
             assertThat(shortAttributeINode.getAttributesFormat(),is(1L));// Short form attribute format
-            final List<FSAttribute> attributes = shortAttributeINode.getAttributes();
+            final List<FSAttribute> attributes = entry.getAttributes();
             assertThat(attributes,hasSize(1));
             final FSAttribute attribute = attributes.get(0);
             assertThat(attribute.getName(),is("selinux"));
@@ -207,12 +208,13 @@ public class XfsFileSystemTest {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
             final INode leafAttributeINode = fs.getINode(11076L);
+            final XfsEntry entry = new XfsEntry(leafAttributeINode, "", 0, fs, null);
             // leaf/node form attribute format
             assertThat(leafAttributeINode.getAttributesFormat(),is(2L));
             // leaf only has 1 extent
             assertThat(leafAttributeINode.getAttributeExtentCount(),is(1));
 
-            final List<FSAttribute> attributes = leafAttributeINode.getAttributes();
+            final List<FSAttribute> attributes = entry.getAttributes();
             assertThat(attributes,hasSize(31));
             assertThat(attributes,everyItem(getSampleAttributeMatcher()));
         } finally {
@@ -226,13 +228,14 @@ public class XfsFileSystemTest {
         try (FileDevice device = new FileDevice(testFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
-            final INode leafAttributeINode = fs.getINode(11077L);
+            final INode nodeAttributeINode = fs.getINode(11077L);
+            final XfsEntry entry = new XfsEntry(nodeAttributeINode, "", 0, fs, null);
             // leaf/node form attribute format
-            assertThat(leafAttributeINode.getAttributesFormat(),is(2L));
+            assertThat(nodeAttributeINode.getAttributesFormat(),is(2L));
             // node has more than 1 extent
-            assertThat(leafAttributeINode.getAttributeExtentCount(),greaterThan(1));
+            assertThat(nodeAttributeINode.getAttributeExtentCount(),greaterThan(1));
 
-            final List<FSAttribute> attributes = leafAttributeINode.getAttributes();
+            final List<FSAttribute> attributes = entry.getAttributes();
             assertThat(attributes,hasSize(201));
             assertThat(attributes,everyItem(getSampleAttributeMatcher()));
         } finally {
@@ -279,12 +282,14 @@ public class XfsFileSystemTest {
                 if (o instanceof FSAttribute){
                     final FSAttribute attr = (FSAttribute) o;
                     final String name = attr.getName();
-                    final String value = attr.getValue();
+                    final byte[] value = attr.getValue();
+                    final String stringValue = new String(value,StandardCharsets.UTF_8)
+                            .replace("\0","");
                     if (name.equals("selinux")){
-                        return value.equals("unconfined_u:object_r:unlabeled_t:s0");
+                        return stringValue.equals("unconfined_u:object_r:unlabeled_t:s0");
                     }
                     final java.util.regex.Matcher nameMatcher = namePattern.matcher(name);
-                    final java.util.regex.Matcher valueMatcher = valuePattern.matcher(value);
+                    final java.util.regex.Matcher valueMatcher = valuePattern.matcher(stringValue);
                     if (nameMatcher.matches() && valueMatcher.matches()){
                         return nameMatcher.group(1).equals(valueMatcher.group(1));
                     }

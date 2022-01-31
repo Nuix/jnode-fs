@@ -221,12 +221,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
     }
 
     @Override
-    public List<FSAttribute> getAttributes() {
-        try {
-            return inode.getAttributes();
-        } catch (IOException e) {
-            log.error("An error occurred reading Attributes for inode {}",inode,e);
-        }
-        return Collections.emptyList();
+    public List<FSAttribute> getAttributes() throws IOException {
+        return inode.getAttributes();
     }
 }

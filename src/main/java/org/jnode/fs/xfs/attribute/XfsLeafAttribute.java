@@ -4,6 +4,7 @@ import org.jnode.fs.FSAttribute;
 import org.jnode.fs.xfs.XfsObject;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 public class XfsLeafAttribute extends XfsObject implements FSAttribute {
 
@@ -23,14 +24,9 @@ public class XfsLeafAttribute extends XfsObject implements FSAttribute {
         return new String(getData(),getOffset()+3,getNameLength(),StandardCharsets.UTF_8);
     }
 
-    @Override
-    public String getValue() {
-        return new String(getData(),getNameLength() + getOffset()+3 ,getValueLength(),StandardCharsets.UTF_8)
-                .replace("\0","");
-    }
 
     @Override
-    public byte[] getBinaryValue() {
+    public byte[] getValue() {
         final byte[] bytes = new byte[getValueLength()];
         System.arraycopy(getData(),getNameLength() + getOffset()+3,bytes,0,getValueLength());
         return bytes;
@@ -38,6 +34,6 @@ public class XfsLeafAttribute extends XfsObject implements FSAttribute {
 
     @Override
     public String toString() {
-        return "{" + getName() + " : " + getValue() + "}";
+        return "{" + getName() + " : " + Arrays.toString(getValue()) + "}";
     }
 }

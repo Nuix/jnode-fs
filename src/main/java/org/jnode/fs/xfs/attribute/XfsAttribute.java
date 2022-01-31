@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 /**
  * A XFS extended Attribute.
@@ -110,12 +111,7 @@ public class XfsAttribute extends XfsObject implements FSAttribute {
      *
      * @return the value.
      */
-    public String getValue() {
-        return new String(value).replaceAll("\0", "");
-    }
-
-    @Override
-    public byte[] getBinaryValue() {
+    public byte[] getValue() {
         return value;
     }
 
@@ -128,6 +124,6 @@ public class XfsAttribute extends XfsObject implements FSAttribute {
     public String toString() {
         return String.format(
                 "Attribute:[Name:%s Name Value:%s flags:%d]",
-                 getName(), getValue(), getFlags());
+                 getName(), Arrays.toString(getValue()), getFlags());
     }
 }
