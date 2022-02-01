@@ -90,7 +90,10 @@ public class BPlusTreeDirectory extends XfsObject {
      * Note :  When level &gt; 1 this won't work need an example with more than 1 level to introduce recursively
      */
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
-        final long forkOffset = inode.getAttributesForkOffset() * 8;
+        long forkOffset = inode.getAttributesForkOffset() * 8;
+        if (forkOffset == 0){
+            forkOffset = fileSystem.getSuperblock().getInodeSize() - inode.getINodeSizeForOffset();
+        }
         long btreeBlockOffset = (inode.getOffset() + inode.getINodeSizeForOffset() + (forkOffset/2));
         // 8 byte alignment. not sure if it should be a 16 byte alignment?
         btreeBlockOffset = btreeBlockOffset + (btreeBlockOffset % 8);

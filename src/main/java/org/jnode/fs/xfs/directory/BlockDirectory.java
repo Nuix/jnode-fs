@@ -131,22 +131,23 @@ public class BlockDirectory extends XfsObject  {
      * @return a list of inode entries
      */
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
-        long offset = getOffset() + V5_LENGTH;
-        final long stale = getUInt32(getData().length - 4);
-        final long count = getUInt32(getData().length - 8);
-        final long activeDirs = count - stale;
-        List<FSEntry> data = new ArrayList<>((int)activeDirs);
-        int i = 0;
-        while (i < activeDirs) {
-            final BlockDirectoryEntry entry = new BlockDirectoryEntry(getData(), offset, fs);
-            if (!entry.isFreeTag()) {
-                if (entry.getNameSize() == 0) {
-                    break;
-                }
-                INode iNode = fs.getINode(entry.getINodeNumber());
-                data.add(new XfsEntry(iNode, entry.getName(), i++, fs, parentDirectory));
+        final int blockSize = getData().length;
+        final long stale = getUInt32(blockSize - 4);
+        final long count = getUInt32(blockSize - 8);
+        final int activeDirs = (int) (count - stale);
+
+
+        List<FSEntry> data = new ArrayList<>(activeDirs);
+        int leafOffset = blockSize - ((activeDirs + 1) * 8);
+        for (int i = 0; i < activeDirs; i++) {
+            final LeafEntry leafEntry = new LeafEntry(getData(), leafOffset + (i * 8), fs);
+            if (leafEntry.getAddress() == 0) {
+                continue;
             }
-            offset += entry.getOffsetSize();
+            final BlockDirectoryEntry entry = new BlockDirectoryEntry(getData(), leafEntry.getAddress() * 8, fs);
+
+            INode iNode = fs.getINode(entry.getINodeNumber());
+            data.add(new XfsEntry(iNode, entry.getName(), i, fs, parentDirectory));
         }
         return data;
     }

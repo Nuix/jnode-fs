@@ -121,7 +121,7 @@ public class BlockDirectoryEntry extends XfsObject {
      */
     public long getOffsetSize() {
         if (!isFreeTag) {
-            final long l = 12 + nameSize;
+            final long l = 12 + nameSize - ( fileSystem.getXfsVersion() == 5 ? 0 : 1);
             final double v = l / 8.0;
             return (long) Math.ceil(v) * 8;
         } else {

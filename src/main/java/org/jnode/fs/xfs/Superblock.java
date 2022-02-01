@@ -256,6 +256,15 @@ public class Superblock extends XfsRecord {
     }
 
     /**
+     * Check For aditional Features
+     * @param feature
+     * @return
+     */
+    public boolean hasFeature2(int feature) {
+        return (getFeatures2() & feature) == feature;
+    }
+
+    /**
      * Checks whether the file system is using the extended feature bits in {@link #getFeatures2()}.
      *
      * @return {@code true} if using extended features.

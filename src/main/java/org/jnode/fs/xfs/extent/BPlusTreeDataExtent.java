@@ -28,7 +28,11 @@ public class BPlusTreeDataExtent extends XfsObject {
     /**
      * The magic number for a BMBT block (V5).
      */
-    private final static Long MAGIC = asciiToHex("BMA3");
+    private final static Long MAGIC_V5 = asciiToHex("BMA3");
+    /**
+     * The magic number for a BMBT block (V5).
+     */
+    private final static Long MAGIC = asciiToHex("BMAP");
 
     /**
      * Creates a b+tree data extent.
@@ -40,8 +44,9 @@ public class BPlusTreeDataExtent extends XfsObject {
     public BPlusTreeDataExtent(byte[] data, long offset) throws IOException {
         super(data, (int) offset);
 
-        if (getMagicSignature() != MAGIC) {
-            throw new IOException("Wrong magic number for XFS: Required[" + getAsciiSignature(MAGIC) + " found[" + getAsciiSignature(getMagicSignature()) + "]" ) ;
+        final long signature = getMagicSignature();
+        if (signature != MAGIC_V5 && signature != MAGIC) {
+            throw new IOException("Wrong magic number for XFS: Required[" + getAsciiSignature(MAGIC_V5) + " or " + getAsciiSignature(MAGIC_V5) + "] found[" + getAsciiSignature(signature) + "]" ) ;
         }
     }
 

@@ -95,10 +95,10 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                     entryCount += entries.size();
 
                     while (entries.size() < entryCount) {
-                        ShortFormDirectoryEntry entry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize);
+                        ShortFormDirectoryEntry entry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize, fileSystem);
 
                         if (entry.getINumber() == 0) {
-                            break;
+                            return null;
                         }
 
                         INode childInode = fileSystem.getINode(entry.getINumber());
@@ -109,7 +109,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                     }
                 } else {
 
-                    ShortFormDirectoryEntry entry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize);
+                    ShortFormDirectoryEntry entry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize, fileSystem);
                     if (entry.getINumber() == 0) {
                         break;
                     }
@@ -178,7 +178,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
             case XfsConstants.XFS_DINODE_FMT_BTREE:
                 long iNodeNumber = entry.getINode().getINodeNr();
                 if (log.isDebugEnabled()) {
-                    log.debug("Processing a B+tree directory, Inode Number: " + iNodeNumber );
+                    log.debug("Processing a B+tree directory, Inode Number: {}", iNodeNumber );
                 }
                 final BPlusTreeDirectory myBPlusTreeDirectory = new BPlusTreeDirectory(entry.getINode().getData(), 0, iNodeNumber, fileSystem);
                 entries = myBPlusTreeDirectory.getEntries(this);

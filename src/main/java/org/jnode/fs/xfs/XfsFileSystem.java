@@ -58,6 +58,10 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      */
     private int aGCount;
 
+    /**
+     * Xfs File System version current support for 4/5
+     */
+    private int xfsVersion;
 
     /**
      * Construct an XFS file system.
@@ -84,6 +88,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
         blockSize = superblock.getBlockSize();
         aGCount = (int) superblock.getAGCount();
         allocationGroupSize = blockSize * superblock.getTotalBlocks() / aGCount;
+        xfsVersion = superblock.getVersion() & 0xF;
 
         try {
             inodeBTree = new INodeBTree(this, agINode);
@@ -140,6 +145,13 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     @Override
     public long getUsableSpace() {
         return superblock.getBlockSize() * (superblock.getTotalBlocks() - superblock.getFreeBlocks());
+    }
+
+    /**
+     * Xfs File System version current support for 4/5
+     */
+    public int getXfsVersion() {
+        return xfsVersion;
     }
 
     /**
