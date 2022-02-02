@@ -19,6 +19,11 @@ public class XfsAttributeHeader extends XfsObject {
     private static final Logger log = LoggerFactory.getLogger(XfsAttributeHeader.class);
 
     /**
+     * Constant representing the size of the header
+     */
+    public static final int SIZE = 0x4;
+
+    /**
      * The size value of the value.
      */
     private final long toSize;

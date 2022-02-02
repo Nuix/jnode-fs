@@ -4,11 +4,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import org.jnode.fs.FSDirectory;
-import org.jnode.fs.FSEntryCreated;
-import org.jnode.fs.FSEntryLastAccessed;
-import org.jnode.fs.FSEntryLastChanged;
+
+import org.jnode.fs.*;
 import org.jnode.fs.spi.AbstractFSEntry;
 import org.jnode.fs.util.UnixFSConstants;
 import org.jnode.fs.xfs.directory.BlockDirectoryEntry;
@@ -174,8 +173,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
      */
     private void readFromExtentList(long offset, ByteBuffer destBuf) throws IOException {
         long blockSize = fileSystem.getSuperblock().getBlockSize();
-        long extentOffset = 0;
-        int bytesToRead = 0;
+        int bytesToRead;
 
         for (DataExtent extent : extentList) {
             if (!destBuf.hasRemaining()) {
@@ -185,6 +183,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
             if (extent.isWithinExtent(offset, blockSize)) {
                 ByteBuffer readBuffer = destBuf.duplicate();
 
+                long extentOffset = extent.getStartOffset() * blockSize;
                 long offsetWithinBlock = offset - extentOffset;
                 if ((extent.getBlockCount() * blockSize - offsetWithinBlock) > 0) {
                     bytesToRead = (int) Math.min(extent.getBlockCount() * blockSize - offsetWithinBlock, destBuf.remaining());
@@ -198,9 +197,6 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
                 offset += bytesToRead;
                 destBuf.position(destBuf.position() + bytesToRead);
             }
-
-            long extentLength = extent.getBlockCount() * blockSize;
-            extentOffset += extentLength;
         }
     }
 
@@ -222,5 +218,10 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
             return AbstractFSEntry.FILE_ENTRY;
         else
             return AbstractFSEntry.OTHER_ENTRY;
+    }
+
+    @Override
+    public List<FSAttribute> getAttributes() throws IOException {
+        return inode.getAttributes();
     }
 }

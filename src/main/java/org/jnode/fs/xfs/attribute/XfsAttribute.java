@@ -1,11 +1,12 @@
 package org.jnode.fs.xfs.attribute;
 
+import org.jnode.fs.FSAttribute;
 import org.jnode.fs.xfs.XfsObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 /**
  * A XFS extended Attribute.
@@ -13,7 +14,7 @@ import java.nio.charset.StandardCharsets;
  * @author Ricardo Garza
  * @author Julio Parra
  */
-public class XfsAttribute extends XfsObject {
+public class XfsAttribute extends XfsObject implements FSAttribute {
 
     /**
      * The logger implementation.
@@ -40,10 +41,7 @@ public class XfsAttribute extends XfsObject {
      */
     private final String attributeName;
 
-    /**
-     * The value of the attribute.
-     */
-    private final String attributeValue;
+    private final byte[] value;
 
     /**
      * Creates an attribute instance.
@@ -56,11 +54,11 @@ public class XfsAttribute extends XfsObject {
         nameLength = getUInt8(0);
         valueLength = getUInt8(1);
         flags = getUInt8(2);
-        ByteBuffer buffer = ByteBuffer.allocate(nameLength + valueLength);
-        System.arraycopy(data, (int) offset + 3, buffer.array(), 0, (nameLength + valueLength));
-        final String nameval = new String(buffer.array(), StandardCharsets.UTF_8);
-        attributeName = nameval.substring(0, nameLength);
-        attributeValue = nameval.substring(nameLength).replaceAll("\0", "");
+        value = new byte[valueLength];
+        byte[] name = new byte[nameLength];
+        System.arraycopy(data, (int) offset + 3, name, 0, nameLength);
+        System.arraycopy(data, (int) offset + 3 + nameLength, value, 0, valueLength);
+        attributeName = new String(name,StandardCharsets.UTF_8);
     }
 
     /**
@@ -113,8 +111,8 @@ public class XfsAttribute extends XfsObject {
      *
      * @return the value.
      */
-    public String getValue() {
-        return attributeValue;
+    public byte[] getValue() {
+        return value;
     }
 
     /**
@@ -126,6 +124,6 @@ public class XfsAttribute extends XfsObject {
     public String toString() {
         return String.format(
                 "Attribute:[Name:%s Name Value:%s flags:%d]",
-                 getName(), getValue(), getFlags());
+                 getName(), Arrays.toString(getValue()), getFlags());
     }
 }

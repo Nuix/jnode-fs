@@ -21,6 +21,8 @@
 package org.jnode.fs;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * @author epr
@@ -125,4 +127,12 @@ public interface FSEntry extends FSObject {
      * @throws IOException if error occurs during retrieving of the state of the entry.
      */
     public boolean isDirty() throws IOException;
+
+    /**
+     * Returns a List of FSAttributes representing the Extended Attributes allocated for each entry
+     * @return List of FSAttributes, Defaults to an empty list when not implemented
+     */
+    default public List<FSAttribute> getAttributes() throws IOException {
+        return Collections.emptyList();
+    }
 }

@@ -1,9 +1,12 @@
 package org.jnode.fs.xfs.inode;
 
+import org.jnode.fs.FSAttribute;
+import org.jnode.fs.xfs.XfsConstants;
+import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
-import org.jnode.fs.xfs.attribute.XfsAttribute;
-import org.jnode.fs.xfs.attribute.XfsAttributeHeader;
+import org.jnode.fs.xfs.attribute.*;
 import org.jnode.fs.xfs.extent.DataExtent;
+import org.jnode.util.BigEndian;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,14 +30,7 @@ public class INode extends XfsObject {
      * The logger implementation.
      */
     private static final Logger log = LoggerFactory.getLogger(INode.class);
-
-    enum INodeFormat {
-        LOCAL(1),EXTENT(2),BTREE(3);
-        final int val;
-        INodeFormat(int val){
-            this.val = val;
-        }
-    }
+    private final XfsFileSystem fs;
 
     public enum FileMode {
         // FILE PERMISSIONS
@@ -108,12 +104,13 @@ public class INode extends XfsObject {
      * @param data the data.
      * @param offset the offset to this inode in the data.
      */
-    public INode(long inodeNr, byte[] data, int offset) throws IOException {
+    public INode(long inodeNr, byte[] data, int offset, XfsFileSystem fs) throws IOException {
         super(data, offset);
 
         if (getMagicSignature() != MAGIC) {
-            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature(getMagicSignature()));
+            throw new IOException("Wrong magic number for XFS INODE: " + getAsciiSignature(getMagicSignature()));
         }
+        this.fs = fs;
 
         this.inodeNr = inodeNr;
         if (getVersion() >= V3) {
@@ -393,25 +390,24 @@ public class INode extends XfsObject {
      *
      * @return list of inode attributes.
      */
-    public List<XfsAttribute> getAttributes() throws IOException {
+    public List<FSAttribute> getAttributes() throws IOException {
         long off =  getOffset() + getINodeSizeForOffset() + (getAttributesForkOffset() * 8);
-        final XfsAttributeHeader myXfsAttributeHeader = new XfsAttributeHeader(getData(), off);
         final long attributesFormat = getAttributesFormat();
-        if (attributesFormat == 1) {
-            off += 4;  // header length remeber header has a 1 byte padding
-            final int count = (int) myXfsAttributeHeader.getCount();
-            List<XfsAttribute> attributes = new ArrayList<>(count);
-            for (int i = 0; i < count; i++) {
-                final XfsAttribute attribute = new XfsAttribute(getData(), off);
-                attributes.add(attribute);
-                off += attribute.getAttributeSizeForOffset();
-            }
-            return attributes;
+        if (attributesFormat == XfsConstants.XFS_DINODE_FMT_LOCAL) {
+            final XfsShortFormAttributeReader attributeReader = new XfsShortFormAttributeReader(getData(), (int) off);
+            return attributeReader.getAttributes();
+        } else if (attributesFormat == XfsConstants.XFS_DINODE_FMT_EXTENTS) {
+            final XfsLeafOrNodeAttributeReader attributeReader = new XfsLeafOrNodeAttributeReader(getData(), (int) off, this, fs);
+            return attributeReader.getAttributes();
         } else {
             log.warn(">>> Pending implementation due to lack of examples for attribute format " + attributesFormat
                     + " Found on Inode " + inodeNr);
         }
         return Collections.emptyList();
+    }
+
+    public int getAttributeExtentCount(){
+        return getUInt16(80);
     }
 
     /**

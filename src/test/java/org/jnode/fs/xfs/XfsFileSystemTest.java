@@ -1,24 +1,33 @@
 package org.jnode.fs.xfs;
 
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
+import org.hamcrest.Matcher;
 import org.jnode.driver.block.FileDevice;
 import org.jnode.fs.DataStructureAsserts;
 import org.jnode.fs.FileSystemTestUtils;
 import org.jnode.fs.*;
 import org.jnode.fs.service.FileSystemService;
 
+import org.jnode.fs.xfs.inode.INode;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.TimeZone;
+import java.util.regex.Pattern;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.*;
 
 public class XfsFileSystemTest {
 
@@ -139,24 +148,24 @@ public class XfsFileSystemTest {
      * @param indent the indent level.
      *
      */
-    private static StringBuilder getXfsMetadata(XfsEntry entry, StringBuilder actual,String indent) throws IOException {
+    private static StringBuilder getXfsMetadata(XfsEntry entry, StringBuilder actual,String indent) {
         actual.append(indent);
         actual.append(indent);
-        actual.append("atime : " + getDate(entry.getLastAccessed()));
+        actual.append("atime : ").append(getDate(entry.getLastAccessed()));
         actual.append("; ");
-        actual.append("ctime : " + getDate(entry.getCreated()));
+        actual.append("ctime : ").append(getDate(entry.getCreated()));
         actual.append("; ");
-        actual.append("mtime : " + getDate(entry.getLastChanged()) +"\n" );
+        actual.append("mtime : ").append(getDate(entry.getLastChanged())).append("\n");
         actual.append(indent);
         actual.append(indent);
-        actual.append("owner : " + entry.getINode().getUid() );
+        actual.append("owner : ").append(entry.getINode().getUid());
         actual.append("; ");
-        actual.append("group : " + entry.getINode().getGid() );
+        actual.append("group : ").append(entry.getINode().getGid());
         actual.append("; ");
-        actual.append("size : " +  entry.getINode().getSize() );
+        actual.append("size : ").append(entry.getINode().getSize());
         actual.append("; ");
         String mode = Integer.toOctalString(entry.getINode().getMode());
-        actual.append("mode : " +  mode.substring(mode.length()-3));
+        actual.append("mode : ").append(mode.substring(mode.length() - 3));
         actual.append("; \n");
 
         return actual;
@@ -171,6 +180,130 @@ public class XfsFileSystemTest {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
         return simpleDateFormat.format(new java.util.Date(date));
+    }
+
+    @Test
+    public void testShortFormAttribute() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = new XfsFileSystemType();
+            XfsFileSystem fs = type.create(device, true);
+            final INode shortAttributeINode = fs.getINode(11075L);
+            final XfsEntry entry = new XfsEntry(shortAttributeINode, "", 0, fs, null);
+            assertThat(shortAttributeINode.getAttributesFormat(),is(1L));// Short form attribute format
+            final List<FSAttribute> attributes = entry.getAttributes();
+            assertThat(attributes,hasSize(1));
+            final FSAttribute attribute = attributes.get(0);
+            assertThat(attribute.getName(),is("selinux"));
+            final String stringValue = new String(attribute.getValue(),StandardCharsets.UTF_8)
+                    .replace("\0","");
+            assertThat(stringValue,is("unconfined_u:object_r:unlabeled_t:s0"));
+        } finally {
+            testFile.delete();
+        }
+    }
+
+    @Test
+    public void testLeafAttributes() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = new XfsFileSystemType();
+            XfsFileSystem fs = type.create(device, true);
+            final INode leafAttributeINode = fs.getINode(11076L);
+            final XfsEntry entry = new XfsEntry(leafAttributeINode, "", 0, fs, null);
+            // leaf/node form attribute format
+            assertThat(leafAttributeINode.getAttributesFormat(),is(2L));
+            // leaf only has 1 extent
+            assertThat(leafAttributeINode.getAttributeExtentCount(),is(1));
+
+            final List<FSAttribute> attributes = entry.getAttributes();
+            assertThat(attributes,hasSize(31));
+            assertThat(attributes,everyItem(getSampleAttributeMatcher()));
+        } finally {
+            testFile.delete();
+        }
+    }
+
+    @Test
+    public void testNodeAttributes() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = new XfsFileSystemType();
+            XfsFileSystem fs = type.create(device, true);
+            final INode nodeAttributeINode = fs.getINode(11077L);
+            final XfsEntry entry = new XfsEntry(nodeAttributeINode, "", 0, fs, null);
+            // leaf/node form attribute format
+            assertThat(nodeAttributeINode.getAttributesFormat(),is(2L));
+            // node has more than 1 extent
+            assertThat(nodeAttributeINode.getAttributeExtentCount(),greaterThan(1));
+
+            final List<FSAttribute> attributes = entry.getAttributes();
+            assertThat(attributes,hasSize(201));
+            assertThat(attributes,everyItem(getSampleAttributeMatcher()));
+        } finally {
+            testFile.delete();
+        }
+    }
+
+    @Test
+    public void testSparseFiles() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = new XfsFileSystemType();
+            XfsFileSystem fs = type.create(device, true);
+            final long blockSize = fs.getSuperblock().getBlockSize();
+            final INode sparseFileINode = fs.getINode(11078L);
+            final XfsEntry entry = new XfsEntry(sparseFileINode, "sparse.dat", 0, fs, null);
+            final long fileSize = sparseFileINode.getSize();
+            for (int offset = 0; offset < fileSize; offset += blockSize) {
+                final int bufferSize = (int) Math.min(blockSize, fileSize - offset);
+                ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
+                entry.read(offset,buffer);
+                if (blockSize == bufferSize) {
+                    // in case of sparse data the buffer should be left untouched
+                    assertThat(buffer.position(), is(0));
+                } else {
+                    final byte[] array = buffer.array();
+                    final String stringData = new String(array, StandardCharsets.UTF_8);
+                    assertThat(stringData,is("Just a little bit of data right at the end...\n"));
+                }
+
+            }
+        } finally {
+            testFile.delete();
+        }
+    }
+
+    private Matcher<FSAttribute> getSampleAttributeMatcher(){
+        return new BaseMatcher<FSAttribute>() {
+            private final Pattern namePattern = Pattern.compile("sample-attr([0-9]+)");
+            private final Pattern valuePattern = Pattern.compile("sample-value([0-9]+)");
+
+            @Override
+            public boolean matches(Object o) {
+                if (o instanceof FSAttribute){
+                    final FSAttribute attr = (FSAttribute) o;
+                    final String name = attr.getName();
+                    final byte[] value = attr.getValue();
+                    final String stringValue = new String(value,StandardCharsets.UTF_8)
+                            .replace("\0","");
+                    if (name.equals("selinux")){
+                        return stringValue.equals("unconfined_u:object_r:unlabeled_t:s0");
+                    }
+                    final java.util.regex.Matcher nameMatcher = namePattern.matcher(name);
+                    final java.util.regex.Matcher valueMatcher = valuePattern.matcher(stringValue);
+                    if (nameMatcher.matches() && valueMatcher.matches()){
+                        return nameMatcher.group(1).equals(valueMatcher.group(1));
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendText("Does not conform to sample attributeMatcher");
+            }
+        };
     }
 
     @Test
@@ -195,7 +328,6 @@ public class XfsFileSystemTest {
      * @param actual the string to append to.
      * @param indent the indent level.
      *
-     * @throws IOException
      */
     private static void buildXfsDirStructure(XfsEntry entry,StringBuilder actual, String indent) throws IOException {
 
