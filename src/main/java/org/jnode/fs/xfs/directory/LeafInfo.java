@@ -22,9 +22,14 @@ public class LeafInfo extends XfsObject {
     private static final Logger log = LoggerFactory.getLogger(LeafInfo.class);
 
     /**
-     * The magic signature of a leaf directory entry.
+     * The magic signature of a leaf directory entry v5.
      */
-    public static final long LEAF_DIR_MAGIC = 0x3df1;
+    public static final long LEAF_DIR_MAGIC_V5 = 0x3DF1;
+
+    /**
+     * The magic signature of a leaf directory entry v4.
+     */
+    public static final long LEAF_DIR_MAGIC = 0xD2F1;
 
     /**
      * The magic signature of the node directory entry.
@@ -69,12 +74,12 @@ public class LeafInfo extends XfsObject {
     /**
      * The Number of leaf entries.
      */
-    private final long count;
+    private final int count;
 
     /**
      * The Number of free leaf entries.
      */
-    private final long stale;
+    private final int stale;
 
     /**
      * The filesystem.
@@ -92,21 +97,33 @@ public class LeafInfo extends XfsObject {
     public LeafInfo(byte [] data, long offset, XfsFileSystem fileSystem) throws IOException {
         super(data, (int) offset);
 
-        if ((getMagicSignature() != LEAF_DIR_MAGIC) && (getMagicSignature() != NODE_DIR_MAGIC)) {
-            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature(getMagicSignature()));
+        final long signature = getMagicSignature();
+        if ((signature != LEAF_DIR_MAGIC) && (signature != LEAF_DIR_MAGIC_V5) && (signature != NODE_DIR_MAGIC)) {
+            throw new IOException("Wrong magic number for XFS Leaf Info: " + getAsciiSignature(signature));
         }
 
         this.fileSystem = fileSystem;
         forward = getUInt32(0);
         backward = getUInt32(4);
-        crc = getUInt32(12);
-        blockNumber = getInt64(16);
-        logSequenceNumber = getInt64(24);
-        owner = getInt64(48);
-        uuid = readUuid(32);
-        count = getUInt16(56);
-        stale = getUInt16(58);
-        // 4 byte padding at the end
+        if (fileSystem.getXfsVersion() == 5) {
+            // 4 byte padding at the end
+            crc = getUInt32(12);
+            blockNumber = getInt64(16);
+            logSequenceNumber = getInt64(24);
+            owner = getInt64(48);
+            uuid = readUuid(32);
+            count = getUInt16(56);
+            stale = getUInt16(58);
+        } else {
+            // if v4
+            crc = -1;
+            blockNumber = -1;
+            logSequenceNumber = -1;
+            owner = -1;
+            uuid = null;
+            count = getUInt16(12);
+            stale = getUInt16(14);
+        }
     }
 
     /**
@@ -186,7 +203,7 @@ public class LeafInfo extends XfsObject {
      *
      * @return a number of node entries.
      */
-    public long getCount() {
+    public int getCount() {
         return count;
     }
 
@@ -195,7 +212,7 @@ public class LeafInfo extends XfsObject {
      *
      * @return a number of free entries.
      */
-    public long getStale() {
+    public int getStale() {
         return stale;
     }
 
