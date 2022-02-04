@@ -93,7 +93,7 @@ public class NodeDirectory extends XfsObject {
         final List<LeafEntry> leafEntries = new ArrayList<>();
         int dirCount = 0;
         for (Leaf leaf : leaves) {
-            dirCount += (int) (leaf.getLeafInfo().getCount() - leaf.getLeafInfo().getStale());
+            dirCount += (leaf.getLeafInfo().getCount() - leaf.getLeafInfo().getStale());
             leafEntries.addAll(leaf.getLeafEntries());
         }
         final DataExtentOffsetManager extentOffsetManager = new DataExtentOffsetManager(dataExtents, fs);

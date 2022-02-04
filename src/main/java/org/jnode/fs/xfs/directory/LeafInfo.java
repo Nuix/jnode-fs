@@ -32,9 +32,14 @@ public class LeafInfo extends XfsObject {
     public static final long LEAF_DIR_MAGIC = 0xD2F1;
 
     /**
+     * The magic signature of the node directory entry v5.
+     */
+    public static final long NODE_DIR_MAGIC_V5 = 0x3dff;
+
+    /**
      * The magic signature of the node directory entry.
      */
-    public static final long NODE_DIR_MAGIC = 0x3dff;
+    public static final long NODE_DIR_MAGIC = 0xd2ff;
 
     /**
      * Logical block offset of the previous block at this level.
@@ -98,7 +103,7 @@ public class LeafInfo extends XfsObject {
         super(data, (int) offset);
 
         final long signature = getMagicSignature();
-        if ((signature != LEAF_DIR_MAGIC) && (signature != LEAF_DIR_MAGIC_V5) && (signature != NODE_DIR_MAGIC)) {
+        if ((signature != LEAF_DIR_MAGIC) && (signature != LEAF_DIR_MAGIC_V5) && (signature != NODE_DIR_MAGIC_V5) && (signature != NODE_DIR_MAGIC)) {
             throw new IOException("Wrong magic number for XFS Leaf Info: " + getAsciiSignature(signature));
         }
 
