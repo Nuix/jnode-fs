@@ -5,6 +5,7 @@ import java.util.ArrayList;
 
 import java.util.List;
 
+import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 
 import org.slf4j.Logger;
@@ -33,6 +34,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      * The magic number for a BMBT block (V5).
      */
     private final static Long MAGIC = asciiToHex("BMAP");
+    private final XfsFileSystem fs;
 
     /**
      * Creates a b+tree data extent.
@@ -41,13 +43,14 @@ public class BPlusTreeDataExtent extends XfsObject {
      * @param offset of the inode's data
      * @throws IOException if an error occurs reading in the b+tree block.
      */
-    public BPlusTreeDataExtent(byte[] data, long offset) throws IOException {
+    public BPlusTreeDataExtent(byte[] data, long offset, XfsFileSystem fileSystem) throws IOException {
         super(data, (int) offset);
 
         final long signature = getMagicSignature();
         if (signature != MAGIC_V5 && signature != MAGIC) {
             throw new IOException("Wrong magic number for XFS: Required[" + getAsciiSignature(MAGIC_V5) + " or " + getAsciiSignature(MAGIC_V5) + "] found[" + getAsciiSignature(signature) + "]" ) ;
         }
+        this.fs = fileSystem;
     }
 
     /**
@@ -64,7 +67,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      */
     private List<DataExtent> getExtentInfo() {
-        long offset = getOffset() + 72;
+        long offset = getOffset() + (fs.getXfsVersion() == 5 ? 72 : 24) ;
         final List<DataExtent> list = new ArrayList<>((int) getNumrecs());
         for (int i=0; i < getNumrecs(); i++) {
             final DataExtent info = new DataExtent(getData(), (int) offset);

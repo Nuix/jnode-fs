@@ -109,7 +109,7 @@ public class BPlusTreeDirectory extends XfsObject {
             } catch (ApiNotFoundException e) {
                 log.warn("Failed to read FS entry list at offset: " + offset, e);
             }
-            final BPlusTreeDataExtent extentList = new BPlusTreeDataExtent(buffer.array(), 0);
+            final BPlusTreeDataExtent extentList = new BPlusTreeDataExtent(buffer.array(), 0, fileSystem);
             extents.addAll(extentList.getExtents());
         }
 
