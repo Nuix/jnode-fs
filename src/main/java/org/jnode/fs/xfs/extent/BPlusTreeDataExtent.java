@@ -1,14 +1,12 @@
 package org.jnode.fs.xfs.extent;
 
-import java.io.IOException;
-import java.util.ArrayList;
-
-import java.util.List;
-
 import org.jnode.fs.xfs.XfsObject;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**

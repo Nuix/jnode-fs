@@ -1,12 +1,15 @@
 package org.jnode.fs.xfs;
 
+import org.jnode.util.BigEndian;
+
 import java.nio.charset.Charset;
 import java.util.Locale;
 
-import org.jnode.util.BigEndian;
-
 /**
  * An object in a XFS file system.
+ * @author Luke Quinane
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 public class XfsObject {
 

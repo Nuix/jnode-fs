@@ -1,12 +1,5 @@
 package org.jnode.fs.xfs;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 import org.jnode.fs.*;
 import org.jnode.fs.spi.AbstractFSEntry;
 import org.jnode.fs.util.UnixFSConstants;
@@ -16,10 +9,18 @@ import org.jnode.fs.xfs.inode.INode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * An entry in a XFS file system.
  *
  * @author Luke Quinane
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntryLastAccessed, FSEntryLastChanged {
 
