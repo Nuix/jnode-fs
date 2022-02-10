@@ -1,19 +1,13 @@
 package org.jnode.fs.xfs;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-
 import org.jnode.driver.Device;
 import org.jnode.driver.block.BlockDeviceAPI;
-import org.jnode.fs.FSDirectory;
-import org.jnode.fs.FSEntry;
-import org.jnode.fs.FSFile;
-import org.jnode.fs.FileSystem;
-import org.jnode.fs.FileSystemException;
-import org.jnode.fs.FileSystemType;
+import org.jnode.fs.*;
 import org.jnode.fs.spi.AbstractFileSystem;
-import org.jnode.fs.xfs.inode.INodeBTree;
 import org.jnode.fs.xfs.inode.INode;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
 /**
  * An XFS file system.
  *
@@ -30,11 +24,6 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      * The allocation group for inodes.
      */
     private AllocationGroupINode agINode;
-
-    /**
-     * The inode b-tree.
-     */
-    private INodeBTree inodeBTree;
 
     private INode inode;
 
@@ -84,12 +73,6 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
         blockSize = superblock.getBlockSize();
         aGCount = (int) superblock.getAGCount();
         allocationGroupSize = blockSize * superblock.getTotalBlocks() / aGCount;
-
-        try {
-            inodeBTree = new INodeBTree(this, agINode);
-        } catch (IOException e) {
-            throw new FileSystemException(e);
-        }
     }
 
     /**
@@ -208,12 +191,4 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
         return superblock;
     }
 
-    /**
-     * Gets the inode b-tree.
-     *
-     * @return the b-tree.
-     */
-    public INodeBTree getInodeBTree() {
-        return inodeBTree;
-    }
 }

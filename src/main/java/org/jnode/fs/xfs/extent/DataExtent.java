@@ -3,7 +3,6 @@ package org.jnode.fs.xfs.extent;
 import org.jnode.fs.xfs.Superblock;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -4,9 +4,9 @@ import org.jnode.fs.FSAttribute;
 import org.jnode.fs.xfs.XfsConstants;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
-import org.jnode.fs.xfs.attribute.*;
+import org.jnode.fs.xfs.attribute.XfsLeafOrNodeAttributeReader;
+import org.jnode.fs.xfs.attribute.XfsShortFormAttributeReader;
 import org.jnode.fs.xfs.extent.DataExtent;
-import org.jnode.util.BigEndian;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

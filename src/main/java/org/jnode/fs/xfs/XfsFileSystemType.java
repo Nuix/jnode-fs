@@ -1,13 +1,14 @@
 package org.jnode.fs.xfs;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import org.jnode.driver.Device;
 import org.jnode.driver.block.FSBlockDeviceAPI;
 import org.jnode.fs.BlockDeviceFileSystemType;
 import org.jnode.fs.FileSystemException;
 import org.jnode.partitions.PartitionTableEntry;
 import org.jnode.util.BigEndian;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
  * The file system type for an XFS file system.

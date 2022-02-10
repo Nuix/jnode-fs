@@ -1,23 +1,19 @@
 package org.jnode.fs.xfs.directory;
 
 import org.jnode.driver.ApiNotFoundException;
-
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
-
 import org.jnode.fs.xfs.XfsEntry;
+import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.extent.DataExtent;
-import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.extent.DataExtentOffsetManager;
 import org.jnode.fs.xfs.inode.INode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-
 import java.nio.ByteBuffer;
-
 import java.util.ArrayList;
 import java.util.List;
 

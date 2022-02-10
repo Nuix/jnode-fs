@@ -1,10 +1,10 @@
 package org.jnode.fs.xfs.directory;
 
-import java.io.UnsupportedEncodingException;
-
 import org.jnode.fs.xfs.XfsObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.UnsupportedEncodingException;
 
 /**
  * A short form directory entry ('xfs_dir2_sf_entry_t').

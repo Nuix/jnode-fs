@@ -3,7 +3,6 @@ package org.jnode.fs.xfs.directory;
 import org.jnode.driver.ApiNotFoundException;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
-
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.extent.BPlusTreeDataExtent;
