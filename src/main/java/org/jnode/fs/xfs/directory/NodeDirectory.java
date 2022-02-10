@@ -10,6 +10,7 @@ import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.extent.DataExtentOffsetManager;
 import org.jnode.fs.xfs.inode.INode;
+import org.jnode.util.BigEndian;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,6 +59,9 @@ public class NodeDirectory extends XfsObject {
      * The leaf block offset (XFS_DIR2_LEAF_OFFSET).
      */
     private static final long BYTES_IN_32G = 34359738368L;
+
+    private static final long NODE_FREE_SPACE_V5 = 0x58444633;
+    private static final long NODE_FREE_SPACE = 0x58443246;
 
     /**
      * Creates a Leaf directory entry.
@@ -151,7 +155,12 @@ public class NodeDirectory extends XfsObject {
             } catch (ApiNotFoundException exc) {
                 throw new IOException("Error reading leaf extent data at offset:" + extOffset, exc);
             }
-            entries.add(new Leaf(buffer.array(), 0, fs, extents.size() - 1));
+            long signature = BigEndian.getUInt32(buffer.array(),0);
+            if (signature != NODE_FREE_SPACE_V5 && signature != NODE_FREE_SPACE) {
+                entries.add(new Leaf(buffer.array(), 0, fs, extents.size() - 1));
+            } else {
+                log.trace("Directory Free Block found on extent {}",dataExtent);
+            }
         }
         return entries;
     }

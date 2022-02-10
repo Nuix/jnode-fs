@@ -1,8 +1,7 @@
 package org.jnode.fs.xfs;
 
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
-import org.hamcrest.Matcher;
+import com.sun.xml.internal.ws.util.StreamUtils;
+import org.hamcrest.Matchers;
 import org.jnode.driver.block.FileDevice;
 import org.jnode.fs.*;
 import org.jnode.fs.service.FileSystemService;
@@ -12,16 +11,14 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
 import java.util.Iterator;
 import java.util.List;
-import java.util.TimeZone;
-import java.util.regex.Pattern;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.*;
 
 public class XfsV4FileSystemTest {
 
@@ -34,7 +31,7 @@ public class XfsV4FileSystemTest {
     }
 
     @Test
-    public void testImage1() throws Exception {
+    public void testDefaultNamedImage() throws Exception {
         File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/v4/default_named_image.img");
 
         try (FileDevice device = new FileDevice(testFile, "r")) {
@@ -50,6 +47,82 @@ public class XfsV4FileSystemTest {
         }
     }
 
+    @Test
+    public void testShortFormDir() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/v4/dir_types_xfs_v4.img");
+
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            final INode iNode = fs.getINode(131);
+            XfsEntry entry = new XfsEntry(iNode,"",0,fs,null);
+            final List<? extends FSEntry> entries = iteratorToList(entry.getDirectory().iterator());
+            assertThat(entries.size(), Matchers.is(4));
+
+        } finally {
+            testFile.delete();
+        }
+    }
+
+    @Test
+    public void testBlockDir() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/v4/dir_types_xfs_v4.img");
+
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+
+            final INode iNode = fs.getINode(131200);
+            XfsEntry entry = new XfsEntry(iNode,"",0,fs,null);
+            final List<? extends FSEntry> entries = iteratorToList(entry.getDirectory().iterator());
+            assertThat(entries.size(), Matchers.is(22));
+        } finally {
+            testFile.delete();
+        }
+    }
+
+    @Test
+    public void testLeafDir() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/v4/dir_types_xfs_v4.img");
+
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+
+            final INode iNode = fs.getINode(281472);
+            XfsEntry entry = new XfsEntry(iNode,"",0,fs,null);
+            final List<? extends FSEntry> entries = iteratorToList(entry.getDirectory().iterator());
+            assertThat(entries.size(), Matchers.is(202));
+        } finally {
+            testFile.delete();
+        }
+    }
+
+    @Test
+    public void testBtreeDirs() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/v4/dir_types_xfs_v4.img");
+
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+
+            XfsEntry smallBtreeEntry = new XfsEntry(fs.getINode(393344),"",0,fs,null);
+            final List<? extends FSEntry> smallBtreeEntries = iteratorToList(smallBtreeEntry.getDirectory().iterator());
+            assertThat(smallBtreeEntries.size(), Matchers.is(2582));
+
+            XfsEntry mediumBtreeEntry = new XfsEntry(fs.getINode(134),"",0,fs,null);
+            final List<? extends FSEntry> mediumBtreeEntries = iteratorToList(mediumBtreeEntry.getDirectory().iterator());
+            assertThat(mediumBtreeEntries.size(), Matchers.is(190980));
+        } finally {
+            testFile.delete();
+        }
+    }
+
+
+    public <T> List<T> iteratorToList(Iterator<T> iterator){
+        final Spliterator<T> spliterator = Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED);
+        return StreamSupport.stream(spliterator,false).collect(Collectors.toList());
+    }
 
 
     /**
