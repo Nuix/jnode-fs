@@ -1,26 +1,27 @@
 package org.jnode.fs.xfs;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-
 import org.jnode.driver.ApiNotFoundException;
 import org.jnode.fs.FSDirectoryId;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.spi.AbstractFSDirectory;
 import org.jnode.fs.spi.FSEntryTable;
-
 import org.jnode.fs.xfs.directory.*;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.inode.INode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * A XFS directory.
  *
  * @author Luke Quinane.
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
 

@@ -1,13 +1,16 @@
 package org.jnode.fs.xfs;
 
+import org.jnode.fs.spi.AbstractFSFile;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import org.jnode.fs.spi.AbstractFSFile;
 
 /**
  * A XFS file.
  *
  * @author Luke Quinane.
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 public class XfsFile extends AbstractFSFile {
 

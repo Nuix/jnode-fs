@@ -1,7 +1,6 @@
 package org.jnode.fs.xfs.directory;
 
 import org.jnode.driver.ApiNotFoundException;
-
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.xfs.XfsEntry;
@@ -20,7 +19,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * A XFS Node Directory.

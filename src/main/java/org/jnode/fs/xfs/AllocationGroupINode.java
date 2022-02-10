@@ -1,8 +1,9 @@
 package org.jnode.fs.xfs;
 
+import org.jnode.fs.FileSystemException;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import org.jnode.fs.FileSystemException;
 
 /**
  * The allocation group for inodes ('xfs_agi').

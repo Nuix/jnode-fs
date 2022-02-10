@@ -195,7 +195,9 @@ public class XfsFileSystemTest {
             assertThat(attributes,hasSize(1));
             final FSAttribute attribute = attributes.get(0);
             assertThat(attribute.getName(),is("selinux"));
-            assertThat(attribute.getValue(),is("unconfined_u:object_r:unlabeled_t:s0"));
+            final String stringValue = new String(attribute.getValue(),StandardCharsets.UTF_8)
+                    .replace("\0","");
+            assertThat(stringValue,is("unconfined_u:object_r:unlabeled_t:s0"));
         } finally {
             testFile.delete();
         }

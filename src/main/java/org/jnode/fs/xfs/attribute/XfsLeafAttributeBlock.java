@@ -1,8 +1,6 @@
 package org.jnode.fs.xfs.attribute;
 
-import org.jnode.fs.FSAttribute;
 import org.jnode.fs.xfs.XfsObject;
-import org.jnode.util.BigEndian;
 
 import java.io.IOException;
 import java.util.ArrayList;
