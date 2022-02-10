@@ -28,7 +28,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
     /**
      * The logger implementation.
      */
-    private static final Logger log = LoggerFactory.getLogger(BlockDirectoryEntry.class);
+    private static final Logger log = LoggerFactory.getLogger(XfsEntry.class);
 
     /**
      * The inode.
