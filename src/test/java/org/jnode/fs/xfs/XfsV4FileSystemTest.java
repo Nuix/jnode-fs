@@ -118,6 +118,23 @@ public class XfsV4FileSystemTest {
         }
     }
 
+    @Test
+    public void testLeafAttributes() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/v4/ubuntu_attr_v4.img");
+
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+
+            XfsEntry leafAttributesEntry = new XfsEntry(fs.getINode(132),"",0,fs,null);
+            final List<FSAttribute> attributes = leafAttributesEntry.getAttributes();
+            assertThat(attributes.size(), Matchers.is(1));
+            assertThat(attributes.get(0).getValue().length, Matchers.is(257));
+        } finally {
+            testFile.delete();
+        }
+    }
+
 
     public <T> List<T> iteratorToList(Iterator<T> iterator){
         final Spliterator<T> spliterator = Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED);

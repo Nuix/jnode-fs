@@ -52,8 +52,8 @@ public class XfsLeafOrNodeAttributeReader extends XfsObject {
             for (int i = 0; i < blockCount; i++) {
                 int bufferOffset = (int) (blockSize * i);
                 final int signature = BigEndian.getUInt16(bytes,bufferOffset + 8);
-                if (signature == XfsLeafAttributeBlock.MAGIC){
-                    final XfsLeafAttributeBlock attributeBlock = new XfsLeafAttributeBlock(bytes, bufferOffset);
+                if (signature == XfsLeafAttributeBlock.MAGIC || signature == XfsLeafAttributeBlock.MAGIC_V5){
+                    final XfsLeafAttributeBlock attributeBlock = new XfsLeafAttributeBlock(bytes, bufferOffset,fs);
                     attributeBlocks.add(attributeBlock);
                     attributeCount += attributeBlock.getEntryCount();
                 }
