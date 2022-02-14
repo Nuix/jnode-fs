@@ -1,10 +1,11 @@
 package org.jnode.fs.xfs;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import org.jnode.fs.FileSystemException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
  * The XFS superblock ('xfs_sb').
@@ -27,6 +28,10 @@ public class Superblock extends XfsRecord {
      * The super block magic number ('XFSB').
      */
     public static final long XFS_SUPER_MAGIC = 0x58465342;
+    private final long blockSize;
+    private final int iNodeSize;
+    private final int aGSizeLog2;
+    private final int iNodePerBlockLog2;
 
     /**
      * Creates a new super block.
@@ -51,6 +56,10 @@ public class Superblock extends XfsRecord {
         } catch (IOException e) {
             throw new FileSystemException(e);
         }
+        blockSize = getUInt32(0x4);
+        iNodeSize = getUInt16(0x68);
+        aGSizeLog2=getUInt8(0x7c);
+        iNodePerBlockLog2 = getUInt8(0x7b);
     }
 
     /**
@@ -58,8 +67,26 @@ public class Superblock extends XfsRecord {
      *
      * @return the block size.
      */
-    public int getBlockSize() {
-        return (int) getUInt32(0x4);
+    public long getBlockSize() {
+        return blockSize;
+    }
+
+    /**
+     * Gets the total block size stored in the super block.
+     *
+     * @return the total block size.
+     */
+    public long getTotalBlocks() {
+        return getInt64(0x8);
+    }
+
+    /**
+     * Gets the total free block size stored in the super block.
+     *
+     * @return the free block size.
+     */
+    public long getFreeBlocks() {
+        return getInt64(144);
     }
 
     /**
@@ -115,7 +142,7 @@ public class Superblock extends XfsRecord {
      * @return the inode size.
      */
     public int getInodeSize() {
-        return getUInt16(0x68);
+        return iNodeSize;
     }
 
     /**
@@ -135,7 +162,7 @@ public class Superblock extends XfsRecord {
     public String getName() {
         byte[] buffer = new byte[12];
         System.arraycopy(getData(), getOffset() + 0x6c, buffer, 0, buffer.length);
-        return new String(buffer, UTF8);
+        return new String(buffer, UTF8).replaceAll("\0", "");
     }
 
     /**
@@ -163,6 +190,36 @@ public class Superblock extends XfsRecord {
      */
     public long getFeatures2() {
         return getUInt32(0xc8);
+    }
+
+    /**
+     * Allocation group size in log2
+     * Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
+     */
+    public long getAGSizeLog2() {
+        return aGSizeLog2;
+    }
+
+    /**
+     * Number of inodes per block in log2
+     * Where value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
+     */
+    public long getINodePerBlockLog2() {
+        return iNodePerBlockLog2;
+    }
+
+    /**
+     * Directory block size in log2
+     */
+    public long getDirectoryBlockSizeLog2() {
+        return getUInt8(0xc0);
+    }
+
+    /**
+     * Journal device sector size in log2
+     */
+    public long getJournalDeviceSizeLog2() {
+        return getUInt8(0xc1);
     }
 
     /*
@@ -208,10 +265,9 @@ public class Superblock extends XfsRecord {
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return String.format(
-            "xfs-sb:[block-size:%d inode-size:%d root-ino:%d ag-size:%d ag-count: %d version:%d features2:0x%x]",
-            getBlockSize(), getInodeSize(), getRootInode(), getAGSize(), getAGCount(), getVersion(), getFeatures2());
+                "xfs-sb:[block-size:%d inode-size:%d root-ino:%d ag-size:%d ag-count: %d version:%d features2:0x%x]",
+                getBlockSize(), getInodeSize(), getRootInode(), getAGSize(), getAGCount(), getVersion(), getFeatures2());
     }
 }

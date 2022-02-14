@@ -1,7 +1,10 @@
 package org.jnode.fs.xfs.directory;
 
-import java.io.UnsupportedEncodingException;
 import org.jnode.fs.xfs.XfsObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.UnsupportedEncodingException;
 
 /**
  * A short form directory entry ('xfs_dir2_sf_entry_t').
@@ -11,9 +14,19 @@ import org.jnode.fs.xfs.XfsObject;
 public class ShortFormDirectoryEntry extends XfsObject {
 
     /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(ShortFormDirectoryEntry.class);
+
+    /**
      * The size of inode entries in this directory (4 or 8 bytes).
      */
     private int inodeSize;
+
+    /**
+     * The number of bytes to get the next offset.
+     */
+    static int BYTES_FOR_NEXT_OFFSET = 0x8;
 
     /**
      * Creates a new short-form directory entry.
@@ -64,17 +77,16 @@ public class ShortFormDirectoryEntry extends XfsObject {
      * @return the inode number.
      */
     public long getINumber() {
-        int numberOffset = getNameLength() + 0x3;
+        int numberOffset = getNameLength() + inodeSize;
         return inodeSize == 4 ? getUInt32(numberOffset) : getInt64(numberOffset);
     }
 
     /**
-     * Get the length for this entry.
-     *
-     * @return the entry length.
+     * Get the next offset.
+     * @return the offset of the next entry.
      */
-    public int getLength() {
-        return getNameLength() + 0x7;
+    public int getNextEntryOffset() {
+        return getNameLength() + BYTES_FOR_NEXT_OFFSET;
     }
 
     @Override

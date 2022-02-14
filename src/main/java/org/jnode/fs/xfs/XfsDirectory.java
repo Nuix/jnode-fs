@@ -1,24 +1,34 @@
 package org.jnode.fs.xfs;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import org.jnode.driver.ApiNotFoundException;
 import org.jnode.fs.FSDirectoryId;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.spi.AbstractFSDirectory;
 import org.jnode.fs.spi.FSEntryTable;
-import org.jnode.fs.xfs.directory.DirectoryDataEntry;
-import org.jnode.fs.xfs.directory.DirectoryDataHeader;
+import org.jnode.fs.xfs.directory.*;
+import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.inode.INode;
-import org.jnode.fs.xfs.directory.ShortFormDirectoryEntry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A XFS directory.
  *
  * @author Luke Quinane.
+ * @author Ricardo Garza
+ * @author Julio Parra
  */
 public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
+
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(XfsDirectory.class);
 
     /**
      * The related entry.
@@ -66,58 +76,114 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
         switch (inode.getFormat()) {
             case XfsConstants.XFS_DINODE_FMT_LOCAL:
                 // Entries are stored within the inode record itself
-
-                int fourByteEntries = inode.getUInt8(INode.DATA_OFFSET);
-                int eightByteEntries = inode.getUInt8(INode.DATA_OFFSET + 1);
+                int iNodeOffset = inode.getVersion() == INode.V3 ? INode.V3_DATA_OFFSET : INode.DATA_OFFSET;
+                int fourByteEntries = inode.getUInt8(iNodeOffset);
+                int eightByteEntries = inode.getUInt8(iNodeOffset + 1);
                 int recordSize = fourByteEntries > 0 ? 4 : 8;
                 int entryCount = fourByteEntries > 0 ? fourByteEntries : eightByteEntries;
-                int offset = INode.DATA_OFFSET + inode.getOffset() + 0x6;
+                int offset = iNodeOffset + inode.getOffset() + 0x6;
 
-                // The local storage doesn't store the relative directory entries, so add these in manually
-                XfsDirectory parent = (XfsDirectory) entry.getParent();
-                entries.add(new XfsEntry(inode, ".", 0, fileSystem, parent));
-                if (parent == null) {
-                    // This is the root, just add it again
-                    entries.add(new XfsEntry(inode, "..", 1, fileSystem, null));
+                if (!inode.isSymLink()) {
+                    // The local storage doesn't store the relative directory entries, so add these in manually
+                    XfsDirectory parent = (XfsDirectory) entry.getParent();
+                    entries.add(new XfsEntry(inode, ".", 0, fileSystem, parent));
+                    if (parent == null) {
+                        // This is the root, just add it again
+                        entries.add(new XfsEntry(inode, "..", 1, fileSystem, null));
+                    } else {
+                        entries.add(new XfsEntry(parent.inode, "..", 1, fileSystem, parent.entry.getParent()));
+                    }
+                    entryCount += entries.size();
+
+                    while (entries.size() < entryCount) {
+                        ShortFormDirectoryEntry entry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize);
+
+                        if (entry.getINumber() == 0) {
+                            break;
+                        }
+
+                        INode childInode = fileSystem.getINode(entry.getINumber());
+                        entries.add(new XfsEntry(childInode, entry.getName(), entries.size(), fileSystem, this));
+
+                        offset += entry.getNextEntryOffset();
+
+                    }
                 } else {
-                    entries.add(new XfsEntry(parent.inode, "..", 1, fileSystem, parent.entry.getParent()));
-                }
-                entryCount += entries.size();
 
-                while (entries.size() < entryCount) {
                     ShortFormDirectoryEntry entry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize);
-
                     if (entry.getINumber() == 0) {
                         break;
                     }
-
-                    INode childInode = fileSystem.getInodeBTree().getINode(entry.getINumber());
+                    INode childInode = fileSystem.getINode(entry.getINumber());
                     entries.add(new XfsEntry(childInode, entry.getName(), entries.size(), fileSystem, this));
 
-                    offset += entry.getLength();
                 }
-
                 break;
 
             case XfsConstants.XFS_DINODE_FMT_EXTENTS:
-                ByteBuffer buffer = ByteBuffer.allocate((int) entry.getINode().getSize());
-                entry.read(0, buffer);
-
-                DirectoryDataHeader header = new DirectoryDataHeader(buffer.array(), 0);
-                for (DirectoryDataEntry dataEntry : header.readEntries(fileSystem.getSuperblock().getBlockSize())) {
-                    INode childInode = fileSystem.getInodeBTree().getINode(dataEntry.getINumber());
-                    entries.add(new XfsEntry(childInode, dataEntry.getName(), entries.size(), fileSystem, this));
+                if (!inode.isDirectory()){
+                    throw new UnsupportedOperationException("Trying to get directories of a non directory inode");
                 }
+                final List<DataExtent> extents = inode.getExtentInfo();
 
+                if (extents.size() == 1) {
+                    // Block Directory
+                    if (log.isDebugEnabled()) {
+                        log.debug("Processing a Block directory, Inode Number: " + entry.getINode().getINodeNr() );
+                    }
+                    final DataExtent extentInformation = extents.get(0);
+                    final long extOffset = extentInformation.getExtentOffset(fileSystem);
+                    ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize() * (int) extentInformation.getBlockCount());
+                    try {
+                        fileSystem.getFSApi().read(extOffset,buffer);
+                    } catch (ApiNotFoundException e) {
+                        log.warn("Failed to read directory entries at offset: " + extOffset, e);
+                    }
+                    final BlockDirectory myBlockDirectory = new BlockDirectory(buffer.array(), 0, fileSystem);
+                    entries = myBlockDirectory.getEntries(this);
+                } else {
+
+                    long leafExtentIndex = LeafDirectory.getLeafExtentIndex(extents,fileSystem);
+                    long iNodeNumber = entry.getINode().getINodeNr();
+
+                    if (leafExtentIndex == -1) {
+                        throw new IOException("Cannot compute leaf extent for inode " + iNodeNumber);
+                    }
+                    final DataExtent extentInformation = extents.get((int)leafExtentIndex);
+                    final long extOffset = extentInformation.getExtentOffset(fileSystem);
+                    ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize() * (int) extentInformation.getBlockCount());
+                    try {
+                        fileSystem.getFSApi().read(extOffset,buffer);
+                    } catch (ApiNotFoundException e) {
+                        log.warn("Failed to read directory entries at offset: " + extOffset, e);
+                    }
+
+                    if (leafExtentIndex == (extents.size()-1)) {
+                        // Leaf Directory
+                        if (log.isDebugEnabled()) {
+                            log.debug("Processing a Leaf directory, Inode Number: " + iNodeNumber );
+                        }
+                        final LeafDirectory myLeafDirectory = new LeafDirectory(buffer.array(), 0, fileSystem, iNodeNumber, extents);
+                        entries = myLeafDirectory.getEntries(this);
+                    } else {
+                        // Node Directory
+                        if (log.isDebugEnabled()) {
+                            log.debug("Processing a Node directory, Inode Number: " + iNodeNumber );
+                        }
+                        final NodeDirectory myNodeDirectory = new NodeDirectory(buffer.array(), 0, fileSystem, iNodeNumber, extents, leafExtentIndex);
+                        entries = myNodeDirectory.getEntries(this);
+                    }
+                }
                 break;
 
             case XfsConstants.XFS_DINODE_FMT_BTREE:
-                /*
-                The directory entries are contained in the leaves of a B+tree. The
-                inode contains the root node (xfs_bmdr_block_t*).
-                 */
-                throw new UnsupportedOperationException();
-
+                long iNodeNumber = entry.getINode().getINodeNr();
+                if (log.isDebugEnabled()) {
+                    log.debug("Processing a B+tree directory, Inode Number: " + iNodeNumber );
+                }
+                final BPlusTreeDirectory myBPlusTreeDirectory = new BPlusTreeDirectory(entry.getINode().getData(), 0, iNodeNumber, fileSystem);
+                entries = myBPlusTreeDirectory.getEntries(this);
+                break;
             default:
                 throw new IllegalStateException("Unexpected format: " + inode.getFormat());
         }
