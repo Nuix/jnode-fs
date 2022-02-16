@@ -67,8 +67,9 @@ public class BPlusTreeDataExtent extends XfsObject {
      */
     private List<DataExtent> getExtentInfo() {
         long offset = getOffset() + (fs.getXfsVersion() == 5 ? 72 : 24) ;
-        final List<DataExtent> list = new ArrayList<>((int) getNumrecs());
-        for (int i=0; i < getNumrecs(); i++) {
+        final int numrecs = (int) getNumrecs();
+        final List<DataExtent> list = new ArrayList<>(numrecs);
+        for (int i=0; i < numrecs; i++) {
             final DataExtent info = new DataExtent(getData(), (int) offset);
             list.add(info);
             offset += 0x10;

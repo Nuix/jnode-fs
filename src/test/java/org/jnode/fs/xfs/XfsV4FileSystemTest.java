@@ -135,6 +135,22 @@ public class XfsV4FileSystemTest {
         }
     }
 
+    @Test
+    public void testMultiLevelBtreeDir() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/v4/mult_btree_level_v4.img");
+
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+
+            XfsEntry leafAttributesEntry = new XfsEntry(fs.getINode(131),"",0,fs,null);
+            final List<? extends FSEntry> entries = iteratorToList(leafAttributesEntry.getDirectory().iterator());
+            assertThat(entries.size(), Matchers.is(1));
+        } finally {
+            testFile.delete();
+        }
+    }
+
 
     public <T> List<T> iteratorToList(Iterator<T> iterator){
         final Spliterator<T> spliterator = Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED);
