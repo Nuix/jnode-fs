@@ -122,7 +122,6 @@ public class BPlusTreeDirectory extends XfsObject {
                 final BPlusTreeDataExtent extentList = new BPlusTreeDataExtent(buffer.array(), 0, fileSystem);
                 currentExtents.addAll(extentList.getExtents());
             }
-
         }
         return currentExtents;
     }

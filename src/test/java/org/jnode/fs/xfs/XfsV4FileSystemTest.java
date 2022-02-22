@@ -31,23 +31,6 @@ public class XfsV4FileSystemTest {
     }
 
     @Test
-    public void testDefaultNamedImage() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/v4/default_named_image.img");
-
-        try (FileDevice device = new FileDevice(testFile, "r")) {
-            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
-            XfsFileSystem fs = type.create(device, true);
-            final XfsEntry rootEntry = fs.getRootEntry();
-
-            final StringBuilder builder = new StringBuilder();
-            buildXfsDirStructure(rootEntry,builder,"");
-
-        } finally {
-            testFile.delete();
-        }
-    }
-
-    @Test
     public void testShortFormDir() throws Exception {
         File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/v4/dir_types_xfs_v4.img");
 
@@ -106,13 +89,13 @@ public class XfsV4FileSystemTest {
             XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
             XfsFileSystem fs = type.create(device, true);
 
-            XfsEntry smallBtreeEntry = new XfsEntry(fs.getINode(393344),"",0,fs,null);
-            final List<? extends FSEntry> smallBtreeEntries = iteratorToList(smallBtreeEntry.getDirectory().iterator());
-            assertThat(smallBtreeEntries.size(), Matchers.is(2582));
+//            XfsEntry smallBtreeEntry = new XfsEntry(fs.getINode(393344),"",0,fs,null);
+//            final List<? extends FSEntry> smallBtreeEntries = iteratorToList(smallBtreeEntry.getDirectory().iterator());
+//            assertThat(smallBtreeEntries.size(), Matchers.is(2582));
 
             XfsEntry mediumBtreeEntry = new XfsEntry(fs.getINode(134),"",0,fs,null);
             final List<? extends FSEntry> mediumBtreeEntries = iteratorToList(mediumBtreeEntry.getDirectory().iterator());
-            assertThat(mediumBtreeEntries.size(), Matchers.is(190980));
+            assertThat(mediumBtreeEntries.size(), Matchers.is(300_002));
         } finally {
             testFile.delete();
         }
@@ -145,7 +128,7 @@ public class XfsV4FileSystemTest {
 
             XfsEntry leafAttributesEntry = new XfsEntry(fs.getINode(131),"",0,fs,null);
             final List<? extends FSEntry> entries = iteratorToList(leafAttributesEntry.getDirectory().iterator());
-            assertThat(entries.size(), Matchers.is(1));
+            assertThat(entries.size(), Matchers.is(317438));
         } finally {
             testFile.delete();
         }
