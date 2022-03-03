@@ -86,19 +86,14 @@ public class LeafInfo extends XfsObject {
     private final int stale;
 
     /**
-     * The filesystem.
-     */
-    private final XfsFileSystem fileSystem;
-
-    /**
      * Creates a Leaf block information entry.
      *
      * @param data of the inode.
      * @param offset of the inode's data
-     * @param fileSystem of the image
+     * @param v5 is filesystem on v5
      * @throws IOException if an error occurs reading in the leaf directory.
      */
-    public LeafInfo(byte [] data, long offset, XfsFileSystem fileSystem) throws IOException {
+    public LeafInfo(byte [] data, long offset, boolean v5) throws IOException {
         super(data, (int) offset);
 
         final long signature = getMagicSignature();
@@ -106,10 +101,9 @@ public class LeafInfo extends XfsObject {
             throw new IOException("Wrong magic number for XFS Leaf Info: " + getAsciiSignature(signature));
         }
 
-        this.fileSystem = fileSystem;
         forward = getUInt32(0);
         backward = getUInt32(4);
-        if (fileSystem.getXfsVersion() == 5) {
+        if (v5) {
             // 4 byte padding at the end
             crc = getUInt32(12);
             blockNumber = getInt64(16);

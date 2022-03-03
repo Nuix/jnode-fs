@@ -33,23 +33,24 @@ public class BPlusTreeDataExtent extends XfsObject {
      * The magic number for a BMBT block (V5).
      */
     private final static Long MAGIC = asciiToHex("BMAP");
-    private final XfsFileSystem fs;
+    private final boolean isV5;
 
     /**
      * Creates a b+tree data extent.
      *
      * @param data of the inode.
      * @param offset of the inode's data
+     * @param v5 is filesystem v5
      * @throws IOException if an error occurs reading in the b+tree block.
      */
-    public BPlusTreeDataExtent(byte[] data, long offset, XfsFileSystem fileSystem) throws IOException {
+    public BPlusTreeDataExtent(byte[] data, long offset, boolean v5) throws IOException {
         super(data, (int) offset);
 
         final long signature = getMagicSignature();
         if (signature != MAGIC_V5 && signature != MAGIC) {
             throw new IOException("Wrong magic number for XFS: Required[" + getAsciiSignature(MAGIC_V5) + " or " + getAsciiSignature(MAGIC_V5) + "] found[" + getAsciiSignature(signature) + "]" ) ;
         }
-        this.fs = fileSystem;
+        this.isV5 = v5;
     }
 
     /**
@@ -66,7 +67,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      */
     private List<DataExtent> getExtentInfo() {
-        long offset = getOffset() + (fs.getXfsVersion() == 5 ? 72 : 24) ;
+        long offset = getOffset() + (isV5 ? 72 : 24) ;
         final int numrecs = (int) getNumrecs();
         final List<DataExtent> list = new ArrayList<>(numrecs);
         for (int i=0; i < numrecs; i++) {

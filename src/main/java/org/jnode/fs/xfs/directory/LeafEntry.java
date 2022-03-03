@@ -31,21 +31,14 @@ public class LeafEntry  extends XfsObject {
     private final long address;
 
     /**
-     * The fileSystem.
-     */
-    private XfsFileSystem fileSystem;
-
-    /**
      * Creates a Leaf entry.
      *
      * @param data of the inode.
      * @param offset of the inode's data
-     * @param fileSystem of the image
      * @throws IOException if an error occurs reading in the leaf directory.
      */
-    public LeafEntry(byte [] data , long offset, XfsFileSystem fileSystem) {
+    public LeafEntry(byte [] data , long offset) {
         super(data, (int) offset);
-        this.fileSystem = fileSystem;
         hashval = getUInt32(0);
         address = getUInt32(4);
     }

@@ -92,7 +92,7 @@ public class LeafDirectory extends XfsObject {
      * @return a list of inode entries
      */
     public List<FSEntry> getEntries(XfsDirectory parentDirectory) throws IOException {
-        final Leaf leaf = new Leaf(getData(), getOffset(), fileSystem, extents.size() - 1);
+        final Leaf leaf = new Leaf(getData(), getOffset(), fileSystem.isV5(), extents.size() - 1);
         final LeafInfo leafInfo = leaf.getLeafInfo();
         final int entryCount = leafInfo.getCount() - leafInfo.getStale();
         List<FSEntry> entries = new ArrayList<>(entryCount);
@@ -121,7 +121,7 @@ public class LeafDirectory extends XfsObject {
             if (extentSignature == LEAF_DIR_DATA_MAGIC_V5 || extentSignature == LEAF_DIR_DATA_MAGIC_V4) {
                 int extentOffset = extentSignature == LEAF_DIR_DATA_MAGIC_V5 ? 64 : 16;
                 while (extentOffset < blockSize) {
-                    final BlockDirectoryEntry blockDirectoryEntry = new BlockDirectoryEntry(buffer.array(), extentOffset, fs);
+                    final BlockDirectoryEntry blockDirectoryEntry = new BlockDirectoryEntry(buffer.array(), extentOffset, fs.isV5());
                     if (!blockDirectoryEntry.isFreeTag()) {
                         final XfsEntry entry = new XfsEntry(fs.getINode(blockDirectoryEntry.getINodeNumber()), blockDirectoryEntry.getName(), x++, fs, parentDirectory);
                         entries.add(entry);

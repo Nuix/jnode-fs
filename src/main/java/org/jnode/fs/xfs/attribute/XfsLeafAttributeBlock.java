@@ -13,10 +13,10 @@ public class XfsLeafAttributeBlock extends XfsObject {
     public static final int MAGIC = 0xFBEE;
     public static final int BASE_ATTRIBUTE_LEAF_OFFSET = 0x20;
     public static final int BASE_ATTRIBUTE_LEAF_OFFSET_V5 = 0x50;
-    private final XfsFileSystem fs;
+    private final boolean isV5;
     private final int baseOffset;
 
-    public XfsLeafAttributeBlock(byte[] data, int offset, XfsFileSystem fs) throws IOException {
+    public XfsLeafAttributeBlock(byte[] data, int offset, boolean v5) throws IOException {
         super(data,offset);
 
         final int signature = getUInt16(8);
@@ -24,12 +24,12 @@ public class XfsLeafAttributeBlock extends XfsObject {
         if (signature != MAGIC && signature != MAGIC_V5) {
             throw new IOException("Wrong magic number for XFS Leaf Attribute Block: " + getAsciiSignature(signature));
         }
-        this.fs = fs;
-        baseOffset = fs.getXfsVersion() == 5 ? BASE_ATTRIBUTE_LEAF_OFFSET_V5 : BASE_ATTRIBUTE_LEAF_OFFSET;
+        this.isV5 = v5;
+        baseOffset = v5 ? BASE_ATTRIBUTE_LEAF_OFFSET_V5 : BASE_ATTRIBUTE_LEAF_OFFSET;
     }
 
     public int getEntryCount(){
-        if (fs.getXfsVersion() == 5) {
+        if (isV5) {
             return getUInt16(56);
         } else {
             return getUInt16(12);

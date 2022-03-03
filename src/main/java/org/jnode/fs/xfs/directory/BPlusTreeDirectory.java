@@ -25,7 +25,7 @@ import java.util.List;
  * B+tree Directories
  * When the extent map in an inode grows beyond the inode’s space,
  * the inode format is changed to a “btree”.
- *
+ * </p>
  * @author Ricardo Garza
  * @author Julio Parra
  */
@@ -107,7 +107,7 @@ public class BPlusTreeDirectory extends XfsObject {
             numrecs = BigEndian.getUInt16(data,6);
             final long signature = BigEndian.getUInt32(data, 0);
             isBtreeExtentList = signature == 0x424D4133 || signature == 0x424D4150;
-            final int filesystemOffset = fileSystem.getXfsVersion() == 5 ? 64 : 24;
+            final int filesystemOffset = fileSystem.isV5() ? 64 : 24;
             btreeBlockOffset = (int) (fileSystem.getSuperblock().getBlockSize() + filesystemOffset) / 2;
         }
         for (int i = 0; i < numrecs; i++) {
@@ -124,7 +124,7 @@ public class BPlusTreeDirectory extends XfsObject {
             if (level > 1){
                 return getFlattenedExtents(buffer.array(),level-1,currentExtents,0,0);
             } else {
-                final BPlusTreeDataExtent extentList = new BPlusTreeDataExtent(buffer.array(), 0, fileSystem);
+                final BPlusTreeDataExtent extentList = new BPlusTreeDataExtent(buffer.array(), 0, fileSystem.isV5());
                 currentExtents.addAll(extentList.getExtents());
             }
         }

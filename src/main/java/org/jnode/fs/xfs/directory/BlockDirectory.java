@@ -141,11 +141,11 @@ public class BlockDirectory extends XfsObject  {
         List<FSEntry> data = new ArrayList<>(activeDirs);
         int leafOffset = blockSize - ((activeDirs + 1) * 8);
         for (int i = 0; i < activeDirs; i++) {
-            final LeafEntry leafEntry = new LeafEntry(getData(), leafOffset + (i * 8), fs);
+            final LeafEntry leafEntry = new LeafEntry(getData(), leafOffset + (i * 8));
             if (leafEntry.getAddress() == 0) {
                 continue;
             }
-            final BlockDirectoryEntry entry = new BlockDirectoryEntry(getData(), leafEntry.getAddress() * 8, fs);
+            final BlockDirectoryEntry entry = new BlockDirectoryEntry(getData(), leafEntry.getAddress() * 8, fs.isV5());
 
             INode iNode = fs.getINode(entry.getINodeNumber());
             data.add(new XfsEntry(iNode, entry.getName(), i, fs, parentDirectory));

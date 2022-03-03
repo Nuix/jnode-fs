@@ -96,7 +96,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                     entryCount += entries.size();
 
                     while (entries.size() < entryCount) {
-                        ShortFormDirectoryEntry entry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize, fileSystem);
+                        ShortFormDirectoryEntry entry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize, fileSystem.isV5());
 
                         if (entry.getINumber() == 0) {
                             return null;
@@ -110,7 +110,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                     }
                 } else {
 
-                    ShortFormDirectoryEntry entry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize, fileSystem);
+                    ShortFormDirectoryEntry entry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize, fileSystem.isV5());
                     if (entry.getINumber() == 0) {
                         break;
                     }

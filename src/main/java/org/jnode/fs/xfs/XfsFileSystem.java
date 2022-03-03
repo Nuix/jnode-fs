@@ -130,11 +130,8 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
         return superblock.getBlockSize() * (superblock.getTotalBlocks() - superblock.getFreeBlocks());
     }
 
-    /**
-     * Xfs File System version current support for 4/5
-     */
-    public int getXfsVersion() {
-        return xfsVersion;
+    public boolean isV5(){
+        return xfsVersion == 5;
     }
 
     /**
