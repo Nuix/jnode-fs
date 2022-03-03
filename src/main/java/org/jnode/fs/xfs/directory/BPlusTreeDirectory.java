@@ -100,13 +100,15 @@ public class BPlusTreeDirectory extends XfsObject {
         return leafDirectory.getEntries(parentDirectory);
     }
 
+    private final static int BTREE_EXTENT_LIST_MAGIC_V5 = 0x424D4133;
+    private final static int BTREE_EXTENT_LIST_MAGIC = 0x424D4150;
 
     public List<DataExtent> getFlattenedExtents(byte[] data,int level,List<DataExtent> currentExtents, int btreeBlockOffset, int numrecs) throws IOException {
         boolean isBtreeExtentList = false;
         if (btreeBlockOffset == 0){
             numrecs = BigEndian.getUInt16(data,6);
             long signature = BigEndian.getUInt32(data, 0);
-            isBtreeExtentList = signature == 0x424D4133 || signature == 0x424D4150;
+            isBtreeExtentList = signature == BTREE_EXTENT_LIST_MAGIC_V5 || signature == BTREE_EXTENT_LIST_MAGIC;
             int filesystemOffset = fileSystem.isV5() ? 64 : 24;
             btreeBlockOffset = (int) (fileSystem.getSuperblock().getBlockSize() + filesystemOffset) / 2;
         }
