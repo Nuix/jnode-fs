@@ -158,7 +158,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
                 return;
 
             case XfsConstants.XFS_DINODE_FMT_BTREE:
-                throw new UnsupportedOperationException();
+                throw new UnsupportedOperationException("For inode " + inode.getINodeNr());
 
             default:
                 throw new IllegalStateException("Unexpected format: " + inode.getFormat());
