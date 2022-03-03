@@ -1,6 +1,5 @@
 package org.jnode.fs.xfs.directory;
 
-import org.jnode.fs.xfs.XfsFileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

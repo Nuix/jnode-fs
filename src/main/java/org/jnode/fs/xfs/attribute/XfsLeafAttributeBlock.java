@@ -1,6 +1,5 @@
 package org.jnode.fs.xfs.attribute;
 
-import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 
 import java.io.IOException;

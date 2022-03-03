@@ -8,7 +8,6 @@ import org.jnode.fs.xfs.XfsEntry;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.extent.DataExtent;
-import org.jnode.fs.xfs.inode.INode;
 import org.jnode.util.BigEndian;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
