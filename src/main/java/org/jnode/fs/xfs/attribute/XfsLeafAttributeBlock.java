@@ -16,7 +16,7 @@ public class XfsLeafAttributeBlock extends XfsObject {
     private final int baseOffset;
 
     public XfsLeafAttributeBlock(byte[] data, int offset, boolean v5) throws IOException {
-        super(data,offset);
+        super(data, offset);
 
         final int signature = getUInt16(8);
 
@@ -27,7 +27,7 @@ public class XfsLeafAttributeBlock extends XfsObject {
         baseOffset = v5 ? BASE_ATTRIBUTE_LEAF_OFFSET_V5 : BASE_ATTRIBUTE_LEAF_OFFSET;
     }
 
-    public int getEntryCount(){
+    public int getEntryCount() {
         if (isV5) {
             return getUInt16(56);
         } else {
@@ -35,11 +35,11 @@ public class XfsLeafAttributeBlock extends XfsObject {
         }
     }
 
-    public List<XfsLeafAttribute> getAttributes(){
+    public List<XfsLeafAttribute> getAttributes() {
         final int entryCount = getEntryCount();
         List<XfsLeafAttribute> attributes = new ArrayList<>(entryCount);
-        for (int i=0;i<entryCount;i++){
-            XfsAttributeLeafEntry leafEntry = new XfsAttributeLeafEntry(getData(),getOffset() + baseOffset + XfsAttributeLeafEntry.PACKED_LENGTH * i);
+        for (int i = 0; i < entryCount; i++) {
+            XfsAttributeLeafEntry leafEntry = new XfsAttributeLeafEntry(getData(), getOffset() + baseOffset + XfsAttributeLeafEntry.PACKED_LENGTH * i);
             int attributeBlockOffset = leafEntry.getBlockOffset() + getOffset();
             XfsLeafAttribute attribute = new XfsLeafAttribute(getData(), attributeBlockOffset);
             attributes.add(attribute);

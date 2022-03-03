@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * A XFS Leaf directory.
- *
+ * <p>
  * Leaf Directories
  * Once a Block Directory has filled the block, the directory data is changed into a new format called leaf.
  *
@@ -41,20 +41,19 @@ public class Leaf {
     /**
      * Creates a leaf directory.
      *
-     * @param data of the inode.
-     * @param offset of the inode's data.
-     * @param v5 is filesystem on v5
+     * @param data        of the inode.
+     * @param offset      of the inode's data.
+     * @param v5          is filesystem on v5
      * @param extentCount of the leaf entries.
-     *
      * @throws IOException if an error occurs reading in the leaf directory.
      */
     public Leaf(byte[] data, long offset, boolean v5, int extentCount) throws IOException {
-        leafInfo = new LeafInfo(data,offset,v5);
+        leafInfo = new LeafInfo(data, offset, v5);
         int infoCount = leafInfo.getCount() - leafInfo.getStale();
         bestCount = extentCount;
         leafEntries = new ArrayList<>(infoCount);
-        long leafEntryOffset = offset + ( v5 ? 64 : 16);
-        for (int i=0; i<infoCount; i++) {
+        long leafEntryOffset = offset + (v5 ? 64 : 16);
+        for (int i = 0; i < infoCount; i++) {
             LeafEntry entry = new LeafEntry(data, leafEntryOffset);
             leafEntries.add(entry);
             leafEntryOffset += 8; // Add LeafEntry Size

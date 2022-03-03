@@ -3,10 +3,12 @@ package org.jnode.fs.xfs;
 import org.jnode.util.BigEndian;
 
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 /**
  * An object in a XFS file system.
+ *
  * @author Luke Quinane
  * @author Ricardo Garza
  * @author Julio Parra
@@ -16,7 +18,7 @@ public class XfsObject {
     /**
      * The UTF-8 charset.
      */
-    public static Charset UTF8 = Charset.forName("UTF-8");
+    public static Charset UTF8 = StandardCharsets.UTF_8;
 
     /**
      * The data for this record.
@@ -37,12 +39,41 @@ public class XfsObject {
     /**
      * Creates a new object.
      *
-     * @param data the data.
+     * @param data   the data.
      * @param offset the offset into the data for this object.
      */
     public XfsObject(byte[] data, int offset) {
         this.data = data;
         this.offset = offset;
+    }
+
+    /**
+     * Converts ascii to hex.
+     *
+     * @param asciiString value to convert to hex.
+     * @return the hex value.
+     */
+    public static long asciiToHex(String asciiString) {
+        StringBuilder hex = new StringBuilder();
+        for (char c : asciiString.toCharArray()) {
+            hex.append(Integer.toHexString(c).toUpperCase(Locale.ROOT));
+        }
+        return Long.parseLong(hex.toString(), 16);
+    }
+
+    /**
+     * Converts hex to ascii.
+     *
+     * @param hexString value to convert to ascii.
+     * @return the ascii value.
+     */
+    private static String hexToAscii(String hexString) {
+        StringBuilder asciiString = new StringBuilder();
+        for (int i = 0; i < hexString.length(); i += 2) {
+            String string = hexString.substring(i, i + 2);
+            asciiString.append((char) Integer.parseInt(string, 16));
+        }
+        return asciiString.toString();
     }
 
     /**
@@ -130,40 +161,11 @@ public class XfsObject {
      * @return the uuid value.
      */
     protected String readUuid(int offset) {
-                 return Long.toHexString(getUInt32(offset))
+        return Long.toHexString(getUInt32(offset))
                 + "-" + Long.toHexString(getUInt16(offset + 4))
                 + "-" + Long.toHexString(getUInt16(offset + 6))
                 + "-" + Long.toHexString(getUInt16(offset + 8))
                 + "-" + Long.toHexString(getUInt16(offset + 10));
-    }
-
-    /**
-     * Converts ascii to hex.
-     *
-     * @param asciiString value to convert to hex.
-     * @return the hex value.
-     */
-    public static long asciiToHex(String asciiString) {
-        StringBuilder hex = new StringBuilder();
-        for (char c : asciiString.toCharArray()) {
-            hex.append(Integer.toHexString(c).toUpperCase(Locale.ROOT));
-        }
-        return Long.parseLong(hex.toString(), 16);
-    }
-
-    /**
-     * Converts hex to ascii.
-     *
-     * @param hexString value to convert to ascii.
-     * @return the ascii value.
-     */
-    private static String hexToAscii(String hexString) {
-        StringBuilder asciiString = new StringBuilder("");
-        for (int i = 0; i < hexString.length(); i += 2) {
-            String string = hexString.substring(i, i + 2);
-            asciiString.append((char) Integer.parseInt(string, 16));
-        }
-        return asciiString.toString();
     }
 
     /**

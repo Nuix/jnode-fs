@@ -46,7 +46,7 @@ public class XfsAttribute extends XfsObject implements FSAttribute {
     /**
      * Creates an attribute instance.
      *
-     * @param data of the inode.
+     * @param data   of the inode.
      * @param offset of the inode's data
      */
     public XfsAttribute(byte[] data, long offset) {
@@ -58,7 +58,7 @@ public class XfsAttribute extends XfsObject implements FSAttribute {
         byte[] name = new byte[nameLength];
         System.arraycopy(data, (int) offset + 3, name, 0, nameLength);
         System.arraycopy(data, (int) offset + 3 + nameLength, value, 0, valueLength);
-        attributeName = new String(name,StandardCharsets.UTF_8);
+        attributeName = new String(name, StandardCharsets.UTF_8);
     }
 
     /**
@@ -124,6 +124,6 @@ public class XfsAttribute extends XfsObject implements FSAttribute {
     public String toString() {
         return String.format(
                 "Attribute:[Name:%s Name Value:%s flags:%d]",
-                 getName(), Arrays.toString(getValue()), getFlags());
+                getName(), Arrays.toString(getValue()), getFlags());
     }
 }

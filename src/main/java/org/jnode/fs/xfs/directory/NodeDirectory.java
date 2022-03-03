@@ -24,34 +24,28 @@ public class NodeDirectory extends XfsObject {
      * The logger implementation.
      */
     private static final Logger log = LoggerFactory.getLogger(NodeDirectory.class);
-
-    /**
-     * The list of extents of this block directory.
-     */
-    private final List<DataExtent> extents;
-
-    /**
-     * The filesystem.
-     */
-    private final XfsFileSystem fs;
-
-    /**
-     * The number of the inode.
-     */
-    private final long iNodeNumber;
-
-    /**
-     * The extent index of the leaf.
-     */
-    private final int leafExtentIndex;
-
     /**
      * The leaf block offset (XFS_DIR2_LEAF_OFFSET).
      */
     private static final long BYTES_IN_32G = 34359738368L;
-
     private static final long NODE_FREE_SPACE_V5 = 0x58444633;
     private static final long NODE_FREE_SPACE = 0x58443246;
+    /**
+     * The list of extents of this block directory.
+     */
+    private final List<DataExtent> extents;
+    /**
+     * The filesystem.
+     */
+    private final XfsFileSystem fs;
+    /**
+     * The number of the inode.
+     */
+    private final long iNodeNumber;
+    /**
+     * The extent index of the leaf.
+     */
+    private final int leafExtentIndex;
 
     /**
      * Creates a Leaf directory entry.
@@ -79,7 +73,7 @@ public class NodeDirectory extends XfsObject {
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
         List<FSEntry> entries = new ArrayList<>(extents.size() * 120);
         for (DataExtent dataExtent : extents) {
-            LeafDirectory.extractEntriesFromExtent(fs,dataExtent,entries,parentDirectory);
+            LeafDirectory.extractEntriesFromExtent(fs, dataExtent, entries, parentDirectory);
         }
         return entries;
     }

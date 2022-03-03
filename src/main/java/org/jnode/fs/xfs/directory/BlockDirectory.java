@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * A XFS block directory inode.
- *
+ * <p>
  * When the shortform directory space exceeds the space in an inode, the
  * directory data is moved into a new single directory block outside the inode.
  * The inode’s format is changed from “local” to “extent”
@@ -24,44 +24,39 @@ import java.util.List;
  * @author Julio Parra
  */
 
-public class BlockDirectory extends XfsObject  {
-
-    /**
-     * The logger implementation.
-     */
-    private static final Logger log = LoggerFactory.getLogger(BlockDirectory.class);
-
-    /**
-     * The magic number XD2B on < v5 filesystem
-     */
-    private static final long MAGIC_V4 = asciiToHex("XD2B");
-
-    /**
-     * The magic number XDB3 on a v5 filesystem
-     */
-    private static final long MAGIC_V5 = asciiToHex("XDB3");
+public class BlockDirectory extends XfsObject {
 
     /**
      * The offset of the first entry version 4
      */
     public final static int V4_LENGTH = 16;
-
     /**
      * The offset of the first entry version 5
      */
     public final static int V5_LENGTH = 64;
-
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(BlockDirectory.class);
+    /**
+     * The magic number XD2B on < v5 filesystem
+     */
+    private static final long MAGIC_V4 = asciiToHex("XD2B");
+    /**
+     * The magic number XDB3 on a v5 filesystem
+     */
+    private static final long MAGIC_V5 = asciiToHex("XDB3");
     /**
      * The filesystem
      */
     XfsFileSystem fs;
 
     /**
-     *  Creates a new block directory entry.
+     * Creates a new block directory entry.
      *
-     *  @param data the data.
-     *  @param offset the offset.
-     *  @param fs the filesystem instance.
+     * @param data   the data.
+     * @param offset the offset.
+     * @param fs     the filesystem instance.
      */
     public BlockDirectory(byte[] data, int offset, XfsFileSystem fs) throws IOException {
         super(data, offset);
@@ -77,7 +72,7 @@ public class BlockDirectory extends XfsObject  {
      *
      * @return the hex value.
      */
-    public long getMagicSignature()  {
+    public long getMagicSignature() {
         return getUInt32(0);
     }
 

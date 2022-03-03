@@ -15,30 +15,25 @@ import java.io.IOException;
 public class LeafInfo extends XfsObject {
 
     /**
-     * The logger implementation.
-     */
-    private static final Logger log = LoggerFactory.getLogger(LeafInfo.class);
-
-    /**
      * The magic signature of a leaf directory entry v5.
      */
     public static final long LEAF_DIR_MAGIC_V5 = 0x3DF1;
-
     /**
      * The magic signature of a leaf directory entry v4.
      */
     public static final long LEAF_DIR_MAGIC = 0xD2F1;
-
     /**
      * The magic signature of the node directory entry v5.
      */
     public static final long NODE_DIR_MAGIC_V5 = 0x3dff;
-
     /**
      * The magic signature of the node directory entry.
      */
     public static final long NODE_DIR_MAGIC = 0xd2ff;
-
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(LeafInfo.class);
     /**
      * Logical block offset of the previous block at this level.
      */
@@ -87,12 +82,12 @@ public class LeafInfo extends XfsObject {
     /**
      * Creates a Leaf block information entry.
      *
-     * @param data of the inode.
+     * @param data   of the inode.
      * @param offset of the inode's data
-     * @param v5 is filesystem on v5
+     * @param v5     is filesystem on v5
      * @throws IOException if an error occurs reading in the leaf directory.
      */
-    public LeafInfo(byte [] data, long offset, boolean v5) throws IOException {
+    public LeafInfo(byte[] data, long offset, boolean v5) throws IOException {
         super(data, (int) offset);
 
         long signature = getMagicSignature();

@@ -36,9 +36,9 @@ public class BPlusTreeDataExtent extends XfsObject {
     /**
      * Creates a b+tree data extent.
      *
-     * @param data of the inode.
+     * @param data   of the inode.
      * @param offset of the inode's data
-     * @param v5 is filesystem v5
+     * @param v5     is filesystem v5
      * @throws IOException if an error occurs reading in the b+tree block.
      */
     public BPlusTreeDataExtent(byte[] data, long offset, boolean v5) throws IOException {
@@ -46,7 +46,7 @@ public class BPlusTreeDataExtent extends XfsObject {
 
         long signature = getMagicSignature();
         if (signature != MAGIC_V5 && signature != MAGIC) {
-            throw new IOException("Wrong magic number for XFS: Required[" + getAsciiSignature(MAGIC_V5) + " or " + getAsciiSignature(MAGIC_V5) + "] found[" + getAsciiSignature(signature) + "]" ) ;
+            throw new IOException("Wrong magic number for XFS: Required[" + getAsciiSignature(MAGIC_V5) + " or " + getAsciiSignature(MAGIC_V5) + "] found[" + getAsciiSignature(signature) + "]");
         }
         this.isV5 = v5;
     }
@@ -56,19 +56,18 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      * @return the hex value.
      */
-    public long getMagicSignature()  {
+    public long getMagicSignature() {
         return getUInt32(0);
     }
 
     /**
      * Gets all the entries of the current b+tree directory.
-     *
      */
     private List<DataExtent> getExtentInfo() {
-        long offset = getOffset() + (isV5 ? 72 : 24) ;
+        long offset = getOffset() + (isV5 ? 72 : 24);
         int numrecs = (int) getNumrecs();
         List<DataExtent> list = new ArrayList<>(numrecs);
-        for (int i=0; i < numrecs; i++) {
+        for (int i = 0; i < numrecs; i++) {
             DataExtent info = new DataExtent(getData(), (int) offset);
             list.add(info);
             offset += 0x10;
@@ -133,7 +132,7 @@ public class BPlusTreeDataExtent extends XfsObject {
     /**
      * Gets the UUID of this block.
      *
-     * @return  the UUID
+     * @return the UUID
      */
     public String getUuid() {
         return readUuid(40);

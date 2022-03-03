@@ -53,11 +53,11 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
     /**
      * Creates a new entry.
      *
-     * @param inode the inode.
-     * @param name the name.
+     * @param inode             the inode.
+     * @param name              the name.
      * @param directoryRecordId the directory record ID.
-     * @param fileSystem the file system.
-     * @param parent the parent.
+     * @param fileSystem        the file system.
+     * @param parent            the parent.
      */
     public XfsEntry(INode inode, String name, long directoryRecordId, XfsFileSystem fileSystem, FSDirectory parent) {
         super(fileSystem, null, parent, name, getFSEntryType(name, inode));
@@ -67,25 +67,39 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
         this.fileSystem = fileSystem;
     }
 
+    private static int getFSEntryType(String name, INode inode) {
+        int mode = inode.getMode() & UnixFSConstants.S_IFMT;
+
+        if ("/".equals(name))
+            return AbstractFSEntry.ROOT_ENTRY;
+        else if (mode == UnixFSConstants.S_IFDIR)
+            return AbstractFSEntry.DIR_ENTRY;
+        else if (mode == UnixFSConstants.S_IFREG || mode == UnixFSConstants.S_IFLNK ||
+                mode == UnixFSConstants.S_IFIFO || mode == UnixFSConstants.S_IFCHR ||
+                mode == UnixFSConstants.S_IFBLK)
+            return AbstractFSEntry.FILE_ENTRY;
+        else
+            return AbstractFSEntry.OTHER_ENTRY;
+    }
+
     @Override
     public String getId() {
         return Long.toString(inode.getINodeNr()) + '-' + directoryRecordId;
     }
 
-
     /**
-      * Converts an entry's time value from the seconds/nanoseconds values to a millisecond
-      * value, usable by {@link #getCreated()}, {@link #getLastAccessed()}, and {@link #getLastChanged()}.
-      *
-      * @param seconds     the seconds value from the entry.
-      * @param nanoseconds the nanoseconds value from the entry.
-      * @return the milliseconds value.
-      * @see #getCreated()
-      * @see #getLastAccessed()
-      * @see #getLastChanged()
-      */
+     * Converts an entry's time value from the seconds/nanoseconds values to a millisecond
+     * value, usable by {@link #getCreated()}, {@link #getLastAccessed()}, and {@link #getLastChanged()}.
+     *
+     * @param seconds     the seconds value from the entry.
+     * @param nanoseconds the nanoseconds value from the entry.
+     * @return the milliseconds value.
+     * @see #getCreated()
+     * @see #getLastAccessed()
+     * @see #getLastChanged()
+     */
     private long getMilliseconds(long seconds, long nanoseconds) {
-       return (seconds * 1_000) + (nanoseconds / 1_000_000);
+        return (seconds * 1_000) + (nanoseconds / 1_000_000);
     }
 
     @Override
@@ -115,7 +129,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
     /**
      * Reads from this entry's data.
      *
-     * @param offset the offset to read from.
+     * @param offset  the offset to read from.
      * @param destBuf the destination buffer.
      * @throws IOException if an error occurs reading.
      */
@@ -130,14 +144,14 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
     /**
      * A read implementation that doesn't check the file length.
      *
-     * @param offset the offset to read from.
+     * @param offset  the offset to read from.
      * @param destBuf the destination buffer.
      * @throws IOException if an error occurs reading.
      */
     public void readUnchecked(long offset, ByteBuffer destBuf) throws IOException {
         switch (inode.getFormat()) {
             case XfsConstants.XFS_DINODE_FMT_LOCAL:
-                if(getINode().isSymLink()) {
+                if (getINode().isSymLink()) {
                     ByteBuffer buffer = StandardCharsets.UTF_8.encode(getINode().getSymLinkText());
                     destBuf.put(buffer);
                 } else {
@@ -145,7 +159,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
                 }
             case XfsConstants.XFS_DINODE_FMT_EXTENTS:
                 if (extentList == null) {
-                    extentList = new ArrayList<>((int)inode.getExtentCount());
+                    extentList = new ArrayList<>((int) inode.getExtentCount());
 
                     for (int i = 0; i < inode.getExtentCount(); i++) {
                         int inodeOffset = inode.getVersion() >= INode.V3 ? INode.V3_DATA_OFFSET : INode.DATA_OFFSET;
@@ -168,7 +182,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
     /**
      * Reads from the entry's extent list.
      *
-     * @param offset the offset to read from.
+     * @param offset  the offset to read from.
      * @param destBuf the destination buffer.
      * @throws IOException if an error occurs reading.
      */
@@ -204,21 +218,6 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
     @Override
     public String toString() {
         return "xfs-entry:[" + getName() + "] " + inode;
-    }
-
-    private static int getFSEntryType(String name, INode inode) {
-        int mode = inode.getMode() & UnixFSConstants.S_IFMT;
-
-        if ("/".equals(name))
-            return AbstractFSEntry.ROOT_ENTRY;
-        else if (mode == UnixFSConstants.S_IFDIR)
-            return AbstractFSEntry.DIR_ENTRY;
-        else if (mode == UnixFSConstants.S_IFREG || mode == UnixFSConstants.S_IFLNK ||
-            mode == UnixFSConstants.S_IFIFO || mode == UnixFSConstants.S_IFCHR ||
-            mode == UnixFSConstants.S_IFBLK)
-            return AbstractFSEntry.FILE_ENTRY;
-        else
-            return AbstractFSEntry.OTHER_ENTRY;
     }
 
     @Override

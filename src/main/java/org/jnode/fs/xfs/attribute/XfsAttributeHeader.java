@@ -14,15 +14,13 @@ import org.slf4j.LoggerFactory;
 public class XfsAttributeHeader extends XfsObject {
 
     /**
-     * The logger implementation.
-     */
-    private static final Logger log = LoggerFactory.getLogger(XfsAttributeHeader.class);
-
-    /**
      * Constant representing the size of the header
      */
     public static final int SIZE = 0x4;
-
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(XfsAttributeHeader.class);
     /**
      * The size value of the value.
      */
@@ -35,9 +33,8 @@ public class XfsAttributeHeader extends XfsObject {
 
     /**
      * Create a XFS SELinux attribute header.
-     *
      */
-    public XfsAttributeHeader(byte [] data, long offset) {
+    public XfsAttributeHeader(byte[] data, long offset) {
         super(data, (int) offset);
         toSize = getUInt8(0);
         count = getUInt8(2);

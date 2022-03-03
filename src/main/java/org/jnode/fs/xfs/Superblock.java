@@ -15,19 +15,17 @@ import java.nio.ByteBuffer;
 public class Superblock extends XfsRecord {
 
     /**
-     * The logger.
-     */
-    private static final Logger log = LoggerFactory.getLogger(Superblock.class);
-
-    /**
      * The size of the super block.
      */
     public static final int SUPERBLOCK_LENGTH = 512;
-
     /**
      * The super block magic number ('XFSB').
      */
     public static final long XFS_SUPER_MAGIC = 0x58465342;
+    /**
+     * The logger.
+     */
+    private static final Logger log = LoggerFactory.getLogger(Superblock.class);
     private final long blockSize;
     private final int iNodeSize;
     private final int aGSizeLog2;
@@ -58,7 +56,7 @@ public class Superblock extends XfsRecord {
         }
         blockSize = getUInt32(0x4);
         iNodeSize = getUInt16(0x68);
-        aGSizeLog2=getUInt8(0x7c);
+        aGSizeLog2 = getUInt8(0x7c);
         iNodePerBlockLog2 = getUInt8(0x7b);
     }
 
@@ -257,6 +255,7 @@ public class Superblock extends XfsRecord {
 
     /**
      * Check For aditional Features
+     *
      * @param feature
      * @return
      */

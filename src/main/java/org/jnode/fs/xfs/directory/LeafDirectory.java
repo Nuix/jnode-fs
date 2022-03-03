@@ -19,7 +19,7 @@ import java.util.List;
 
 /**
  * Leaf directory.
- *
+ * <p>
  * Leaf Directories
  * Once a Block Directory has filled the block, the directory data is changed into a new format called leaf.
  *
@@ -28,39 +28,37 @@ import java.util.List;
  */
 public class LeafDirectory extends XfsObject {
 
+    public static final long LEAF_DIR_DATA_MAGIC_V5 = 0x58444433;
+    public static final long LEAF_DIR_DATA_MAGIC_V4 = 0x58443244;
     /**
      * The logger implementation.
      */
     private static final Logger log = LoggerFactory.getLogger(LeafDirectory.class);
-
+    /**
+     * The leaf block offset (XFS_DIR2_LEAF_OFFSET).
+     */
+    private static final long BYTES_IN_32G = 34359738368L;
     /**
      * The list of extents of this block directory.
      */
     private final List<DataExtent> extents;
-
     /**
      * The filesystem.
      */
     private final XfsFileSystem fileSystem;
-
     /**
      * The number of the inode.
      */
     private final long iNodeNumber;
 
     /**
-     * The leaf block offset (XFS_DIR2_LEAF_OFFSET).
-     */
-    private static final long BYTES_IN_32G = 34359738368L;
-
-    /**
      * Creates a Leaf directory entry.
      *
-     * @param data of the inode.
-     * @param offset of the inode's data
-     * @param fileSystem of the image
+     * @param data        of the inode.
+     * @param offset      of the inode's data
+     * @param fileSystem  of the image
      * @param iNodeNumber of the inode
-     * @param extents of the inode
+     * @param extents     of the inode
      */
     public LeafDirectory(byte[] data, int offset, XfsFileSystem fileSystem, long iNodeNumber, List<DataExtent> extents) {
         super(data, offset);
@@ -85,26 +83,7 @@ public class LeafDirectory extends XfsObject {
         return leafExtentIndex;
     }
 
-    /**
-     * Get the leaf block entries
-     *
-     * @return a list of inode entries
-     */
-    public List<FSEntry> getEntries(XfsDirectory parentDirectory) throws IOException {
-        Leaf leaf = new Leaf(getData(), getOffset(), fileSystem.isV5(), extents.size() - 1);
-        LeafInfo leafInfo = leaf.getLeafInfo();
-        int entryCount = leafInfo.getCount() - leafInfo.getStale();
-        List<FSEntry> entries = new ArrayList<>(entryCount);
-        for (DataExtent dataExtent : extents) {
-            LeafDirectory.extractEntriesFromExtent(fileSystem,dataExtent,entries,parentDirectory);
-        }
-        return entries;
-    }
-
-    public static final long LEAF_DIR_DATA_MAGIC_V5 = 0x58444433;
-    public static final long LEAF_DIR_DATA_MAGIC_V4 = 0x58443244;
-
-    public static void extractEntriesFromExtent(XfsFileSystem fs,DataExtent extent,List<FSEntry> entries,FSDirectory parentDirectory) throws IOException {
+    public static void extractEntriesFromExtent(XfsFileSystem fs, DataExtent extent, List<FSEntry> entries, FSDirectory parentDirectory) throws IOException {
         int blockSize = (int) fs.getSuperblock().getBlockSize();
         int blockCount = (int) extent.getBlockCount();
         long dataExtentOffset = extent.getExtentOffset(fs);
@@ -112,7 +91,7 @@ public class LeafDirectory extends XfsObject {
         for (long i = 0; i < blockCount; i++) {
             ByteBuffer buffer = ByteBuffer.allocate(blockSize);
             try {
-                fs.getFSApi().read(dataExtentOffset + (i * blockSize),buffer);
+                fs.getFSApi().read(dataExtentOffset + (i * blockSize), buffer);
             } catch (ApiNotFoundException e) {
                 e.printStackTrace();
             }
@@ -129,6 +108,22 @@ public class LeafDirectory extends XfsObject {
                 }
             }
         }
+    }
+
+    /**
+     * Get the leaf block entries
+     *
+     * @return a list of inode entries
+     */
+    public List<FSEntry> getEntries(XfsDirectory parentDirectory) throws IOException {
+        Leaf leaf = new Leaf(getData(), getOffset(), fileSystem.isV5(), extents.size() - 1);
+        LeafInfo leafInfo = leaf.getLeafInfo();
+        int entryCount = leafInfo.getCount() - leafInfo.getStale();
+        List<FSEntry> entries = new ArrayList<>(entryCount);
+        for (DataExtent dataExtent : extents) {
+            LeafDirectory.extractEntriesFromExtent(fileSystem, dataExtent, entries, parentDirectory);
+        }
+        return entries;
     }
 
 }

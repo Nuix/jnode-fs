@@ -14,11 +14,11 @@ public class XfsShortFormAttributeReader extends XfsObject {
         header = new XfsAttributeHeader(getData(), offset);
     }
 
-    public int getCount(){
+    public int getCount() {
         return (int) header.getCount();
     }
 
-    public List<FSAttribute> getAttributes(){
+    public List<FSAttribute> getAttributes() {
         int count = getCount();
         List<FSAttribute> attributes = new ArrayList<>(count);
         int off = getOffset() + XfsAttributeHeader.SIZE; // header size

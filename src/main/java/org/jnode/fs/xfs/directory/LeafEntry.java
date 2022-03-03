@@ -12,7 +12,7 @@ import java.io.IOException;
  * @author Ricardo Garza
  * @author Julio Parra
  */
-public class LeafEntry  extends XfsObject {
+public class LeafEntry extends XfsObject {
 
     /**
      * The logger implementation.
@@ -32,11 +32,11 @@ public class LeafEntry  extends XfsObject {
     /**
      * Creates a Leaf entry.
      *
-     * @param data of the inode.
+     * @param data   of the inode.
      * @param offset of the inode's data
      * @throws IOException if an error occurs reading in the leaf directory.
      */
-    public LeafEntry(byte [] data , long offset) {
+    public LeafEntry(byte[] data, long offset) {
         super(data, (int) offset);
         hashval = getUInt32(0);
         address = getUInt32(4);

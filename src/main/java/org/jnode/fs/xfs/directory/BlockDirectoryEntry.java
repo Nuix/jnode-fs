@@ -47,23 +47,23 @@ public class BlockDirectoryEntry extends XfsObject {
     /**
      * Creates a b+tree directory entry.
      *
-     * @param data of the inode.
+     * @param data   of the inode.
      * @param offset of the inode's data
-     * @param v5 is filesystem v5
+     * @param v5     is filesystem v5
      */
-    public BlockDirectoryEntry(byte [] data, long offset, boolean v5) {
+    public BlockDirectoryEntry(byte[] data, long offset, boolean v5) {
         super(data, (int) offset);
         this.isV5 = v5;
         isFreeTag = getUInt16(0) == 0xFFFF;
         if (!isFreeTag()) {
             nameSize = getUInt8(8);
             iNodeNumber = getInt64(0);
-            byte [] buffer = new byte[(int) nameSize];
-            System.arraycopy(data, (int)offset + 9, buffer, 0, (int) nameSize);
+            byte[] buffer = new byte[(int) nameSize];
+            System.arraycopy(data, (int) offset + 9, buffer, 0, nameSize);
             name = new String(buffer, StandardCharsets.UTF_8);
         } else {
             nameSize = 0;
-            iNodeNumber=0;
+            iNodeNumber = 0;
             name = "";
         }
     }
@@ -120,7 +120,7 @@ public class BlockDirectoryEntry extends XfsObject {
      */
     public long getOffsetSize() {
         if (!isFreeTag) {
-            long l = 12 + nameSize - ( isV5 ? 0 : 1);
+            long l = 12 + nameSize - (isV5 ? 0 : 1);
             double v = l / 8.0;
             return (long) Math.ceil(v) * 8;
         } else {

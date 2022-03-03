@@ -24,6 +24,7 @@ import java.util.List;
  * When the extent map in an inode grows beyond the inode’s space,
  * the inode format is changed to a “btree”.
  * </p>
+ *
  * @author Ricardo Garza
  * @author Julio Parra
  */
@@ -33,17 +34,16 @@ public class BPlusTreeDirectory extends XfsObject {
      * The logger implementation.
      */
     private static final Logger log = LoggerFactory.getLogger(BPlusTreeDirectory.class);
-
+    private final static int BTREE_EXTENT_LIST_MAGIC_V5 = 0x424D4133;
+    private final static int BTREE_EXTENT_LIST_MAGIC = 0x424D4150;
     /**
      * The inode b+tree.
      */
     private final INode inode;
-
     /**
      * The filesystem.
      */
     private final XfsFileSystem fileSystem;
-
     /**
      * The inode number.
      */
@@ -84,7 +84,7 @@ public class BPlusTreeDirectory extends XfsObject {
         int btreeBlockOffset = (int) (inode.getOffset() + inode.getINodeSizeForOffset() + (forkOffset / 2));
         // 8 byte alignment. not sure if it should be a 16 byte alignment?
         btreeBlockOffset = btreeBlockOffset + (btreeBlockOffset % 8);
-        List<DataExtent> extents = getFlattenedExtents(getData(),level,new ArrayList<>(200), btreeBlockOffset,numrecs);
+        List<DataExtent> extents = getFlattenedExtents(getData(), level, new ArrayList<>(200), btreeBlockOffset, numrecs);
         long leafExtentIndex = LeafDirectory.getLeafExtentIndex(extents, fileSystem);
         DataExtent extentInformation = extents.get((int) leafExtentIndex);
         long extOffset = extentInformation.getExtentOffset(fileSystem);
@@ -98,13 +98,10 @@ public class BPlusTreeDirectory extends XfsObject {
         return leafDirectory.getEntries(parentDirectory);
     }
 
-    private final static int BTREE_EXTENT_LIST_MAGIC_V5 = 0x424D4133;
-    private final static int BTREE_EXTENT_LIST_MAGIC = 0x424D4150;
-
-    public List<DataExtent> getFlattenedExtents(byte[] data,int level,List<DataExtent> currentExtents, int btreeBlockOffset, int numrecs) throws IOException {
+    public List<DataExtent> getFlattenedExtents(byte[] data, int level, List<DataExtent> currentExtents, int btreeBlockOffset, int numrecs) throws IOException {
         boolean isBtreeExtentList = false;
-        if (btreeBlockOffset == 0){
-            numrecs = BigEndian.getUInt16(data,6);
+        if (btreeBlockOffset == 0) {
+            numrecs = BigEndian.getUInt16(data, 6);
             long signature = BigEndian.getUInt32(data, 0);
             isBtreeExtentList = signature == BTREE_EXTENT_LIST_MAGIC_V5 || signature == BTREE_EXTENT_LIST_MAGIC;
             int filesystemOffset = fileSystem.isV5() ? 64 : 24;
@@ -121,8 +118,8 @@ public class BPlusTreeDirectory extends XfsObject {
             } catch (ApiNotFoundException e) {
                 log.warn("Failed to read FS entry list at offset: " + offset, e);
             }
-            if (level > 1){
-                return getFlattenedExtents(buffer.array(),level-1,currentExtents,0,0);
+            if (level > 1) {
+                return getFlattenedExtents(buffer.array(), level - 1, currentExtents, 0, 0);
             } else {
                 BPlusTreeDataExtent extentList = new BPlusTreeDataExtent(buffer.array(), 0, fileSystem.isV5());
                 currentExtents.addAll(extentList.getExtents());

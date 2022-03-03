@@ -45,15 +45,15 @@ public class XfsLeafOrNodeAttributeReader extends XfsObject {
             int bufferSize = (int) (blockCount * blockSize);
             ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
             long blockAbsoluteOffset = extent.getExtentOffset(fs);
-            fs.getApi().read(blockAbsoluteOffset,buffer);
+            fs.getApi().read(blockAbsoluteOffset, buffer);
             byte[] bytes = buffer.array();
             // NOTE: this code ignores Node type extents as they work as a root btree when searching
             // while contiguous in the same extent definition each block has its own header
             for (int i = 0; i < blockCount; i++) {
                 int bufferOffset = (int) (blockSize * i);
-                int signature = BigEndian.getUInt16(bytes,bufferOffset + 8);
-                if (signature == XfsLeafAttributeBlock.MAGIC || signature == XfsLeafAttributeBlock.MAGIC_V5){
-                    XfsLeafAttributeBlock attributeBlock = new XfsLeafAttributeBlock(bytes, bufferOffset,fs.isV5());
+                int signature = BigEndian.getUInt16(bytes, bufferOffset + 8);
+                if (signature == XfsLeafAttributeBlock.MAGIC || signature == XfsLeafAttributeBlock.MAGIC_V5) {
+                    XfsLeafAttributeBlock attributeBlock = new XfsLeafAttributeBlock(bytes, bufferOffset, fs.isV5());
                     attributeBlocks.add(attributeBlock);
                     attributeCount += attributeBlock.getEntryCount();
                 }
