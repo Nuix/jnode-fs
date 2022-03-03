@@ -39,17 +39,17 @@ public class BPlusTreeDirectory extends XfsObject {
     /**
      * The inode b+tree.
      */
-    private INode inode;
+    private final INode inode;
 
     /**
      * The filesystem.
      */
-    private XfsFileSystem fileSystem;
+    private final XfsFileSystem fileSystem;
 
     /**
      * The inode number.
      */
-    private long iNodeNumber;
+    private final long iNodeNumber;
 
     /**
      * Creates a b+tree directory.
@@ -86,17 +86,17 @@ public class BPlusTreeDirectory extends XfsObject {
         int btreeBlockOffset = (int) (inode.getOffset() + inode.getINodeSizeForOffset() + (forkOffset / 2));
         // 8 byte alignment. not sure if it should be a 16 byte alignment?
         btreeBlockOffset = btreeBlockOffset + (btreeBlockOffset % 8);
-        final List<DataExtent> extents = getFlattenedExtents(getData(),level,new ArrayList<>(200), btreeBlockOffset,numrecs);
-        final long leafExtentIndex = LeafDirectory.getLeafExtentIndex(extents, fileSystem);
-        final DataExtent extentInformation = extents.get((int) leafExtentIndex);
-        final long extOffset = extentInformation.getExtentOffset(fileSystem);
+        List<DataExtent> extents = getFlattenedExtents(getData(),level,new ArrayList<>(200), btreeBlockOffset,numrecs);
+        long leafExtentIndex = LeafDirectory.getLeafExtentIndex(extents, fileSystem);
+        DataExtent extentInformation = extents.get((int) leafExtentIndex);
+        long extOffset = extentInformation.getExtentOffset(fileSystem);
         ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize() * (int) extentInformation.getBlockCount());
         try {
             fileSystem.getFSApi().read(extOffset, buffer);
         } catch (ApiNotFoundException e) {
             log.warn("Failed to read node directory at offset: " + extOffset, e);
         }
-        final NodeDirectory leafDirectory = new NodeDirectory(buffer.array(), 0, fileSystem, iNodeNumber, extents, leafExtentIndex);
+        NodeDirectory leafDirectory = new NodeDirectory(buffer.array(), 0, fileSystem, iNodeNumber, extents, leafExtentIndex);
         return leafDirectory.getEntries(parentDirectory);
     }
 
@@ -105,16 +105,16 @@ public class BPlusTreeDirectory extends XfsObject {
         boolean isBtreeExtentList = false;
         if (btreeBlockOffset == 0){
             numrecs = BigEndian.getUInt16(data,6);
-            final long signature = BigEndian.getUInt32(data, 0);
+            long signature = BigEndian.getUInt32(data, 0);
             isBtreeExtentList = signature == 0x424D4133 || signature == 0x424D4150;
-            final int filesystemOffset = fileSystem.isV5() ? 64 : 24;
+            int filesystemOffset = fileSystem.isV5() ? 64 : 24;
             btreeBlockOffset = (int) (fileSystem.getSuperblock().getBlockSize() + filesystemOffset) / 2;
         }
         for (int i = 0; i < numrecs; i++) {
-            final long fsBlockNo = isBtreeExtentList ? BigEndian.getInt64(data, btreeBlockOffset) : BigEndian.getUInt32(data, btreeBlockOffset);
+            long fsBlockNo = isBtreeExtentList ? BigEndian.getInt64(data, btreeBlockOffset) : BigEndian.getUInt32(data, btreeBlockOffset);
             // 8 byte alignment
             btreeBlockOffset += 0x8;
-            final long offset = DataExtent.getFileSystemBlockOffset(fsBlockNo, fileSystem);
+            long offset = DataExtent.getFileSystemBlockOffset(fsBlockNo, fileSystem);
             ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize());
             try {
                 fileSystem.getFSApi().read(offset, buffer);
@@ -124,7 +124,7 @@ public class BPlusTreeDirectory extends XfsObject {
             if (level > 1){
                 return getFlattenedExtents(buffer.array(),level-1,currentExtents,0,0);
             } else {
-                final BPlusTreeDataExtent extentList = new BPlusTreeDataExtent(buffer.array(), 0, fileSystem.isV5());
+                BPlusTreeDataExtent extentList = new BPlusTreeDataExtent(buffer.array(), 0, fileSystem.isV5());
                 currentExtents.addAll(extentList.getExtents());
             }
         }

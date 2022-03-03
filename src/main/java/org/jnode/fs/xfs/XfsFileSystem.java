@@ -95,7 +95,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     }
 
     public long getINodeAbsoluteOffset(long absoluteINodeNumber) {
-        final long numberOfRelativeINodeBits = getSuperblock().getAGSizeLog2() + getSuperblock().getINodePerBlockLog2();
+        long numberOfRelativeINodeBits = getSuperblock().getAGSizeLog2() + getSuperblock().getINodePerBlockLog2();
         int allocationGroupIndex = (int) (absoluteINodeNumber >> numberOfRelativeINodeBits);
         long allocationGroupBlockNumber = (long) allocationGroupIndex * getSuperblock().getAGSize();
         long relativeINodeNumber  = absoluteINodeNumber & (((long)1 << numberOfRelativeINodeBits) - 1);

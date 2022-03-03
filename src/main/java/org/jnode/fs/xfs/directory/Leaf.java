@@ -51,12 +51,12 @@ public class Leaf {
      */
     public Leaf(byte[] data, long offset, boolean v5, int extentCount) throws IOException {
         leafInfo = new LeafInfo(data,offset,v5);
-        final int infoCount = leafInfo.getCount() - leafInfo.getStale();
+        int infoCount = leafInfo.getCount() - leafInfo.getStale();
         bestCount = extentCount;
         leafEntries = new ArrayList<>(infoCount);
         long leafEntryOffset = offset + ( v5 ? 64 : 16);
         for (int i=0; i<infoCount; i++) {
-            final LeafEntry entry = new LeafEntry(data, leafEntryOffset);
+            LeafEntry entry = new LeafEntry(data, leafEntryOffset);
             leafEntries.add(entry);
             leafEntryOffset += 8; // Add LeafEntry Size
         }

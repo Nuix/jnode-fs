@@ -46,7 +46,7 @@ public class BPlusTreeDataExtent extends XfsObject {
     public BPlusTreeDataExtent(byte[] data, long offset, boolean v5) throws IOException {
         super(data, (int) offset);
 
-        final long signature = getMagicSignature();
+        long signature = getMagicSignature();
         if (signature != MAGIC_V5 && signature != MAGIC) {
             throw new IOException("Wrong magic number for XFS: Required[" + getAsciiSignature(MAGIC_V5) + " or " + getAsciiSignature(MAGIC_V5) + "] found[" + getAsciiSignature(signature) + "]" ) ;
         }
@@ -68,10 +68,10 @@ public class BPlusTreeDataExtent extends XfsObject {
      */
     private List<DataExtent> getExtentInfo() {
         long offset = getOffset() + (isV5 ? 72 : 24) ;
-        final int numrecs = (int) getNumrecs();
-        final List<DataExtent> list = new ArrayList<>(numrecs);
+        int numrecs = (int) getNumrecs();
+        List<DataExtent> list = new ArrayList<>(numrecs);
         for (int i=0; i < numrecs; i++) {
-            final DataExtent info = new DataExtent(getData(), (int) offset);
+            DataExtent info = new DataExtent(getData(), (int) offset);
             list.add(info);
             offset += 0x10;
         }

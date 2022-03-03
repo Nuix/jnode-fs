@@ -82,7 +82,7 @@ public class ShortFormDirectoryEntry extends XfsObject {
      * @return the inode number.
      */
     public long getINumber() {
-        final int baseOffset = isV5 ? 0x4 : 0x3;
+        int baseOffset = isV5 ? 0x4 : 0x3;
         int numberOffset = getNameLength() + baseOffset;
         return inodeSize == 4 ? getUInt32(numberOffset) : getInt64(numberOffset);
     }
@@ -92,7 +92,7 @@ public class ShortFormDirectoryEntry extends XfsObject {
      * @return the offset of the next entry.
      */
     public int getNextEntryOffset() {
-        final int baseOffset = isV5 ? BYTES_FOR_NEXT_OFFSET : 7;
+        int baseOffset = isV5 ? BYTES_FOR_NEXT_OFFSET : 7;
         return getNameLength() + baseOffset;
     }
 

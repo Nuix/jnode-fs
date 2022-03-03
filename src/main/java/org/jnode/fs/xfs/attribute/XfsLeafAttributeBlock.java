@@ -40,9 +40,9 @@ public class XfsLeafAttributeBlock extends XfsObject {
         final int entryCount = getEntryCount();
         List<XfsLeafAttribute> attributes = new ArrayList<>(entryCount);
         for (int i=0;i<entryCount;i++){
-            final XfsAttributeLeafEntry leafEntry = new XfsAttributeLeafEntry(getData(),getOffset() + baseOffset + XfsAttributeLeafEntry.PACKED_LENGTH * i);
-            final int attributeBlockOffset = leafEntry.getBlockOffset() + getOffset();
-            final XfsLeafAttribute attribute = new XfsLeafAttribute(getData(), attributeBlockOffset);
+            XfsAttributeLeafEntry leafEntry = new XfsAttributeLeafEntry(getData(),getOffset() + baseOffset + XfsAttributeLeafEntry.PACKED_LENGTH * i);
+            int attributeBlockOffset = leafEntry.getBlockOffset() + getOffset();
+            XfsLeafAttribute attribute = new XfsLeafAttribute(getData(), attributeBlockOffset);
             attributes.add(attribute);
         }
         return attributes;

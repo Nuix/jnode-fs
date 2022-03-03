@@ -96,7 +96,7 @@ public class LeafInfo extends XfsObject {
     public LeafInfo(byte [] data, long offset, boolean v5) throws IOException {
         super(data, (int) offset);
 
-        final long signature = getMagicSignature();
+        long signature = getMagicSignature();
         if ((signature != LEAF_DIR_MAGIC) && (signature != LEAF_DIR_MAGIC_V5) && (signature != NODE_DIR_MAGIC_V5) && (signature != NODE_DIR_MAGIC)) {
             throw new IOException("Wrong magic number for XFS Leaf Info: " + getAsciiSignature(signature));
         }

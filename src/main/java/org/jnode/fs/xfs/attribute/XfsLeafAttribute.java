@@ -27,7 +27,7 @@ public class XfsLeafAttribute extends XfsObject implements FSAttribute {
 
     @Override
     public byte[] getValue() {
-        final byte[] bytes = new byte[getValueLength()];
+        byte[] bytes = new byte[getValueLength()];
         System.arraycopy(getData(),getNameLength() + getOffset()+3,bytes,0,getValueLength());
         return bytes;
     }

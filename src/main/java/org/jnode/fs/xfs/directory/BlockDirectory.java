@@ -132,20 +132,20 @@ public class BlockDirectory extends XfsObject  {
      * @return a list of inode entries
      */
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
-        final int blockSize = getData().length;
-        final long stale = getUInt32(blockSize - 4);
-        final long count = getUInt32(blockSize - 8);
-        final int activeDirs = (int) (count - stale);
+        int blockSize = getData().length;
+        long stale = getUInt32(blockSize - 4);
+        long count = getUInt32(blockSize - 8);
+        int activeDirs = (int) (count - stale);
 
 
         List<FSEntry> data = new ArrayList<>(activeDirs);
         int leafOffset = blockSize - ((activeDirs + 1) * 8);
         for (int i = 0; i < activeDirs; i++) {
-            final LeafEntry leafEntry = new LeafEntry(getData(), leafOffset + (i * 8));
+            LeafEntry leafEntry = new LeafEntry(getData(), leafOffset + (i * 8));
             if (leafEntry.getAddress() == 0) {
                 continue;
             }
-            final BlockDirectoryEntry entry = new BlockDirectoryEntry(getData(), leafEntry.getAddress() * 8, fs.isV5());
+            BlockDirectoryEntry entry = new BlockDirectoryEntry(getData(), leafEntry.getAddress() * 8, fs.isV5());
 
             INode iNode = fs.getINode(entry.getINodeNumber());
             data.add(new XfsEntry(iNode, entry.getName(), i, fs, parentDirectory));

@@ -92,9 +92,9 @@ public class LeafDirectory extends XfsObject {
      * @return a list of inode entries
      */
     public List<FSEntry> getEntries(XfsDirectory parentDirectory) throws IOException {
-        final Leaf leaf = new Leaf(getData(), getOffset(), fileSystem.isV5(), extents.size() - 1);
-        final LeafInfo leafInfo = leaf.getLeafInfo();
-        final int entryCount = leafInfo.getCount() - leafInfo.getStale();
+        Leaf leaf = new Leaf(getData(), getOffset(), fileSystem.isV5(), extents.size() - 1);
+        LeafInfo leafInfo = leaf.getLeafInfo();
+        int entryCount = leafInfo.getCount() - leafInfo.getStale();
         List<FSEntry> entries = new ArrayList<>(entryCount);
         for (DataExtent dataExtent : extents) {
             LeafDirectory.extractEntriesFromExtent(fileSystem,dataExtent,entries,parentDirectory);
@@ -106,9 +106,9 @@ public class LeafDirectory extends XfsObject {
     public static final long LEAF_DIR_DATA_MAGIC_V4 = 0x58443244;
 
     public static void extractEntriesFromExtent(XfsFileSystem fs,DataExtent extent,List<FSEntry> entries,FSDirectory parentDirectory) throws IOException {
-        final int blockSize = (int) fs.getSuperblock().getBlockSize();
-        final int blockCount = (int) extent.getBlockCount();
-        final long dataExtentOffset = extent.getExtentOffset(fs);
+        int blockSize = (int) fs.getSuperblock().getBlockSize();
+        int blockCount = (int) extent.getBlockCount();
+        long dataExtentOffset = extent.getExtentOffset(fs);
         int x = 2;
         for (long i = 0; i < blockCount; i++) {
             ByteBuffer buffer = ByteBuffer.allocate(blockSize);
@@ -117,13 +117,13 @@ public class LeafDirectory extends XfsObject {
             } catch (ApiNotFoundException e) {
                 e.printStackTrace();
             }
-            final long extentSignature = BigEndian.getUInt32(buffer.array(), 0);
+            long extentSignature = BigEndian.getUInt32(buffer.array(), 0);
             if (extentSignature == LEAF_DIR_DATA_MAGIC_V5 || extentSignature == LEAF_DIR_DATA_MAGIC_V4) {
                 int extentOffset = extentSignature == LEAF_DIR_DATA_MAGIC_V5 ? 64 : 16;
                 while (extentOffset < blockSize) {
-                    final BlockDirectoryEntry blockDirectoryEntry = new BlockDirectoryEntry(buffer.array(), extentOffset, fs.isV5());
+                    BlockDirectoryEntry blockDirectoryEntry = new BlockDirectoryEntry(buffer.array(), extentOffset, fs.isV5());
                     if (!blockDirectoryEntry.isFreeTag()) {
-                        final XfsEntry entry = new XfsEntry(fs.getINode(blockDirectoryEntry.getINodeNumber()), blockDirectoryEntry.getName(), x++, fs, parentDirectory);
+                        XfsEntry entry = new XfsEntry(fs.getINode(blockDirectoryEntry.getINodeNumber()), blockDirectoryEntry.getName(), x++, fs, parentDirectory);
                         entries.add(entry);
                     }
                     extentOffset += blockDirectoryEntry.getOffsetSize();

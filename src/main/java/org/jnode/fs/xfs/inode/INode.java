@@ -392,12 +392,12 @@ public class INode extends XfsObject {
      */
     public List<FSAttribute> getAttributes() throws IOException {
         long off =  getOffset() + getINodeSizeForOffset() + (getAttributesForkOffset() * 8);
-        final long attributesFormat = getAttributesFormat();
+        long attributesFormat = getAttributesFormat();
         if (attributesFormat == XfsConstants.XFS_DINODE_FMT_LOCAL) {
-            final XfsShortFormAttributeReader attributeReader = new XfsShortFormAttributeReader(getData(), (int) off);
+            XfsShortFormAttributeReader attributeReader = new XfsShortFormAttributeReader(getData(), (int) off);
             return attributeReader.getAttributes();
         } else if (attributesFormat == XfsConstants.XFS_DINODE_FMT_EXTENTS) {
-            final XfsLeafOrNodeAttributeReader attributeReader = new XfsLeafOrNodeAttributeReader(getData(), (int) off, this, fs);
+            XfsLeafOrNodeAttributeReader attributeReader = new XfsLeafOrNodeAttributeReader(getData(), (int) off, this, fs);
             return attributeReader.getAttributes();
         } else {
             log.warn(">>> Pending implementation due to lack of examples for attribute format " + attributesFormat

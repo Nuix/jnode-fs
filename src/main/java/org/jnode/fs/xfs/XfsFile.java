@@ -17,7 +17,7 @@ public class XfsFile extends AbstractFSFile {
     /**
      * The entry.
      */
-    private XfsEntry entry;
+    private final XfsEntry entry;
 
     /**
      * Creates a new file.

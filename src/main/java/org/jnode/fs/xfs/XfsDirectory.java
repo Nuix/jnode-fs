@@ -181,7 +181,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                 if (log.isDebugEnabled()) {
                     log.debug("Processing a B+tree directory, Inode Number: {}", iNodeNumber );
                 }
-                final BPlusTreeDirectory myBPlusTreeDirectory = new BPlusTreeDirectory(entry.getINode().getData(), 0, iNodeNumber, fileSystem);
+                BPlusTreeDirectory myBPlusTreeDirectory = new BPlusTreeDirectory(entry.getINode().getData(), 0, iNodeNumber, fileSystem);
                 entries = myBPlusTreeDirectory.getEntries(this);
                 break;
             default:
