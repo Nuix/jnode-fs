@@ -3,6 +3,7 @@ package org.jnode.fs.xfs;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.jnode.driver.block.FileDevice;
 import org.jnode.fs.DataStructureAsserts;
 import org.jnode.fs.FileSystemTestUtils;
@@ -10,8 +11,7 @@ import org.jnode.fs.*;
 import org.jnode.fs.service.FileSystemService;
 
 import org.jnode.fs.xfs.inode.INode;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,30 +20,40 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class XfsFileSystemTest {
 
-    private FileSystemService fss;
+    private static FileSystemService fss;
+    private static File baseTestFile;
+    private static File extendedAttrTestFile;
+    private static File dirTypesTestFile;
 
-    @Before
-    public void setUp() {
+    @BeforeClass
+    public static void setUp() throws IOException {
         // create file system service.
         fss = FileSystemTestUtils.createFSService(XfsFileSystemType.class.getName());
+        baseTestFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/test-xfs-1.img");
+        extendedAttrTestFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
+        dirTypesTestFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/dir_types.img");
+    }
+
+    @AfterClass
+    public static void cleanup(){
+        baseTestFile.delete();
+        extendedAttrTestFile.delete();
+        dirTypesTestFile.delete();
     }
 
     @Test
     public void testImage1() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/test-xfs-1.img");
-
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (FileDevice device = new FileDevice(baseTestFile, "r")) {
             XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
             XfsFileSystem fs = type.create(device, true);
 
@@ -55,15 +65,12 @@ public class XfsFileSystemTest {
                     "      xfs.zip; 20103; d5f8c07fdff365b45b8af1ae7622a98d\n" +
                     "    testfile.txt; 20; 5dd39cab1c53c2c77cd352983f9641e1\n";
             DataStructureAsserts.assertStructure(fs, expectedStructure);
-        } finally {
-            testFile.delete();
         }
     }
 
 
     @Test
     public void testXfsMetaData() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/test-xfs-1.img");
         // Arrange
         String expectedStructure =
                 "  /; \n" +
@@ -85,7 +92,7 @@ public class XfsFileSystemTest {
                 "        atime : 2021-11-17T06:48:33.735+0000; ctime : 2021-11-17T06:48:33.735+0000; mtime : 2021-11-17T06:48:33.735+0000\n" +
                 "        owner : 1000; group : 1000; size : 20; mode : 664; \n";
 
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (FileDevice device = new FileDevice(baseTestFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
 
@@ -96,8 +103,6 @@ public class XfsFileSystemTest {
 
             assertThat(actual.toString(), is(expectedStructure));
 
-        } finally {
-            testFile.delete();
         }
     }
 
@@ -184,8 +189,7 @@ public class XfsFileSystemTest {
 
     @Test
     public void testShortFormAttribute() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
             final INode shortAttributeINode = fs.getINode(11075L);
@@ -198,15 +202,12 @@ public class XfsFileSystemTest {
             final String stringValue = new String(attribute.getValue(),StandardCharsets.UTF_8)
                     .replace("\0","");
             assertThat(stringValue,is("unconfined_u:object_r:unlabeled_t:s0"));
-        } finally {
-            testFile.delete();
         }
     }
 
     @Test
     public void testLeafAttributes() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
             final INode leafAttributeINode = fs.getINode(11076L);
@@ -219,15 +220,12 @@ public class XfsFileSystemTest {
             final List<FSAttribute> attributes = entry.getAttributes();
             assertThat(attributes,hasSize(31));
             assertThat(attributes,everyItem(getSampleAttributeMatcher()));
-        } finally {
-            testFile.delete();
         }
     }
 
     @Test
     public void testNodeAttributes() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
             final INode nodeAttributeINode = fs.getINode(11077L);
@@ -240,15 +238,12 @@ public class XfsFileSystemTest {
             final List<FSAttribute> attributes = entry.getAttributes();
             assertThat(attributes,hasSize(201));
             assertThat(attributes,everyItem(getSampleAttributeMatcher()));
-        } finally {
-            testFile.delete();
         }
     }
 
     @Test
     public void testSparseFiles() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
             final long blockSize = fs.getSuperblock().getBlockSize();
@@ -269,8 +264,6 @@ public class XfsFileSystemTest {
                 }
 
             }
-        } finally {
-            testFile.delete();
         }
     }
 
@@ -306,7 +299,7 @@ public class XfsFileSystemTest {
         };
     }
 
-    @Test
+//    @Test
     public void testCentos() throws Exception {
 
         File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/centos-xfs.img");
@@ -320,6 +313,84 @@ public class XfsFileSystemTest {
             testFile.delete();
         }
     }
+
+
+    @Test
+    public void testShortFormDir() throws Exception {
+
+        try (FileDevice device = new FileDevice(dirTypesTestFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            final List<? extends FSEntry> entries = getInodeEntries(fs, 131);
+            assertThat(entries.size(), Matchers.is(4));
+        }
+    }
+
+    @Test
+    public void testBlockDir() throws Exception {
+
+        try (FileDevice device = new FileDevice(dirTypesTestFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            final List<? extends FSEntry> entries = getInodeEntries(fs, 1048704);
+            assertThat(entries.size(), Matchers.is(22));
+        }
+    }
+    @Test
+    public void testLeafDir() throws Exception {
+
+        try (FileDevice device = new FileDevice(dirTypesTestFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            final List<? extends FSEntry> entries = getInodeEntries(fs, 2117760);
+            assertThat(entries.size(), Matchers.is(202));
+        }
+    }
+
+    @Test
+    public void testNodeDir() throws Exception {
+
+        try (FileDevice device = new FileDevice(dirTypesTestFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            final List<? extends FSEntry> entries = getInodeEntries(fs, 3145856);
+            assertThat(entries.size(), Matchers.is(1_002));
+        }
+    }
+
+    @Test
+    public void testSingleLevelBTreeDir() throws Exception {
+
+        try (FileDevice device = new FileDevice(dirTypesTestFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            final List<? extends FSEntry> entries = getInodeEntries(fs, 132);
+            assertThat(entries.size(), Matchers.is(10_002));
+        }
+    }
+
+    @Test
+    public void testMultiLevelBTreeDir() throws Exception {
+
+        try (FileDevice device = new FileDevice(dirTypesTestFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            final List<? extends FSEntry> entries = getInodeEntries(fs, 1048705);
+            assertThat(entries.size(), Matchers.is(1_000_002));
+        }
+    }
+
+    private List<? extends FSEntry> getInodeEntries(XfsFileSystem fs, long inode) throws IOException {
+        final INode iNode = fs.getINode(inode);
+        XfsEntry entry = new XfsEntry(iNode,"",0,fs,null);
+        return iteratorToList(entry.getDirectory().iterator());
+    }
+
+    public <T> List<T> iteratorToList(Iterator<T> iterator){
+        final Spliterator<T> spliterator = Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED);
+        return StreamSupport.stream(spliterator,false).collect(Collectors.toList());
+    }
+
 
     /**
      * Build the directory string.

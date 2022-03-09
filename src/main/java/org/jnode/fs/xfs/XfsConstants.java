@@ -15,7 +15,7 @@ public class XfsConstants {
     /**
      * Set if any inode have extended attributes.
      */
-    public static final int XFS_SB_VERSION_ATTRBIT  = 0x10;
+    public static final int XFS_SB_VERSION_ATTRBIT = 0x10;
 
     /**
      * Set if any inodes use 32-bit di_nlink values.

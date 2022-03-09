@@ -8,6 +8,7 @@ import org.jnode.fs.xfs.inode.INode;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+
 /**
  * An XFS file system.
  *
@@ -47,16 +48,20 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      */
     private int aGCount;
 
+    /**
+     * Xfs File System version current support for 4/5
+     */
+    private int xfsVersion;
 
     /**
      * Construct an XFS file system.
      *
      * @param device device contains file system.
-     * @param type the file system type.
+     * @param type   the file system type.
      * @throws FileSystemException device is null or device has no {@link BlockDeviceAPI} defined.
      */
     public XfsFileSystem(Device device, FileSystemType<? extends FileSystem<XfsEntry>> type)
-        throws FileSystemException {
+            throws FileSystemException {
 
         super(device, true, type);
     }
@@ -73,11 +78,12 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
         blockSize = superblock.getBlockSize();
         aGCount = (int) superblock.getAGCount();
         allocationGroupSize = blockSize * superblock.getTotalBlocks() / aGCount;
+        xfsVersion = superblock.getVersion() & 0xF;
     }
 
     /**
      * Reads in the file system from the block device.
-     *
+     * <p>
      * * @throws IOException if an error occurs reading the file system.
      */
     public INode getINode(long absoluteINodeNumber) throws IOException {
@@ -86,21 +92,20 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
         ByteBuffer allocate = ByteBuffer.allocate(getSuperblock().getInodeSize());
         // Read the iNode data
         getApi().read(offset, allocate);
-        return new INode(absoluteINodeNumber, allocate.array(), 0,this);
+        return new INode(absoluteINodeNumber, allocate.array(), 0, this);
     }
 
     public long getINodeAbsoluteOffset(long absoluteINodeNumber) {
-        final long numberOfRelativeINodeBits = getSuperblock().getAGSizeLog2() + getSuperblock().getINodePerBlockLog2();
+        long numberOfRelativeINodeBits = getSuperblock().getAGSizeLog2() + getSuperblock().getINodePerBlockLog2();
         int allocationGroupIndex = (int) (absoluteINodeNumber >> numberOfRelativeINodeBits);
         long allocationGroupBlockNumber = (long) allocationGroupIndex * getSuperblock().getAGSize();
-        long relativeINodeNumber  = absoluteINodeNumber & (((long)1 << numberOfRelativeINodeBits) - 1);
+        long relativeINodeNumber = absoluteINodeNumber & (((long) 1 << numberOfRelativeINodeBits) - 1);
         // Calculate the offset of the iNode number.
         return (allocationGroupBlockNumber * getSuperblock().getBlockSize()) + (relativeINodeNumber * getSuperblock().getInodeSize());
     }
 
     /**
      * Gets the total space value stored in the superblock.
-     *
      */
     @Override
     public long getTotalSpace() {
@@ -109,7 +114,6 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
 
     /**
      * Gets the total free space value stored in the superblock.
-     *
      */
     @Override
     public long getFreeSpace() {
@@ -118,16 +122,18 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
 
     /**
      * Gets the total usable space value.
-     *
      */
     @Override
     public long getUsableSpace() {
         return superblock.getBlockSize() * (superblock.getTotalBlocks() - superblock.getFreeBlocks());
     }
 
+    public boolean isV5() {
+        return xfsVersion == 5;
+    }
+
     /**
      * Gets the valume name.
-     *
      */
     @Override
     public String getVolumeName() {
@@ -163,7 +169,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      * Reads block from the file system.
      *
      * @param startBlock the start block.
-     * @param dest the destination to read into.
+     * @param dest       the destination to read into.
      * @throws IOException if an error occurs.
      */
     public void readBlocks(long startBlock, ByteBuffer dest) throws IOException {
@@ -173,9 +179,9 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     /**
      * Reads block from the file system.
      *
-     * @param startBlock the start block.
+     * @param startBlock  the start block.
      * @param blockOffset the offset within the block to start reading from.
-     * @param dest the destination to read into.
+     * @param dest        the destination to read into.
      * @throws IOException if an error occurs.
      */
     public void readBlocks(long startBlock, int blockOffset, ByteBuffer dest) throws IOException {

@@ -13,19 +13,17 @@ import java.nio.ByteBuffer;
 public class AllocationGroupINode extends XfsRecord {
 
     /**
+     * The magic number ('XAGI').
+     */
+    public static final long MAGIC = 0x58414749;
+    /**
      * The length of this record.
      */
     private static final int LENGTH = 0x200;
-
     /**
      * The offset to this record.
      */
     private static final int OFFSET = 0x400;
-
-    /**
-     * The magic number ('XAGI').
-     */
-    public static final long MAGIC = 0x58414749;
 
     /**
      * Creates a new allocation group for inodes.
@@ -98,6 +96,6 @@ public class AllocationGroupINode extends XfsRecord {
     @Override
     public String toString() {
         return String.format("AI-inode:[seqno:0x%x length:%d count:%d root-block:0x%x levels:%d]",
-            getSeqNo(), getLength(), getCount(), getRootBlock(), getLevel());
+                getSeqNo(), getLength(), getCount(), getRootBlock(), getLevel());
     }
 }

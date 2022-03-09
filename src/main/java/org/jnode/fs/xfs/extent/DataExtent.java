@@ -14,44 +14,40 @@ import org.slf4j.LoggerFactory;
 public class DataExtent extends XfsObject {
 
     /**
-     * The logger implementation.
-     */
-    private static final Logger log = LoggerFactory.getLogger(DataExtent.class);
-
-    /**
      * The length of the structure when packed for storage on disk.
      */
     public static final int PACKED_LENGTH = 0x10;
-
+    /**
+     * The logger implementation.
+     */
+    private static final Logger log = LoggerFactory.getLogger(DataExtent.class);
     /**
      * The start offset.
      */
-    private long startOffset;
+    private final long startOffset;
 
     /**
      * The start block.
      */
-    private long startBlock;
+    private final long startBlock;
 
     /**
      * The block count.
      */
-    private int blockCount;
-
+    private final int blockCount;
+    /**
+     * Specify if the extent has been preallocated but has
+     * not yet been written (unwritten extent).
+     */
+    private final boolean initialised;
     /**
      * The state.
      */
     private int state;
 
     /**
-     * Specify if the extent has been preallocated but has
-     * not yet been written (unwritten extent).
-     */
-    private final boolean initialised;
-
-    /**
      * Creates a new extent from the packed on disk format.
-     *
+     * <p>
      * See XFS Algorithms & Data Structures
      * Chapter 16 - page 115
      * An extent is 128 bits in size and uses the following packed layout:
@@ -66,7 +62,7 @@ public class DataExtent extends XfsObject {
      * |g|                                                      |                                                  |                     |
      * -----------------------------------------------------------------------------------------------------------------------------------
      *
-     * @param data the data to read from.
+     * @param data   the data to read from.
      * @param offset the offset to read from.
      */
     public DataExtent(byte[] data, int offset) {
@@ -80,6 +76,22 @@ public class DataExtent extends XfsObject {
         valueUpper128bit = valueUpper128bit >>> 9;
         startOffset = valueUpper128bit & 0x3f_ff_ff_ff_ff_ff_ffL;
         initialised = ((valueUpper128bit >>> 54) == 0x1L);
+    }
+
+    /**
+     * Gets the FileSystem block offset.
+     *
+     * @param block      the file offset to check.
+     * @param fileSystem the file system block size.
+     * @return the fileSystem block offset.
+     */
+    public static long getFileSystemBlockOffset(long block, XfsFileSystem fileSystem) {
+        Superblock sb = fileSystem.getSuperblock();
+        long agSizeLog2 = sb.getAGSizeLog2();
+        long allocationGroupIndex = block >> agSizeLog2;
+        long relativeBlockNumber = block & (((long) 1 << agSizeLog2) - 1);
+        long allocationGroupBlockNumber = allocationGroupIndex * sb.getAGSize();
+        return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
     }
 
     /**
@@ -122,13 +134,13 @@ public class DataExtent extends XfsObject {
      * Checks if the given file offset is within the range covered by this extent.
      *
      * @param fileOffset the file offset to check.
-     * @param blockSize the file system block size.
+     * @param blockSize  the file system block size.
      * @return {@code true} if this extent covers the file offset.
      */
     public boolean isWithinExtent(long fileOffset, long blockSize) {
         return
-            fileOffset >= startOffset * blockSize &&
-            fileOffset < (startOffset + blockCount) * blockSize;
+                fileOffset >= startOffset * blockSize &&
+                        fileOffset < (startOffset + blockCount) * blockSize;
     }
 
     /**
@@ -137,38 +149,22 @@ public class DataExtent extends XfsObject {
      * @param fileSystem the file offset to check.
      * @return the extent offset.
      */
-    public long getExtentOffset(XfsFileSystem fileSystem)  {
-        final Superblock sb = fileSystem.getSuperblock();
-        final long agSizeLog2 = sb.getAGSizeLog2();
+    public long getExtentOffset(XfsFileSystem fileSystem) {
+        Superblock sb = fileSystem.getSuperblock();
+        long agSizeLog2 = sb.getAGSizeLog2();
         long allocationGroupIndex = startBlock >> agSizeLog2;
-        long relativeBlockNumber  = startBlock & (((long) 1 << agSizeLog2 ) - 1 );
-        long allocationGroupBlockNumber = allocationGroupIndex * sb.getAGSize();
-        return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
-    }
-
-    /**
-     * Gets the FileSystem block offset.
-     *
-     * @param block the file offset to check.
-     * @param fileSystem the file system block size.
-     * @return the fileSystem block offset.
-     */
-    public static long getFileSystemBlockOffset(long block,XfsFileSystem fileSystem) {
-        final Superblock sb = fileSystem.getSuperblock();
-        final long agSizeLog2 = sb.getAGSizeLog2();
-        long allocationGroupIndex = block >> agSizeLog2;
-        long relativeBlockNumber  = block & (((long) 1 << agSizeLog2 ) - 1 );
+        long relativeBlockNumber = startBlock & (((long) 1 << agSizeLog2) - 1);
         long allocationGroupBlockNumber = allocationGroupIndex * sb.getAGSize();
         return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
     }
 
     public long getFileSystemBlockOffset(XfsFileSystem fileSystem) {
-        return getFileSystemBlockOffset(startBlock,fileSystem);
+        return getFileSystemBlockOffset(startBlock, fileSystem);
     }
 
     @Override
     public String toString() {
         return String.format("extent:[start: 0x%x start-block:0x%x block-count:%d]",
-            startOffset, startBlock, blockCount);
+                startOffset, startBlock, blockCount);
     }
 }

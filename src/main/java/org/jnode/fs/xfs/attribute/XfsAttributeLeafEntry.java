@@ -10,11 +10,11 @@ public class XfsAttributeLeafEntry extends XfsObject {
         super(data, offset);
     }
 
-    public long getHashValue(){
+    public long getHashValue() {
         return getUInt32(0);
     }
 
-    public int getBlockOffset(){
+    public int getBlockOffset() {
         return getUInt16(4);
     }
 }
