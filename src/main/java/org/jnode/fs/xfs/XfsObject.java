@@ -175,6 +175,11 @@ public class XfsObject {
      * @return the ascii value.
      */
     protected String getAsciiSignature(long signature) {
-        return hexToAscii(Long.toHexString(signature));
+        final String hexString = Long.toHexString(signature);
+        try {
+            return hexToAscii(hexString);
+        }catch (Throwable e){
+            return hexString;
+        }
     }
 }
