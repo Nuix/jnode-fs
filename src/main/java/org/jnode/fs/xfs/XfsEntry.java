@@ -3,11 +3,8 @@ package org.jnode.fs.xfs;
 import org.jnode.fs.*;
 import org.jnode.fs.spi.AbstractFSEntry;
 import org.jnode.fs.util.UnixFSConstants;
-import org.jnode.fs.xfs.directory.BlockDirectoryEntry;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.inode.INode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -23,12 +20,6 @@ import java.util.List;
  * @author Julio Parra
  */
 public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntryLastAccessed, FSEntryLastChanged {
-
-
-    /**
-     * The logger implementation.
-     */
-    private static final Logger log = LoggerFactory.getLogger(XfsEntry.class);
 
     /**
      * The inode.
@@ -150,14 +141,16 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
      */
     public void readUnchecked(long offset, ByteBuffer destBuf) throws IOException {
         switch (inode.getFormat()) {
-            case XfsConstants.XFS_DINODE_FMT_LOCAL:
+            case LOCAL:
                 if (getINode().isSymLink()) {
                     ByteBuffer buffer = StandardCharsets.UTF_8.encode(getINode().getSymLinkText());
                     destBuf.put(buffer);
                 } else {
                     throw new UnsupportedOperationException();
                 }
-            case XfsConstants.XFS_DINODE_FMT_EXTENTS:
+                break;
+
+            case EXTENTS:
                 if (extentList == null) {
                     extentList = new ArrayList<>((int) inode.getExtentCount());
 
@@ -169,13 +162,13 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
                     }
                 }
                 readFromExtentList(offset, destBuf);
-                return;
+                break;
 
-            case XfsConstants.XFS_DINODE_FMT_BTREE:
-                throw new UnsupportedOperationException("For inode " + inode.getINodeNr());
+            case BTREE:
+                throw new UnsupportedOperationException("Unsupported B+tree format for inode " + inode.getINodeNr());
 
             default:
-                throw new IllegalStateException("Unexpected format: " + inode.getFormat());
+                throw new IllegalStateException("Unexpected format: " + inode.getRawFormat());
         }
     }
 

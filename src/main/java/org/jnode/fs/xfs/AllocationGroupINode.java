@@ -6,7 +6,31 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
- * The allocation group for inodes ('xfs_agi').
+ * The allocation group for inodes.
+ *
+ * <pre>
+ * struct xfs_agi {
+ *     __be32 agi_magicnum;
+ *     __be32 agi_versionnum;
+ *     __be32 agi_seqno
+ *     __be32 agi_length;
+ *     __be32 agi_count;
+ *     __be32 agi_root;
+ *     __be32 agi_level;
+ *     __be32 agi_freecount;
+ *     __be32 agi_newino;
+ *     __be32 agi_dirino;
+ *     __be32 agi_unlinked[64];
+ *     // v5 filesystem fields start here; this marks the end of logging region 1
+ *     // and start of logging region 2.
+ *     uuid_t agi_uuid;
+ *     __be32 agi_crc;
+ *     __be32 agi_pad32;
+ *     __be64 agi_lsn;XFS Filesystem Disk Structures 39/148
+ *     __be32 agi_free_root;
+ *     __be32 agi_free_level;
+ * }
+ * </pre>
  *
  * @author Luke Quinane.
  */
@@ -15,11 +39,13 @@ public class AllocationGroupINode extends XfsRecord {
     /**
      * The magic number ('XAGI').
      */
-    public static final long MAGIC = 0x58414749;
+    public static final long XFS_AGI_MAGIC = asciiToHex("XAGI");
+
     /**
      * The length of this record.
      */
     private static final int LENGTH = 0x200;
+
     /**
      * The offset to this record.
      */
@@ -40,7 +66,7 @@ public class AllocationGroupINode extends XfsRecord {
             buffer.position(0);
             buffer.get(getData());
 
-            if (getMagic() != MAGIC) {
+            if (getMagic() != XFS_AGI_MAGIC) {
                 throw new FileSystemException("Wrong magic number for XAGI: " + getMagic());
             }
         } catch (IOException e) {

@@ -1,8 +1,6 @@
 package org.jnode.fs.xfs.directory;
 
 import org.jnode.fs.xfs.XfsObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 
@@ -13,11 +11,6 @@ import java.nio.charset.StandardCharsets;
  * @author Julio Parra
  */
 public class BlockDirectoryEntry extends XfsObject {
-
-    /**
-     * The logger implementation.
-     */
-    private static final Logger log = LoggerFactory.getLogger(BlockDirectoryEntry.class);
 
     /**
      * Length of the name, in bytes
@@ -58,7 +51,7 @@ public class BlockDirectoryEntry extends XfsObject {
         if (!isFreeTag()) {
             nameSize = getUInt8(8);
             iNodeNumber = getInt64(0);
-            byte[] buffer = new byte[(int) nameSize];
+            byte[] buffer = new byte[nameSize];
             System.arraycopy(data, (int) offset + 9, buffer, 0, nameSize);
             name = new String(buffer, StandardCharsets.UTF_8);
         } else {

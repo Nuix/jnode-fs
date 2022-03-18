@@ -3,8 +3,6 @@ package org.jnode.fs.xfs.extent;
 import org.jnode.fs.xfs.Superblock;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A data extent ('xfs_bmbt_rec_t' packed, or 'xfs_bmbt_irec_t' unpacked).
@@ -17,10 +15,7 @@ public class DataExtent extends XfsObject {
      * The length of the structure when packed for storage on disk.
      */
     public static final int PACKED_LENGTH = 0x10;
-    /**
-     * The logger implementation.
-     */
-    private static final Logger log = LoggerFactory.getLogger(DataExtent.class);
+
     /**
      * The start offset.
      */
@@ -35,11 +30,13 @@ public class DataExtent extends XfsObject {
      * The block count.
      */
     private final int blockCount;
+
     /**
      * Specify if the extent has been preallocated but has
      * not yet been written (unwritten extent).
      */
     private final boolean initialised;
+
     /**
      * The state.
      */

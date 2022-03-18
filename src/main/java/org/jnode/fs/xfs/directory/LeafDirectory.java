@@ -3,14 +3,9 @@ package org.jnode.fs.xfs.directory;
 import org.jnode.driver.ApiNotFoundException;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
-import org.jnode.fs.xfs.XfsDirectory;
-import org.jnode.fs.xfs.XfsEntry;
-import org.jnode.fs.xfs.XfsFileSystem;
-import org.jnode.fs.xfs.XfsObject;
+import org.jnode.fs.xfs.*;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.util.BigEndian;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -18,34 +13,35 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Leaf directory.
- * <p>
- * Leaf Directories
- * Once a Block Directory has filled the block, the directory data is changed into a new format called leaf.
+ * <p>Leaf directory.</p>
+ *
+ * <p>Once a Block Directory has filled the block, the directory data is changed into a new format called leaf.</p>
  *
  * @author Ricardo Garza
  * @author Julio Parra
  */
 public class LeafDirectory extends XfsObject {
 
-    public static final long LEAF_DIR_DATA_MAGIC_V5 = 0x58444433;
-    public static final long LEAF_DIR_DATA_MAGIC_V4 = 0x58443244;
     /**
-     * The logger implementation.
+     * The magic number "XD2D".
      */
-    private static final Logger log = LoggerFactory.getLogger(LeafDirectory.class);
+    private static final long XFS_DIR2_DATA_MAGIC = asciiToHex("XD2D");
+
     /**
-     * The leaf block offset (XFS_DIR2_LEAF_OFFSET).
+     * The magic number "XDD3".
      */
-    private static final long BYTES_IN_32G = 34359738368L;
+    private static final long XFS_DIR3_DATA_MAGIC = asciiToHex("XDD3");
+
     /**
      * The list of extents of this block directory.
      */
     private final List<DataExtent> extents;
+
     /**
      * The filesystem.
      */
     private final XfsFileSystem fileSystem;
+
     /**
      * The number of the inode.
      */
@@ -73,7 +69,7 @@ public class LeafDirectory extends XfsObject {
      * @return the index of the leaf block
      */
     public static long getLeafExtentIndex(List<DataExtent> extents, XfsFileSystem fs) {
-        long leafOffset = BYTES_IN_32G / fs.getSuperblock().getBlockSize();
+        long leafOffset = XfsConstants.BYTES_IN_32G / fs.getSuperblock().getBlockSize();
         int leafExtentIndex = -1;
         for (int i = 0; i < extents.size(); i++) {
             if (extents.get(i).getStartOffset() == leafOffset) {
@@ -81,6 +77,10 @@ public class LeafDirectory extends XfsObject {
             }
         }
         return leafExtentIndex;
+    }
+
+    public long getINodeNumber() {
+        return iNodeNumber;
     }
 
     public static void extractEntriesFromExtent(XfsFileSystem fs, DataExtent extent, List<FSEntry> entries, FSDirectory parentDirectory) throws IOException {
@@ -96,8 +96,8 @@ public class LeafDirectory extends XfsObject {
                 e.printStackTrace();
             }
             long extentSignature = BigEndian.getUInt32(buffer.array(), 0);
-            if (extentSignature == LEAF_DIR_DATA_MAGIC_V5 || extentSignature == LEAF_DIR_DATA_MAGIC_V4) {
-                int extentOffset = extentSignature == LEAF_DIR_DATA_MAGIC_V5 ? 64 : 16;
+            if (extentSignature == XFS_DIR3_DATA_MAGIC || extentSignature == XFS_DIR2_DATA_MAGIC) {
+                int extentOffset = extentSignature == XFS_DIR3_DATA_MAGIC ? 64 : 16;
                 while (extentOffset < blockSize) {
                     BlockDirectoryEntry blockDirectoryEntry = new BlockDirectoryEntry(buffer.array(), extentOffset, fs.isV5());
                     if (!blockDirectoryEntry.isFreeTag()) {
@@ -111,9 +111,9 @@ public class LeafDirectory extends XfsObject {
     }
 
     /**
-     * Get the leaf block entries
+     * Get the leaf block entries.
      *
-     * @return a list of inode entries
+     * @return a list of inode entries.
      */
     public List<FSEntry> getEntries(XfsDirectory parentDirectory) throws IOException {
         Leaf leaf = new Leaf(getData(), getOffset(), fileSystem.isV5(), extents.size() - 1);
@@ -125,5 +125,4 @@ public class LeafDirectory extends XfsObject {
         }
         return entries;
     }
-
 }

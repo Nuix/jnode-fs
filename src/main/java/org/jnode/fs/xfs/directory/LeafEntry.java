@@ -1,8 +1,6 @@
 package org.jnode.fs.xfs.directory;
 
 import org.jnode.fs.xfs.XfsObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
@@ -13,11 +11,6 @@ import java.io.IOException;
  * @author Julio Parra
  */
 public class LeafEntry extends XfsObject {
-
-    /**
-     * The logger implementation.
-     */
-    private static final Logger log = LoggerFactory.getLogger(LeafEntry.class);
 
     /**
      * The Hash value of the name of the directory entry.

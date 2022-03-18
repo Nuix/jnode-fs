@@ -1,28 +1,33 @@
 package org.jnode.fs.xfs.directory;
 
 import org.jnode.fs.xfs.XfsObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 
 /**
- * A short form directory entry ('xfs_dir2_sf_entry_t').
+ * <p>A short form directory entry.</p>
+ *
+ * <pre>
+ * typedef struct xfs_dir2_sf_entry {
+ *     __uint8_t namelen;
+ *     xfs_dir2_sf_off_t offset;
+ *     __uint8_t name[1];
+ *     __uint8_t ftype;
+ *     xfs_dir2_inou_t inumber;
+ * } xfs_dir2_sf_entry_t;
+ * </pre>
  *
  * @author Luke Quinane
  */
 public class ShortFormDirectoryEntry extends XfsObject {
 
     /**
-     * The logger implementation.
-     */
-    private static final Logger log = LoggerFactory.getLogger(ShortFormDirectoryEntry.class);
-    /**
      * The number of bytes to get the next offset.
      */
-    static int BYTES_FOR_NEXT_OFFSET = 0x8;
+    private static final int BYTES_FOR_NEXT_OFFSET = 0x8;
+
     private final boolean isV5;
+
     /**
      * The size of inode entries in this directory (4 or 8 bytes).
      */

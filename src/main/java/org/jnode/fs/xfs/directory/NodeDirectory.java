@@ -5,8 +5,6 @@ import org.jnode.fs.FSEntry;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.extent.DataExtent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -20,28 +18,32 @@ import java.util.List;
  */
 public class NodeDirectory extends XfsObject {
 
+    // TODO: check where these values need to be used and the name of the class.
     /**
-     * The logger implementation.
+     * v3 directory block magic number header "XDF3".
      */
-    private static final Logger log = LoggerFactory.getLogger(NodeDirectory.class);
+    private static final long NODE_FREE_SPACE_V5 = asciiToHex("XDF3");
+
     /**
-     * The leaf block offset (XFS_DIR2_LEAF_OFFSET).
+     * directory block magic number header "XD2F".
      */
-    private static final long BYTES_IN_32G = 34359738368L;
-    private static final long NODE_FREE_SPACE_V5 = 0x58444633;
-    private static final long NODE_FREE_SPACE = 0x58443246;
+    private static final long NODE_FREE_SPACE = asciiToHex("XD2F");
+
     /**
      * The list of extents of this block directory.
      */
     private final List<DataExtent> extents;
+
     /**
      * The filesystem.
      */
     private final XfsFileSystem fs;
+
     /**
      * The number of the inode.
      */
     private final long iNodeNumber;
+
     /**
      * The extent index of the leaf.
      */
@@ -63,6 +65,14 @@ public class NodeDirectory extends XfsObject {
         this.fs = fileSystem;
         this.iNodeNumber = iNodeNumber;
         this.leafExtentIndex = (int) leafExtentIndex;
+    }
+
+    public long getiNodeNumber() {
+        return iNodeNumber;
+    }
+
+    public int getLeafExtentIndex() {
+        return leafExtentIndex;
     }
 
     /**

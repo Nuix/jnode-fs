@@ -26,32 +26,10 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      */
     private AllocationGroupINode agINode;
 
-    private INode inode;
-
-    /**
-     * The inode size.
-     */
-    private int iNodeSize;
-
     /**
      * The allocation group size.
      */
     private long allocationGroupSize;
-
-    /**
-     * The allocation group block size.
-     */
-    private long blockSize;
-
-    /**
-     * The allocation group count.
-     */
-    private int aGCount;
-
-    /**
-     * Xfs File System version current support for 4/5
-     */
-    private int xfsVersion;
 
     /**
      * Construct an XFS file system.
@@ -74,22 +52,23 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     public final void read() throws FileSystemException {
         superblock = new Superblock(this);
         agINode = new AllocationGroupINode(this);
-        iNodeSize = superblock.getInodeSize();
-        blockSize = superblock.getBlockSize();
-        aGCount = (int) superblock.getAGCount();
-        allocationGroupSize = blockSize * superblock.getTotalBlocks() / aGCount;
-        xfsVersion = superblock.getVersion() & 0xF;
+        allocationGroupSize = superblock.getBlockSize() * superblock.getTotalBlocks() / superblock.getAGCount();
     }
 
     /**
      * Reads in the file system from the block device.
-     * <p>
-     * * @throws IOException if an error occurs reading the file system.
+     * TODO remove
+     *
+     * @param absoluteINodeNumber the absolute inode number.
+     * @return the {@link INode}.
+     * @throws IOException if an error occurs reading the file system.
      */
     public INode getINode(long absoluteINodeNumber) throws IOException {
         long offset = getINodeAbsoluteOffset(absoluteINodeNumber);
+
         // Reserve the space to read the iNode
         ByteBuffer allocate = ByteBuffer.allocate(getSuperblock().getInodeSize());
+
         // Read the iNode data
         getApi().read(offset, allocate);
         return new INode(absoluteINodeNumber, allocate.array(), 0, this);
@@ -100,6 +79,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
         int allocationGroupIndex = (int) (absoluteINodeNumber >> numberOfRelativeINodeBits);
         long allocationGroupBlockNumber = (long) allocationGroupIndex * getSuperblock().getAGSize();
         long relativeINodeNumber = absoluteINodeNumber & (((long) 1 << numberOfRelativeINodeBits) - 1);
+
         // Calculate the offset of the iNode number.
         return (allocationGroupBlockNumber * getSuperblock().getBlockSize()) + (relativeINodeNumber * getSuperblock().getInodeSize());
     }
@@ -129,7 +109,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     }
 
     public boolean isV5() {
-        return xfsVersion == 5;
+        return superblock.getVersion() == 5;
     }
 
     /**
@@ -197,4 +177,21 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
         return superblock;
     }
 
+    /**
+     * Gets the {@link AllocationGroupINode}.
+     *
+     * @return the {@link AllocationGroupINode}.
+     */
+    public AllocationGroupINode getAgINode() {
+        return agINode;
+    }
+
+    /**
+     * Gets the allocation group size.
+     *
+     * @return the allocation group size.
+     */
+    public long getAllocationGroupSize() {
+        return allocationGroupSize;
+    }
 }

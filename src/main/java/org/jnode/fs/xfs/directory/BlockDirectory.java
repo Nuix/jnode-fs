@@ -6,48 +6,45 @@ import org.jnode.fs.xfs.XfsEntry;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.inode.INode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A XFS block directory inode.
- * <p>
- * When the shortform directory space exceeds the space in an inode, the
+ * <p>A XFS block directory inode.</p>
+ *
+ * <p>When the shortform directory space exceeds the space in an inode, the
  * directory data is moved into a new single directory block outside the inode.
- * The inode’s format is changed from “local” to “extent”
+ * The inode’s format is changed from “local” to “extent”.</p>
  *
  * @author Ricardo Garza
  * @author Julio Parra
  */
-
 public class BlockDirectory extends XfsObject {
 
     /**
      * The offset of the first entry version 4
      */
-    public final static int V4_LENGTH = 16;
+    public static final int V4_LENGTH = 16;
+
     /**
      * The offset of the first entry version 5
      */
-    public final static int V5_LENGTH = 64;
-    /**
-     * The logger implementation.
-     */
-    private static final Logger log = LoggerFactory.getLogger(BlockDirectory.class);
+    public static final int V5_LENGTH = 64;
+
     /**
      * The magic number XD2B on < v5 filesystem
      */
     private static final long MAGIC_V4 = asciiToHex("XD2B");
+
     /**
      * The magic number XDB3 on a v5 filesystem
      */
     private static final long MAGIC_V5 = asciiToHex("XDB3");
+
     /**
-     * The filesystem
+     * The filesystem.
      */
     XfsFileSystem fs;
 
@@ -136,7 +133,7 @@ public class BlockDirectory extends XfsObject {
         List<FSEntry> data = new ArrayList<>(activeDirs);
         int leafOffset = blockSize - ((activeDirs + 1) * 8);
         for (int i = 0; i < activeDirs; i++) {
-            LeafEntry leafEntry = new LeafEntry(getData(), leafOffset + (i * 8));
+            LeafEntry leafEntry = new LeafEntry(getData(), leafOffset + (i * 8L));
             if (leafEntry.getAddress() == 0) {
                 continue;
             }

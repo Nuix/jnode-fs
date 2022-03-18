@@ -1,27 +1,18 @@
 package org.jnode.fs.xfs.directory;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A XFS Leaf directory.
- * <p>
- * Leaf Directories
- * Once a Block Directory has filled the block, the directory data is changed into a new format called leaf.
+ * <p>A XFS Leaf directory.</p>
+ *
+ * <p>Once a Block Directory has filled the block, the directory data is changed into a new format called leaf.</p>
  *
  * @author Ricardo Garza
  * @author Julio Parra
  */
 public class Leaf {
-
-    /**
-     * The logger implementation.
-     */
-    private static final Logger log = LoggerFactory.getLogger(Leaf.class);
 
     /**
      * The leaf information of this block directory.

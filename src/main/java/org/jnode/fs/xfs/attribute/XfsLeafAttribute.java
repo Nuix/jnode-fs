@@ -25,7 +25,6 @@ public class XfsLeafAttribute extends XfsObject implements FSAttribute {
         return new String(getData(), getOffset() + 3, getNameLength(), StandardCharsets.UTF_8);
     }
 
-
     @Override
     public byte[] getValue() {
         byte[] bytes = new byte[getValueLength()];

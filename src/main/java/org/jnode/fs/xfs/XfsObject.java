@@ -2,8 +2,6 @@ package org.jnode.fs.xfs;
 
 import org.jnode.util.BigEndian;
 
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 /**
@@ -14,11 +12,6 @@ import java.util.Locale;
  * @author Julio Parra
  */
 public class XfsObject {
-
-    /**
-     * The UTF-8 charset.
-     */
-    public static Charset UTF8 = StandardCharsets.UTF_8;
 
     /**
      * The data for this record.
@@ -91,6 +84,7 @@ public class XfsObject {
      * @return the offset.
      */
     public int getOffset() {
+        // TODO: should this be long?
         return offset;
     }
 
@@ -178,7 +172,7 @@ public class XfsObject {
         final String hexString = Long.toHexString(signature);
         try {
             return hexToAscii(hexString);
-        }catch (Throwable e){
+        }catch (NumberFormatException e){
             return hexString;
         }
     }

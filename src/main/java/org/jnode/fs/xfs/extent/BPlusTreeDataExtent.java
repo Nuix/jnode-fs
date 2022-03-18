@@ -1,8 +1,6 @@
 package org.jnode.fs.xfs.extent;
 
 import org.jnode.fs.xfs.XfsObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -10,8 +8,9 @@ import java.util.List;
 
 
 /**
- * B+tree data extent
- * Provides the infrastructure to read the b+tree data.
+ * <p>B+tree data extent</p>
+ *
+ * <p>Provides the infrastructure to read the b+tree data.</p>
  *
  * @author Ricardo Garza
  * @author Julio Parra
@@ -19,18 +18,18 @@ import java.util.List;
 public class BPlusTreeDataExtent extends XfsObject {
 
     /**
-     * The logger implementation.
+     * The magic number for a BMBT block (V5).
      */
-    private static final Logger log = LoggerFactory.getLogger(BPlusTreeDataExtent.class);
+    private static final long MAGIC_V5 = asciiToHex("BMA3");
 
     /**
      * The magic number for a BMBT block (V5).
      */
-    private final static Long MAGIC_V5 = asciiToHex("BMA3");
+    private static final long MAGIC = asciiToHex("BMAP");
+
     /**
-     * The magic number for a BMBT block (V5).
+     * {@code true} if this is a v5 data extent.
      */
-    private final static Long MAGIC = asciiToHex("BMAP");
     private final boolean isV5;
 
     /**
@@ -46,7 +45,8 @@ public class BPlusTreeDataExtent extends XfsObject {
 
         long signature = getMagicSignature();
         if (signature != MAGIC_V5 && signature != MAGIC) {
-            throw new IOException("Wrong magic number for XFS: Required[" + getAsciiSignature(MAGIC_V5) + " or " + getAsciiSignature(MAGIC_V5) + "] found[" + getAsciiSignature(signature) + "]");
+            throw new IOException("Wrong magic number for XFS: Required[" + getAsciiSignature(MAGIC) +
+                    " or " + getAsciiSignature(MAGIC_V5) + "] found[" + getAsciiSignature(signature) + "]");
         }
         this.isV5 = v5;
     }
@@ -107,7 +107,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      * @return block number of the left sibling node
      */
-    public long getLeft() {
+    public long getLeftBlockNumber() {
         return getInt64(16);
     }
 
@@ -116,7 +116,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      * @return the block number
      */
-    public long getBlockNo() {
+    public long getBlockNumber() {
         return getInt64(24);
     }
 
@@ -125,7 +125,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      * @return the log sequence number
      */
-    public long getLsn() {
+    public long getLogSequenceNumber() {
         return getInt64(32);
     }
 

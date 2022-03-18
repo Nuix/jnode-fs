@@ -18,12 +18,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A XFS B+tree directory.
- * <p>
- * B+tree Directories
- * When the extent map in an inode grows beyond the inode’s space,
- * the inode format is changed to a “btree”.
- * </p>
+ * <p>An XFS B+tree directory.</p>
+ *
+ * <p>When the extent map in an inode grows beyond the inode’s space,
+ * the inode format is changed to a “B+tree”.</p>
  *
  * @author Ricardo Garza
  * @author Julio Parra
@@ -34,16 +32,27 @@ public class BPlusTreeDirectory extends XfsObject {
      * The logger implementation.
      */
     private static final Logger log = LoggerFactory.getLogger(BPlusTreeDirectory.class);
-    private final static int BTREE_EXTENT_LIST_MAGIC_V5 = 0x424D4133;
-    private final static int BTREE_EXTENT_LIST_MAGIC = 0x424D4150;
+
+    /**
+     * The magic number for a v5 block map B+tree block (bmbt) - "BMA3".
+     */
+    private static final long BTREE_EXTENT_LIST_MAGIC_V5 = asciiToHex("BMA3");
+
+    /**
+     * The magic number for a block map B+tree block (bmbt) - "BMAP".
+     */
+    private static final long BTREE_EXTENT_LIST_MAGIC = asciiToHex("BMAP");
+
     /**
      * The inode b+tree.
      */
     private final INode inode;
+
     /**
      * The filesystem.
      */
     private final XfsFileSystem fileSystem;
+
     /**
      * The inode number.
      */
@@ -67,11 +76,13 @@ public class BPlusTreeDirectory extends XfsObject {
 
     /**
      * Gets all the entries of the current b+tree directory.
+     * TODO: determine if this needs a test based on note.
      *
      * @param parentDirectory of the inode.
+     * @return a {@link List} of {@link FSEntry}.
      * @throws IOException if an error occurs reading in the super block.
-     *                     <p>
-     *                     Note :  When level &gt; 1 this won't work need an example with more than 1 level to introduce recursively
+     *                     Note: When level &gt; 1 this won't work.
+     *                     Need an example with more than 1 level to introduce recursively.
      */
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
         int btreeInfoOffset = inode.getOffset() + inode.getINodeSizeForOffset();

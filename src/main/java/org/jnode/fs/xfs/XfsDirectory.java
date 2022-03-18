@@ -28,7 +28,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
     /**
      * The logger implementation.
      */
-    private static final Logger log = LoggerFactory.getLogger(XfsDirectory.class);
+    private static final Logger logger = LoggerFactory.getLogger(XfsDirectory.class);
 
     /**
      * The related entry.
@@ -64,17 +64,17 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
     }
 
     @Override
-    public FSEntry getEntryById(String id) throws IOException {
+    public FSEntry getEntryById(String id) {
         checkEntriesLoaded();
         return getEntryTable().getById(id);
     }
 
     @Override
     protected FSEntryTable readEntries() throws IOException {
-        List<FSEntry> entries = new ArrayList<FSEntry>();
+        List<FSEntry> entries = new ArrayList<>();
 
         switch (inode.getFormat()) {
-            case XfsConstants.XFS_DINODE_FMT_LOCAL:
+            case LOCAL:
                 // Entries are stored within the inode record itself
                 int iNodeOffset = inode.getVersion() == INode.V3 ? INode.V3_DATA_OFFSET : INode.DATA_OFFSET;
                 int fourByteEntries = inode.getUInt8(iNodeOffset);
@@ -96,31 +96,30 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                     entryCount += entries.size();
 
                     while (entries.size() < entryCount) {
-                        ShortFormDirectoryEntry entry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize, fileSystem.isV5());
+                        ShortFormDirectoryEntry dirEntry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize, fileSystem.isV5());
 
-                        if (entry.getINumber() == 0) {
+                        if (dirEntry.getINumber() == 0) {
                             return null;
                         }
 
-                        INode childInode = fileSystem.getINode(entry.getINumber());
-                        entries.add(new XfsEntry(childInode, entry.getName(), entries.size(), fileSystem, this));
+                        INode childInode = fileSystem.getINode(dirEntry.getINumber());
+                        entries.add(new XfsEntry(childInode, dirEntry.getName(), entries.size(), fileSystem, this));
 
-                        offset += entry.getNextEntryOffset();
+                        offset += dirEntry.getNextEntryOffset();
 
                     }
                 } else {
-
-                    ShortFormDirectoryEntry entry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize, fileSystem.isV5());
-                    if (entry.getINumber() == 0) {
+                    ShortFormDirectoryEntry dirEntry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize, fileSystem.isV5());
+                    if (dirEntry.getINumber() == 0) {
                         break;
                     }
-                    INode childInode = fileSystem.getINode(entry.getINumber());
-                    entries.add(new XfsEntry(childInode, entry.getName(), entries.size(), fileSystem, this));
 
+                    INode childInode = fileSystem.getINode(dirEntry.getINumber());
+                    entries.add(new XfsEntry(childInode, dirEntry.getName(), entries.size(), fileSystem, this));
                 }
                 break;
 
-            case XfsConstants.XFS_DINODE_FMT_EXTENTS:
+            case EXTENTS:
                 if (!inode.isDirectory()) {
                     throw new UnsupportedOperationException("Trying to get directories of a non directory inode");
                 }
@@ -128,8 +127,8 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
 
                 if (extents.size() == 1) {
                     // Block Directory
-                    if (log.isDebugEnabled()) {
-                        log.debug("Processing a Block directory, Inode Number: " + entry.getINode().getINodeNr());
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Processing a Block directory, Inode Number: {}", entry.getINode().getINodeNr());
                     }
                     final DataExtent extentInformation = extents.get(0);
                     final long extOffset = extentInformation.getExtentOffset(fileSystem);
@@ -137,7 +136,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                     try {
                         fileSystem.getFSApi().read(extOffset, buffer);
                     } catch (ApiNotFoundException e) {
-                        log.warn("Failed to read directory entries at offset: " + extOffset, e);
+                        logger.warn("Failed to read directory entries at offset: " + extOffset, e);
                     }
                     final BlockDirectory myBlockDirectory = new BlockDirectory(buffer.array(), 0, fileSystem);
                     entries = myBlockDirectory.getEntries(this);
@@ -155,20 +154,20 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                     try {
                         fileSystem.getFSApi().read(extOffset, buffer);
                     } catch (ApiNotFoundException e) {
-                        log.warn("Failed to read directory entries at offset: " + extOffset, e);
+                        logger.warn("Failed to read directory entries at offset: " + extOffset, e);
                     }
 
                     if (leafExtentIndex == (extents.size() - 1)) {
                         // Leaf Directory
-                        if (log.isDebugEnabled()) {
-                            log.debug("Processing a Leaf directory, Inode Number: " + iNodeNumber);
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Processing a Leaf directory, Inode Number: {}", iNodeNumber);
                         }
                         final LeafDirectory myLeafDirectory = new LeafDirectory(buffer.array(), 0, fileSystem, iNodeNumber, extents);
                         entries = myLeafDirectory.getEntries(this);
                     } else {
                         // Node Directory
-                        if (log.isDebugEnabled()) {
-                            log.debug("Processing a Node directory, Inode Number: " + iNodeNumber);
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Processing a Node directory, Inode Number: {}", iNodeNumber);
                         }
                         final NodeDirectory myNodeDirectory = new NodeDirectory(buffer.array(), 0, fileSystem, iNodeNumber, extents, leafExtentIndex);
                         entries = myNodeDirectory.getEntries(this);
@@ -176,33 +175,34 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                 }
                 break;
 
-            case XfsConstants.XFS_DINODE_FMT_BTREE:
+            case BTREE:
                 long iNodeNumber = entry.getINode().getINodeNr();
-                if (log.isDebugEnabled()) {
-                    log.debug("Processing a B+tree directory, Inode Number: {}", iNodeNumber);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Processing a B+tree directory, Inode Number: {}", iNodeNumber);
                 }
                 BPlusTreeDirectory myBPlusTreeDirectory = new BPlusTreeDirectory(entry.getINode().getData(), 0, iNodeNumber, fileSystem);
                 entries = myBPlusTreeDirectory.getEntries(this);
                 break;
+
             default:
-                throw new IllegalStateException("Unexpected format: " + inode.getFormat());
+                throw new IllegalStateException("Unexpected format: " + inode.getRawFormat());
         }
 
         return new FSEntryTable(fileSystem, entries);
     }
 
     @Override
-    protected void writeEntries(FSEntryTable entries) throws IOException {
-        throw new UnsupportedOperationException("XFS is read-only");
+    protected void writeEntries(FSEntryTable entries) {
+        throw new UnsupportedOperationException(XfsConstants.XFS_IS_READ_ONLY);
     }
 
     @Override
-    protected FSEntry createFileEntry(String name) throws IOException {
-        throw new UnsupportedOperationException("XFS is read-only");
+    protected FSEntry createFileEntry(String name) {
+        throw new UnsupportedOperationException(XfsConstants.XFS_IS_READ_ONLY);
     }
 
     @Override
-    protected FSEntry createDirectoryEntry(String name) throws IOException {
-        throw new UnsupportedOperationException("XFS is read-only");
+    protected FSEntry createDirectoryEntry(String name) {
+        throw new UnsupportedOperationException(XfsConstants.XFS_IS_READ_ONLY);
     }
 }
