@@ -135,11 +135,11 @@ public class INodeV3 extends INodeV2 {
     }
 
     /**
-     * Gets the v3 inode file system UUID.
+     * Gets the inode file system UUID.
      *
      * @return the UUID.
      */
-    public UUID getV3Uuid() {
+    public UUID getUuid() {
         return uuid;
     }
 
