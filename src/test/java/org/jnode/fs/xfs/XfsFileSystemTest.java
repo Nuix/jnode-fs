@@ -11,6 +11,7 @@ import org.jnode.fs.*;
 import org.jnode.fs.service.FileSystemService;
 
 import org.jnode.fs.xfs.inode.INode;
+import org.jnode.fs.xfs.inode.INodeV3;
 import org.junit.*;
 
 import java.io.File;
@@ -73,20 +74,20 @@ public class XfsFileSystemTest {
     public void testXfsMetaData() throws Exception {
         // Arrange
         String expectedStructure =
-                "  /; \n" +
-                        "    atime : 2021-11-17T06:50:04.416+0000; ctime : 2021-11-17T06:48:33.735+0000; mtime : 2021-11-17T06:48:33.735+0000\n" +
+                        "  /; \n" +
+                        "    atime : 2021-11-17T06:50:04.416+0000; ctime : 2021-11-17T06:47:39.355+0000; mtime : 2021-11-17T06:48:33.735+0000\n" +
                         "    owner : 0; group : 0; size : 57; mode : 777; \n" +
                         "    folder1; \n" +
-                        "        atime : 2021-11-17T06:50:07.494+0000; ctime : 2021-11-17T06:50:07.430+0000; mtime : 2021-11-17T06:50:07.430+0000\n" +
+                        "        atime : 2021-11-17T06:50:07.494+0000; ctime : 2021-11-17T06:48:14.193+0000; mtime : 2021-11-17T06:50:07.430+0000\n" +
                         "        owner : 1000; group : 1000; size : 30; mode : 775; \n" +
                         "      this_is_fine.jpg; \n" +
-                        "            atime : 2021-11-17T06:50:07.430+0000; ctime : 2021-11-17T06:50:07.462+0000; mtime : 2019-05-19T23:45:52.237+0000\n" +
+                        "            atime : 2021-11-17T06:50:07.430+0000; ctime : 2021-11-17T06:50:07.430+0000; mtime : 2019-05-19T23:45:52.237+0000\n" +
                         "            owner : 1000; group : 1000; size : 53072; mode : 744; \n" +
                         "    folder 2; \n" +
-                        "        atime : 2021-11-17T06:52:07.433+0000; ctime : 2021-11-17T06:52:07.421+0000; mtime : 2021-11-17T06:52:07.421+0000\n" +
+                        "        atime : 2021-11-17T06:52:07.433+0000; ctime : 2021-11-17T06:48:17.294+0000; mtime : 2021-11-17T06:52:07.421+0000\n" +
                         "        owner : 1000; group : 1000; size : 21; mode : 775; \n" +
                         "      xfs.zip; \n" +
-                        "            atime : 2021-11-17T06:52:07.421+0000; ctime : 2021-11-17T06:52:07.425+0000; mtime : 2021-11-17T06:52:03.068+0000\n" +
+                        "            atime : 2021-11-17T06:52:07.421+0000; ctime : 2021-11-17T06:52:07.421+0000; mtime : 2021-11-17T06:52:03.068+0000\n" +
                         "            owner : 1000; group : 1000; size : 20103; mode : 744; \n" +
                         "    testfile.txt; \n" +
                         "        atime : 2021-11-17T06:48:33.735+0000; ctime : 2021-11-17T06:48:33.735+0000; mtime : 2021-11-17T06:48:33.735+0000\n" +
@@ -149,24 +150,19 @@ public class XfsFileSystemTest {
      * @param indent the indent level.
      */
     private static void getXfsMetadata(XfsEntry entry, StringBuilder actual, String indent) {
-        actual.append(indent);
-        actual.append(indent);
-        actual.append("atime : ").append(getDate(entry.getLastAccessed()));
-        actual.append("; ");
-        actual.append("ctime : ").append(getDate(entry.getCreated()));
-        actual.append("; ");
+        actual.append(indent).append(indent);
+        actual.append("atime : ").append(getDate(entry.getLastAccessed())).append("; ");
+        if (entry.getINode() instanceof INodeV3) {
+            INodeV3 v3 = (INodeV3) entry.getINode();
+            actual.append("ctime : ").append(getDate(v3.getCreated())).append("; ");
+        }
         actual.append("mtime : ").append(getDate(entry.getLastChanged())).append("\n");
-        actual.append(indent);
-        actual.append(indent);
-        actual.append("owner : ").append(entry.getINode().getUid());
-        actual.append("; ");
-        actual.append("group : ").append(entry.getINode().getGid());
-        actual.append("; ");
-        actual.append("size : ").append(entry.getINode().getSize());
-        actual.append("; ");
+        actual.append(indent).append(indent);
+        actual.append("owner : ").append(entry.getINode().getUid()).append("; ");
+        actual.append("group : ").append(entry.getINode().getGid()).append("; ");
+        actual.append("size : ").append(entry.getINode().getSize()).append("; ");
         String mode = Integer.toOctalString(entry.getINode().getMode());
-        actual.append("mode : ").append(mode.substring(mode.length() - 3));
-        actual.append("; \n");
+        actual.append("mode : ").append(mode.substring(mode.length() - 3)).append("; \n");
     }
 
     /**

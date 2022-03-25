@@ -60,7 +60,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
 
     @Override
     public String getDirectoryId() {
-        return Long.toString(inode.getINodeNr());
+        return Long.toString(inode.getINodeNumber());
     }
 
     @Override
@@ -76,12 +76,12 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
         switch (inode.getFormat()) {
             case LOCAL:
                 // Entries are stored within the inode record itself
-                int iNodeOffset = inode.getVersion() == INode.V3 ? INode.V3_DATA_OFFSET : INode.DATA_OFFSET;
-                int fourByteEntries = inode.getUInt8(iNodeOffset);
-                int eightByteEntries = inode.getUInt8(iNodeOffset + 1);
+                int inodeDataOffset = inode.getDataOffset();
+                int fourByteEntries = inode.getUInt8(inodeDataOffset);
+                int eightByteEntries = inode.getUInt8(inodeDataOffset + 1);
                 int recordSize = fourByteEntries > 0 ? 4 : 8;
                 int entryCount = fourByteEntries > 0 ? fourByteEntries : eightByteEntries;
-                int offset = iNodeOffset + inode.getOffset() + 0x6;
+                int offset = inodeDataOffset + inode.getOffset() + 6;
 
                 if (!inode.isSymLink()) {
                     // The local storage doesn't store the relative directory entries, so add these in manually
@@ -128,7 +128,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                 if (extents.size() == 1) {
                     // Block Directory
                     if (logger.isDebugEnabled()) {
-                        logger.debug("Processing a Block directory, Inode Number: {}", entry.getINode().getINodeNr());
+                        logger.debug("Processing a Block directory, Inode Number: {}", entry.getINode().getINodeNumber());
                     }
                     final DataExtent extentInformation = extents.get(0);
                     final long extOffset = extentInformation.getExtentOffset(fileSystem);
@@ -143,7 +143,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                 } else {
 
                     long leafExtentIndex = LeafDirectory.getLeafExtentIndex(extents, fileSystem);
-                    long iNodeNumber = entry.getINode().getINodeNr();
+                    long iNodeNumber = entry.getINode().getINodeNumber();
 
                     if (leafExtentIndex == -1) {
                         throw new IOException("Cannot compute leaf extent for inode " + iNodeNumber);
@@ -176,7 +176,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                 break;
 
             case BTREE:
-                long iNodeNumber = entry.getINode().getINodeNr();
+                long iNodeNumber = entry.getINode().getINodeNumber();
                 if (logger.isDebugEnabled()) {
                     logger.debug("Processing a B+tree directory, Inode Number: {}", iNodeNumber);
                 }

@@ -76,23 +76,23 @@ public class BPlusTreeDirectory extends XfsObject {
 
     /**
      * Gets all the entries of the current b+tree directory.
+     * Note: When level &gt; 1 this won't work.
+     * Need an example with more than 1 level to introduce recursively.
      * TODO: determine if this needs a test based on note.
      *
      * @param parentDirectory of the inode.
      * @return a {@link List} of {@link FSEntry}.
      * @throws IOException if an error occurs reading in the super block.
-     *                     Note: When level &gt; 1 this won't work.
-     *                     Need an example with more than 1 level to introduce recursively.
      */
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
-        int btreeInfoOffset = inode.getOffset() + inode.getINodeSizeForOffset();
+        int btreeInfoOffset = inode.getOffset() + inode.getDataOffset();
         int level = getUInt16(btreeInfoOffset);
         int numrecs = getUInt16(btreeInfoOffset + 2);
         long forkOffset = inode.getAttributesForkOffset() * 8;
         if (forkOffset == 0) {
-            forkOffset = fileSystem.getSuperblock().getInodeSize() - inode.getINodeSizeForOffset();
+            forkOffset = fileSystem.getSuperblock().getInodeSize() - inode.getDataOffset();
         }
-        int btreeBlockOffset = (int) (inode.getOffset() + inode.getINodeSizeForOffset() + (forkOffset / 2));
+        int btreeBlockOffset = (int) (inode.getOffset() + inode.getDataOffset() + (forkOffset / 2));
         // 8 byte alignment. not sure if it should be a 16 byte alignment?
         btreeBlockOffset = btreeBlockOffset + (btreeBlockOffset % 8);
         List<DataExtent> extents = getFlattenedExtents(getData(), level, new ArrayList<>(200), btreeBlockOffset, numrecs);

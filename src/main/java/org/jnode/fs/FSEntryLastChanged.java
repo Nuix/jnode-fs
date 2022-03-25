@@ -27,5 +27,5 @@ import java.io.IOException;
  * until JNode adds it to {@link FSEntry}.
  */
 public interface FSEntryLastChanged {
-    public long getLastChanged() throws IOException;
+    long getLastChanged() throws IOException;
 }

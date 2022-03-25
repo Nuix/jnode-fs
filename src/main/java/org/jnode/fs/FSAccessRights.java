@@ -37,28 +37,28 @@ public interface FSAccessRights extends FSObject {
      * 
      * @throws IOException if error occurs during retrieve of the owner.
      */
-    public Principal getOwner() throws IOException;
+    Principal getOwner() throws IOException;
 
     /**
      * Returns <tt>true</tt> if read is allow for the related entry.
      * 
      * @return <tt>true</tt> if read is allow for the related entry.
      */
-    public boolean canRead();
+    boolean canRead();
 
     /**
      * Returns <tt>true</tt> if write is allow for the related entry.
      * 
      * @return <tt>true</tt> if write is allow for the related entry.
      */
-    public boolean canWrite();
+    boolean canWrite();
 
     /**
      * Returns <tt>true</tt> if execution is allow for the related entry.
      * 
      * @return <tt>true</tt> if execution is allow for the related entry.
      */
-    public boolean canExecute();
+    boolean canExecute();
 
     /**
      * Set related entry as readable. This right can be limited to the owner.
@@ -68,7 +68,7 @@ public interface FSAccessRights extends FSObject {
      * 
      * @return <tt>true</tt> if read is allowed.
      */
-    public boolean setReadable(boolean enable, boolean owneronly);
+    boolean setReadable(boolean enable, boolean owneronly);
 
     /**
      * Set related entry as writable. This right can be limited to the owner.
@@ -78,7 +78,7 @@ public interface FSAccessRights extends FSObject {
      * 
      * @return <tt>true</tt> if write is allowed.
      */
-    public boolean setWritable(boolean enable, boolean owneronly);
+    boolean setWritable(boolean enable, boolean owneronly);
 
     /**
      * Set related entry as executable. This right can be limited to the owner.
@@ -88,5 +88,5 @@ public interface FSAccessRights extends FSObject {
      * 
      * @return <tt>true</tt> if execution is allowed.
      */
-    public boolean setExecutable(boolean enable, boolean owneronly);
+    boolean setExecutable(boolean enable, boolean owneronly);
 }

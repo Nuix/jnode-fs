@@ -5,6 +5,7 @@ import org.jnode.fs.spi.AbstractFSEntry;
 import org.jnode.fs.util.UnixFSConstants;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.inode.INode;
+import org.jnode.fs.xfs.inode.INodeV3;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -13,13 +14,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * An entry in a XFS file system.
+ * <p>An entry in a XFS file system.</p>
+ *
+ * <p>TODO: Extend this class to implement {@link FSEntryCreated} to support {@link INodeV3},
+ * which has inode creation date or something cleaner.</p>
  *
  * @author Luke Quinane
  * @author Ricardo Garza
  * @author Julio Parra
  */
-public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntryLastAccessed, FSEntryLastChanged {
+public class XfsEntry extends AbstractFSEntry implements FSEntryLastAccessed, FSEntryLastChanged {
 
     /**
      * The inode.
@@ -75,27 +79,21 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
 
     @Override
     public String getId() {
-        return Long.toString(inode.getINodeNr()) + '-' + directoryRecordId;
+        return Long.toString(inode.getINodeNumber()) + '-' + directoryRecordId;
     }
 
     /**
      * Converts an entry's time value from the seconds/nanoseconds values to a millisecond
-     * value, usable by {@link #getCreated()}, {@link #getLastAccessed()}, and {@link #getLastChanged()}.
+     * value, usable by {@link #getLastAccessed()}, and {@link #getLastChanged()}.
      *
      * @param seconds     the seconds value from the entry.
      * @param nanoseconds the nanoseconds value from the entry.
      * @return the milliseconds value.
-     * @see #getCreated()
      * @see #getLastAccessed()
      * @see #getLastChanged()
      */
     private long getMilliseconds(long seconds, long nanoseconds) {
         return (seconds * 1_000) + (nanoseconds / 1_000_000);
-    }
-
-    @Override
-    public long getCreated() {
-        return getMilliseconds(inode.getCreatedTimeSec(), inode.getCreatedTimeNsec());
     }
 
     @Override
@@ -105,7 +103,16 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
 
     @Override
     public long getLastChanged() {
-        return getMilliseconds(inode.getChangedTimeSec(), inode.getChangedTimeNsec());
+        return getMilliseconds(inode.getModifiedTimeSec(), inode.getModifiedTimeNsec());
+    }
+
+    /**
+     * Gets the last inode change time.
+     *
+     * @return the last inode change time.
+     */
+    public long getInodeLastChanged() {
+        return getMilliseconds(inode.getInodeChangeTimeSec(), inode.getInodeChangeTimeNsec());
     }
 
     /**
@@ -155,8 +162,8 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
                     extentList = new ArrayList<>((int) inode.getExtentCount());
 
                     for (int i = 0; i < inode.getExtentCount(); i++) {
-                        int inodeOffset = inode.getVersion() >= INode.V3 ? INode.V3_DATA_OFFSET : INode.DATA_OFFSET;
-                        int extentOffset = inodeOffset + i * DataExtent.PACKED_LENGTH;
+                        int inodeDataOffset = inode.getDataOffset();
+                        int extentOffset = inodeDataOffset + i * DataExtent.PACKED_LENGTH;
                         DataExtent extent = new DataExtent(inode.getData(), extentOffset);
                         extentList.add(extent);
                     }
@@ -165,7 +172,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryCreated, FSEntry
                 break;
 
             case BTREE:
-                throw new UnsupportedOperationException("Unsupported B+tree format for inode " + inode.getINodeNr());
+                throw new UnsupportedOperationException("Unsupported B+tree format for inode " + inode.getINodeNumber());
 
             default:
                 throw new IllegalStateException("Unexpected format: " + inode.getRawFormat());

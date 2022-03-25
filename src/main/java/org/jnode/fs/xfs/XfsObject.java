@@ -84,7 +84,6 @@ public class XfsObject {
      * @return the offset.
      */
     public int getOffset() {
-        // TODO: should this be long?
         return offset;
     }
 
@@ -168,7 +167,7 @@ public class XfsObject {
      * @param signature Xfs magic number
      * @return the ascii value.
      */
-    protected String getAsciiSignature(long signature) {
+    public String getAsciiSignature(long signature) {
         final String hexString = Long.toHexString(signature);
         try {
             return hexToAscii(hexString);

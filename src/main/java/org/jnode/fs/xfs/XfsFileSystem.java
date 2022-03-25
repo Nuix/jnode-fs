@@ -5,6 +5,7 @@ import org.jnode.driver.block.BlockDeviceAPI;
 import org.jnode.fs.*;
 import org.jnode.fs.spi.AbstractFileSystem;
 import org.jnode.fs.xfs.inode.INode;
+import org.jnode.fs.xfs.inode.INodeFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -57,7 +58,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
 
     /**
      * Reads in the file system from the block device.
-     * TODO remove
+     * TODO remove, or maybe refactor somehow
      *
      * @param absoluteINodeNumber the absolute inode number.
      * @return the {@link INode}.
@@ -71,7 +72,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
 
         // Read the iNode data
         getApi().read(offset, allocate);
-        return new INode(absoluteINodeNumber, allocate.array(), 0, this);
+        return INodeFactory.create(absoluteINodeNumber, allocate.array(), 0, this);
     }
 
     public long getINodeAbsoluteOffset(long absoluteINodeNumber) {

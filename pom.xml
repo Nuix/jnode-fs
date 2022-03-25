@@ -49,6 +49,8 @@
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outuputEncoding>UTF-8</project.reporting.outuputEncoding>
         <slf4jVersion>1.7.32</slf4jVersion>
     </properties>
 
