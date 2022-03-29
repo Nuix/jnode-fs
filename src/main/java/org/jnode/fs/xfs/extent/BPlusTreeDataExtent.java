@@ -1,8 +1,6 @@
 package org.jnode.fs.xfs.extent;
 
 import org.jnode.fs.xfs.XfsObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -10,8 +8,9 @@ import java.util.List;
 
 
 /**
- * B+tree data extent
- * Provides the infrastructure to read the b+tree data.
+ * <p>B+tree data extent</p>
+ *
+ * <p>Provides the infrastructure to read the b+tree data.</p>
  *
  * @author Ricardo Garza
  * @author Julio Parra
@@ -19,28 +18,37 @@ import java.util.List;
 public class BPlusTreeDataExtent extends XfsObject {
 
     /**
-     * The logger implementation.
+     * The magic number for a BMBT block (V5).
      */
-    private static final Logger log = LoggerFactory.getLogger(BPlusTreeDataExtent.class);
+    private static final long MAGIC_V5 = asciiToHex("BMA3");
 
     /**
      * The magic number for a BMBT block (V5).
      */
-    private final static Long MAGIC = asciiToHex("BMA3");
+    private static final long MAGIC = asciiToHex("BMAP");
+
+    /**
+     * {@code true} if this is a v5 data extent.
+     */
+    private final boolean isV5;
 
     /**
      * Creates a b+tree data extent.
      *
-     * @param data of the inode.
+     * @param data   of the inode.
      * @param offset of the inode's data
+     * @param v5     is filesystem v5
      * @throws IOException if an error occurs reading in the b+tree block.
      */
-    public BPlusTreeDataExtent(byte[] data, long offset) throws IOException {
+    public BPlusTreeDataExtent(byte[] data, long offset, boolean v5) throws IOException {
         super(data, (int) offset);
 
-        if (getMagicSignature() != MAGIC) {
-            throw new IOException("Wrong magic number for XFS: Required[" + getAsciiSignature(MAGIC) + " found[" + getAsciiSignature(getMagicSignature()) + "]" ) ;
+        long signature = getMagicSignature();
+        if (signature != MAGIC_V5 && signature != MAGIC) {
+            throw new IOException("Wrong magic number for XFS: Required[" + getAsciiSignature(MAGIC) +
+                    " or " + getAsciiSignature(MAGIC_V5) + "] found[" + getAsciiSignature(signature) + "]");
         }
+        this.isV5 = v5;
     }
 
     /**
@@ -48,19 +56,19 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      * @return the hex value.
      */
-    public long getMagicSignature()  {
+    public long getMagicSignature() {
         return getUInt32(0);
     }
 
     /**
      * Gets all the entries of the current b+tree directory.
-     *
      */
     private List<DataExtent> getExtentInfo() {
-        long offset = getOffset() + 72;
-        final List<DataExtent> list = new ArrayList<>((int) getNumrecs());
-        for (int i=0; i < getNumrecs(); i++) {
-            final DataExtent info = new DataExtent(getData(), (int) offset);
+        long offset = getOffset() + (isV5 ? 72 : 24);
+        int numrecs = (int) getNumrecs();
+        List<DataExtent> list = new ArrayList<>(numrecs);
+        for (int i = 0; i < numrecs; i++) {
+            DataExtent info = new DataExtent(getData(), (int) offset);
             list.add(info);
             offset += 0x10;
         }
@@ -99,7 +107,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      * @return block number of the left sibling node
      */
-    public long getLeft() {
+    public long getLeftBlockNumber() {
         return getInt64(16);
     }
 
@@ -108,7 +116,7 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      * @return the block number
      */
-    public long getBlockNo() {
+    public long getBlockNumber() {
         return getInt64(24);
     }
 
@@ -117,14 +125,14 @@ public class BPlusTreeDataExtent extends XfsObject {
      *
      * @return the log sequence number
      */
-    public long getLsn() {
+    public long getLogSequenceNumber() {
         return getInt64(32);
     }
 
     /**
      * Gets the UUID of this block.
      *
-     * @return  the UUID
+     * @return the UUID
      */
     public String getUuid() {
         return readUuid(40);

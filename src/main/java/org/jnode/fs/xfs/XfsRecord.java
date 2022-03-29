@@ -9,14 +9,8 @@ public abstract class XfsRecord extends XfsObject {
 
     /**
      * Creates a new record.
-     */
-    protected XfsRecord() {
-    }
-
-    /**
-     * Creates a new record.
      *
-     * @param data the data.
+     * @param data   the data.
      * @param offset the offset to this record.
      */
     protected XfsRecord(byte[] data, int offset) {

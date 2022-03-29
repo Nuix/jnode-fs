@@ -3,6 +3,7 @@ package org.jnode.fs.xfs;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.jnode.driver.block.FileDevice;
 import org.jnode.fs.DataStructureAsserts;
 import org.jnode.fs.FileSystemTestUtils;
@@ -10,8 +11,8 @@ import org.jnode.fs.*;
 import org.jnode.fs.service.FileSystemService;
 
 import org.jnode.fs.xfs.inode.INode;
-import org.junit.Before;
-import org.junit.Test;
+import org.jnode.fs.xfs.inode.INodeV3;
+import org.junit.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,30 +21,40 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class XfsFileSystemTest {
 
-    private FileSystemService fss;
+    private static FileSystemService fss;
+    private static File baseTestFile;
+    private static File extendedAttrTestFile;
+    private static File dirTypesTestFile;
 
-    @Before
-    public void setUp() {
+    @BeforeClass
+    public static void setUp() throws IOException {
         // create file system service.
         fss = FileSystemTestUtils.createFSService(XfsFileSystemType.class.getName());
+        baseTestFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/test-xfs-1.img");
+        extendedAttrTestFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
+        // dirTypesTestFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/dir_types.img");
+    }
+
+    @AfterClass
+    public static void cleanup() {
+        baseTestFile.delete();
+        extendedAttrTestFile.delete();
+        // dirTypesTestFile.delete();
     }
 
     @Test
     public void testImage1() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/test-xfs-1.img");
-
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (FileDevice device = new FileDevice(baseTestFile, "r")) {
             XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
             XfsFileSystem fs = type.create(device, true);
 
@@ -55,37 +66,34 @@ public class XfsFileSystemTest {
                     "      xfs.zip; 20103; d5f8c07fdff365b45b8af1ae7622a98d\n" +
                     "    testfile.txt; 20; 5dd39cab1c53c2c77cd352983f9641e1\n";
             DataStructureAsserts.assertStructure(fs, expectedStructure);
-        } finally {
-            testFile.delete();
         }
     }
 
 
     @Test
     public void testXfsMetaData() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/test-xfs-1.img");
         // Arrange
         String expectedStructure =
-                "  /; \n" +
-                "    atime : 2021-11-17T06:50:04.416+0000; ctime : 2021-11-17T06:48:33.735+0000; mtime : 2021-11-17T06:48:33.735+0000\n" +
-                "    owner : 0; group : 0; size : 57; mode : 777; \n" +
-                "    folder1; \n" +
-                "        atime : 2021-11-17T06:50:07.494+0000; ctime : 2021-11-17T06:50:07.430+0000; mtime : 2021-11-17T06:50:07.430+0000\n" +
-                "        owner : 1000; group : 1000; size : 30; mode : 775; \n" +
-                "      this_is_fine.jpg; \n" +
-                "            atime : 2021-11-17T06:50:07.430+0000; ctime : 2021-11-17T06:50:07.462+0000; mtime : 2019-05-19T23:45:52.237+0000\n" +
-                "            owner : 1000; group : 1000; size : 53072; mode : 744; \n" +
-                "    folder 2; \n" +
-                "        atime : 2021-11-17T06:52:07.433+0000; ctime : 2021-11-17T06:52:07.421+0000; mtime : 2021-11-17T06:52:07.421+0000\n" +
-                "        owner : 1000; group : 1000; size : 21; mode : 775; \n" +
-                "      xfs.zip; \n" +
-                "            atime : 2021-11-17T06:52:07.421+0000; ctime : 2021-11-17T06:52:07.425+0000; mtime : 2021-11-17T06:52:03.068+0000\n" +
-                "            owner : 1000; group : 1000; size : 20103; mode : 744; \n" +
-                "    testfile.txt; \n" +
-                "        atime : 2021-11-17T06:48:33.735+0000; ctime : 2021-11-17T06:48:33.735+0000; mtime : 2021-11-17T06:48:33.735+0000\n" +
-                "        owner : 1000; group : 1000; size : 20; mode : 664; \n";
+                        "  /; \n" +
+                        "    atime : 2021-11-17T06:50:04.416+0000; ctime : 2021-11-17T06:47:39.355+0000; mtime : 2021-11-17T06:48:33.735+0000\n" +
+                        "    owner : 0; group : 0; size : 57; mode : 777; \n" +
+                        "    folder1; \n" +
+                        "        atime : 2021-11-17T06:50:07.494+0000; ctime : 2021-11-17T06:48:14.193+0000; mtime : 2021-11-17T06:50:07.430+0000\n" +
+                        "        owner : 1000; group : 1000; size : 30; mode : 775; \n" +
+                        "      this_is_fine.jpg; \n" +
+                        "            atime : 2021-11-17T06:50:07.430+0000; ctime : 2021-11-17T06:50:07.430+0000; mtime : 2019-05-19T23:45:52.237+0000\n" +
+                        "            owner : 1000; group : 1000; size : 53072; mode : 744; \n" +
+                        "    folder 2; \n" +
+                        "        atime : 2021-11-17T06:52:07.433+0000; ctime : 2021-11-17T06:48:17.294+0000; mtime : 2021-11-17T06:52:07.421+0000\n" +
+                        "        owner : 1000; group : 1000; size : 21; mode : 775; \n" +
+                        "      xfs.zip; \n" +
+                        "            atime : 2021-11-17T06:52:07.421+0000; ctime : 2021-11-17T06:52:07.421+0000; mtime : 2021-11-17T06:52:03.068+0000\n" +
+                        "            owner : 1000; group : 1000; size : 20103; mode : 744; \n" +
+                        "    testfile.txt; \n" +
+                        "        atime : 2021-11-17T06:48:33.735+0000; ctime : 2021-11-17T06:48:33.735+0000; mtime : 2021-11-17T06:48:33.735+0000\n" +
+                        "        owner : 1000; group : 1000; size : 20; mode : 664; \n";
 
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (FileDevice device = new FileDevice(baseTestFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
 
@@ -96,8 +104,6 @@ public class XfsFileSystemTest {
 
             assertThat(actual.toString(), is(expectedStructure));
 
-        } finally {
-            testFile.delete();
         }
     }
 
@@ -109,8 +115,7 @@ public class XfsFileSystemTest {
      * @param indent the indent level.
      * @throws IOException if an error occurs.
      */
-    private static void buildXfsMetaDataStructure(XfsEntry entry, StringBuilder actual, String indent) throws IOException
-    {
+    private static void buildXfsMetaDataStructure(XfsEntry entry, StringBuilder actual, String indent) throws IOException {
         actual.append(indent);
         actual.append(entry.getName());
         actual.append("; \n");
@@ -119,10 +124,8 @@ public class XfsFileSystemTest {
             getXfsMetadata(entry, actual, indent);
         }
         if (entry.isFile()) {
-            FSFile file = entry.getFile();
             getXfsMetadata(entry, actual, indent);
-        }
-        else {
+        } else {
             FSDirectory directory = entry.getDirectory();
 
             Iterator<? extends FSEntry> iterator = directory.iterator();
@@ -130,12 +133,11 @@ public class XfsFileSystemTest {
             while (iterator.hasNext()) {
                 FSEntry child = iterator.next();
 
-                if (".".equals(child.getName()) || "..".equals(child.getName()))
-                {
+                if (".".equals(child.getName()) || "..".equals(child.getName())) {
                     continue;
                 }
 
-                buildXfsMetaDataStructure((XfsEntry)child, actual, indent + "  ");
+                buildXfsMetaDataStructure((XfsEntry) child, actual, indent + "  ");
             }
         }
     }
@@ -146,35 +148,27 @@ public class XfsFileSystemTest {
      * @param entry  the entry to process.
      * @param actual the string to append to.
      * @param indent the indent level.
-     *
      */
-    private static StringBuilder getXfsMetadata(XfsEntry entry, StringBuilder actual,String indent) {
-        actual.append(indent);
-        actual.append(indent);
-        actual.append("atime : ").append(getDate(entry.getLastAccessed()));
-        actual.append("; ");
-        actual.append("ctime : ").append(getDate(entry.getCreated()));
-        actual.append("; ");
+    private static void getXfsMetadata(XfsEntry entry, StringBuilder actual, String indent) {
+        actual.append(indent).append(indent);
+        actual.append("atime : ").append(getDate(entry.getLastAccessed())).append("; ");
+        if (entry.getINode() instanceof INodeV3) {
+            INodeV3 v3 = (INodeV3) entry.getINode();
+            actual.append("ctime : ").append(getDate(v3.getCreated())).append("; ");
+        }
         actual.append("mtime : ").append(getDate(entry.getLastChanged())).append("\n");
-        actual.append(indent);
-        actual.append(indent);
-        actual.append("owner : ").append(entry.getINode().getUid());
-        actual.append("; ");
-        actual.append("group : ").append(entry.getINode().getGid());
-        actual.append("; ");
-        actual.append("size : ").append(entry.getINode().getSize());
-        actual.append("; ");
+        actual.append(indent).append(indent);
+        actual.append("owner : ").append(entry.getINode().getUid()).append("; ");
+        actual.append("group : ").append(entry.getINode().getGid()).append("; ");
+        actual.append("size : ").append(entry.getINode().getSize()).append("; ");
         String mode = Integer.toOctalString(entry.getINode().getMode());
-        actual.append("mode : ").append(mode.substring(mode.length() - 3));
-        actual.append("; \n");
-
-        return actual;
+        actual.append("mode : ").append(mode.substring(mode.length() - 3)).append("; \n");
     }
 
     /**
      * Convert epoch to human-readable date.
      *
-     * @param date  the epoch value.
+     * @param date the epoch value.
      */
     private static String getDate(long date) {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
@@ -184,115 +178,105 @@ public class XfsFileSystemTest {
 
     @Test
     public void testShortFormAttribute() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
-            final INode shortAttributeINode = fs.getINode(11075L);
-            final XfsEntry entry = new XfsEntry(shortAttributeINode, "", 0, fs, null);
-            assertThat(shortAttributeINode.getAttributesFormat(),is(1L));// Short form attribute format
-            final List<FSAttribute> attributes = entry.getAttributes();
-            assertThat(attributes,hasSize(1));
-            final FSAttribute attribute = attributes.get(0);
-            assertThat(attribute.getName(),is("selinux"));
-            final String stringValue = new String(attribute.getValue(),StandardCharsets.UTF_8)
-                    .replace("\0","");
-            assertThat(stringValue,is("unconfined_u:object_r:unlabeled_t:s0"));
-        } finally {
-            testFile.delete();
+            INode shortAttributeINode = fs.getINode(11075L);
+            XfsEntry entry = new XfsEntry(shortAttributeINode, "", 0, fs, null);
+            assertThat(shortAttributeINode.getAttributesFormat(), is(1));// Short form attribute format
+            List<FSAttribute> attributes = entry.getAttributes();
+            assertThat(attributes, hasSize(1));
+            FSAttribute attribute = attributes.get(0);
+            assertThat(attribute.getName(), is("selinux"));
+            String stringValue = new String(attribute.getValue(), StandardCharsets.UTF_8)
+                    .replace("\0", "");
+            assertThat(stringValue, is("unconfined_u:object_r:unlabeled_t:s0"));
         }
     }
 
     @Test
     public void testLeafAttributes() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
-            final INode leafAttributeINode = fs.getINode(11076L);
-            final XfsEntry entry = new XfsEntry(leafAttributeINode, "", 0, fs, null);
-            // leaf/node form attribute format
-            assertThat(leafAttributeINode.getAttributesFormat(),is(2L));
-            // leaf only has 1 extent
-            assertThat(leafAttributeINode.getAttributeExtentCount(),is(1));
+            INode leafAttributeINode = fs.getINode(11076L);
+            XfsEntry entry = new XfsEntry(leafAttributeINode, "", 0, fs, null);
 
-            final List<FSAttribute> attributes = entry.getAttributes();
-            assertThat(attributes,hasSize(31));
-            assertThat(attributes,everyItem(getSampleAttributeMatcher()));
-        } finally {
-            testFile.delete();
+            // leaf/node form attribute format
+            assertThat(leafAttributeINode.getAttributesFormat(), is(2));
+
+            // leaf only has 1 extent
+            assertThat(leafAttributeINode.getAttributeExtentCount(), is(1));
+
+            List<FSAttribute> attributes = entry.getAttributes();
+            assertThat(attributes, hasSize(31));
+            assertThat(attributes, everyItem(getSampleAttributeMatcher()));
         }
     }
 
     @Test
     public void testNodeAttributes() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
-            final INode nodeAttributeINode = fs.getINode(11077L);
-            final XfsEntry entry = new XfsEntry(nodeAttributeINode, "", 0, fs, null);
+            INode nodeAttributeINode = fs.getINode(11077L);
+            XfsEntry entry = new XfsEntry(nodeAttributeINode, "", 0, fs, null);
             // leaf/node form attribute format
-            assertThat(nodeAttributeINode.getAttributesFormat(),is(2L));
+            assertThat(nodeAttributeINode.getAttributesFormat(), is(2));
             // node has more than 1 extent
-            assertThat(nodeAttributeINode.getAttributeExtentCount(),greaterThan(1));
+            assertThat(nodeAttributeINode.getAttributeExtentCount(), greaterThan(1));
 
-            final List<FSAttribute> attributes = entry.getAttributes();
-            assertThat(attributes,hasSize(201));
-            assertThat(attributes,everyItem(getSampleAttributeMatcher()));
-        } finally {
-            testFile.delete();
+            List<FSAttribute> attributes = entry.getAttributes();
+            assertThat(attributes, hasSize(201));
+            assertThat(attributes, everyItem(getSampleAttributeMatcher()));
         }
     }
 
     @Test
     public void testSparseFiles() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/extended_attr.img");
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
             XfsFileSystemType type = new XfsFileSystemType();
             XfsFileSystem fs = type.create(device, true);
-            final long blockSize = fs.getSuperblock().getBlockSize();
-            final INode sparseFileINode = fs.getINode(11078L);
-            final XfsEntry entry = new XfsEntry(sparseFileINode, "sparse.dat", 0, fs, null);
-            final long fileSize = sparseFileINode.getSize();
+            long blockSize = fs.getSuperblock().getBlockSize();
+            INode sparseFileINode = fs.getINode(11078L);
+            XfsEntry entry = new XfsEntry(sparseFileINode, "sparse.dat", 0, fs, null);
+            long fileSize = sparseFileINode.getSize();
             for (int offset = 0; offset < fileSize; offset += blockSize) {
-                final int bufferSize = (int) Math.min(blockSize, fileSize - offset);
+                int bufferSize = (int) Math.min(blockSize, fileSize - offset);
                 ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
-                entry.read(offset,buffer);
+                entry.read(offset, buffer);
                 if (blockSize == bufferSize) {
                     // in case of sparse data the buffer should be left untouched
                     assertThat(buffer.position(), is(0));
                 } else {
-                    final byte[] array = buffer.array();
-                    final String stringData = new String(array, StandardCharsets.UTF_8);
-                    assertThat(stringData,is("Just a little bit of data right at the end...\n"));
+                    byte[] array = buffer.array();
+                    String stringData = new String(array, StandardCharsets.UTF_8);
+                    assertThat(stringData, is("Just a little bit of data right at the end...\n"));
                 }
 
             }
-        } finally {
-            testFile.delete();
         }
     }
 
-    private Matcher<FSAttribute> getSampleAttributeMatcher(){
+    private Matcher<FSAttribute> getSampleAttributeMatcher() {
         return new BaseMatcher<FSAttribute>() {
             private final Pattern namePattern = Pattern.compile("sample-attr([0-9]+)");
             private final Pattern valuePattern = Pattern.compile("sample-value([0-9]+)");
 
             @Override
             public boolean matches(Object o) {
-                if (o instanceof FSAttribute){
-                    final FSAttribute attr = (FSAttribute) o;
-                    final String name = attr.getName();
-                    final byte[] value = attr.getValue();
-                    final String stringValue = new String(value,StandardCharsets.UTF_8)
-                            .replace("\0","");
-                    if (name.equals("selinux")){
+                if (o instanceof FSAttribute) {
+                    FSAttribute attr = (FSAttribute) o;
+                    String name = attr.getName();
+                    byte[] value = attr.getValue();
+                    String stringValue = new String(value, StandardCharsets.UTF_8)
+                            .replace("\0", "");
+                    if (name.equals("selinux")) {
                         return stringValue.equals("unconfined_u:object_r:unlabeled_t:s0");
                     }
-                    final java.util.regex.Matcher nameMatcher = namePattern.matcher(name);
-                    final java.util.regex.Matcher valueMatcher = valuePattern.matcher(stringValue);
-                    if (nameMatcher.matches() && valueMatcher.matches()){
+                    java.util.regex.Matcher nameMatcher = namePattern.matcher(name);
+                    java.util.regex.Matcher valueMatcher = valuePattern.matcher(stringValue);
+                    if (nameMatcher.matches() && valueMatcher.matches()) {
                         return nameMatcher.group(1).equals(valueMatcher.group(1));
                     }
                 }
@@ -306,6 +290,7 @@ public class XfsFileSystemTest {
         };
     }
 
+    @Ignore("Test data not in project")
     @Test
     public void testCentos() throws Exception {
 
@@ -316,10 +301,95 @@ public class XfsFileSystemTest {
             XfsEntry entry = fs.getRootEntry();
             StringBuilder actual = new StringBuilder(1024);
             buildXfsDirStructure(entry, actual, "  ");
+            // TODO: an assertion
         } finally {
             testFile.delete();
         }
     }
+
+    @Ignore("test data not in project")
+    @Test
+    public void testShortFormDir() throws Exception {
+
+        try (FileDevice device = new FileDevice(dirTypesTestFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            List<? extends FSEntry> entries = getInodeEntries(fs, 131);
+            assertThat(entries.size(), Matchers.is(4));
+        }
+    }
+
+    @Ignore("test data not in project")
+    @Test
+    public void testBlockDir() throws Exception {
+
+        try (FileDevice device = new FileDevice(dirTypesTestFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            List<? extends FSEntry> entries = getInodeEntries(fs, 1048704);
+            assertThat(entries.size(), Matchers.is(22));
+        }
+    }
+
+    @Ignore("test data not in project")
+    @Test
+    public void testLeafDir() throws Exception {
+
+        try (FileDevice device = new FileDevice(dirTypesTestFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            List<? extends FSEntry> entries = getInodeEntries(fs, 2117760);
+            assertThat(entries.size(), Matchers.is(202));
+        }
+    }
+
+    @Ignore("test data not in project")
+    @Test
+    public void testNodeDir() throws Exception {
+
+        try (FileDevice device = new FileDevice(dirTypesTestFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            List<? extends FSEntry> entries = getInodeEntries(fs, 3145856);
+            assertThat(entries.size(), Matchers.is(1_002));
+        }
+    }
+
+    @Ignore("test data not in project")
+    @Test
+    public void testSingleLevelBTreeDir() throws Exception {
+
+        try (FileDevice device = new FileDevice(dirTypesTestFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            List<? extends FSEntry> entries = getInodeEntries(fs, 132);
+            assertThat(entries.size(), Matchers.is(10_002));
+        }
+    }
+
+    @Ignore("test data not in project")
+    @Test
+    public void testMultiLevelBTreeDir() throws Exception {
+
+        try (FileDevice device = new FileDevice(dirTypesTestFile, "r")) {
+            XfsFileSystemType type = fss.getFileSystemType(XfsFileSystemType.ID);
+            XfsFileSystem fs = type.create(device, true);
+            List<? extends FSEntry> entries = getInodeEntries(fs, 1048705);
+            assertThat(entries.size(), Matchers.is(1_000_002));
+        }
+    }
+
+    private List<? extends FSEntry> getInodeEntries(XfsFileSystem fs, long inode) throws IOException {
+        INode iNode = fs.getINode(inode);
+        XfsEntry entry = new XfsEntry(iNode, "", 0, fs, null);
+        return iteratorToList(entry.getDirectory().iterator());
+    }
+
+    public <T> List<T> iteratorToList(Iterator<T> iterator) {
+        Spliterator<T> spliterator = Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED);
+        return StreamSupport.stream(spliterator, false).collect(Collectors.toList());
+    }
+
 
     /**
      * Build the directory string.
@@ -327,12 +397,11 @@ public class XfsFileSystemTest {
      * @param entry  the entry to process.
      * @param actual the string to append to.
      * @param indent the indent level.
-     *
      */
-    private static void buildXfsDirStructure(XfsEntry entry,StringBuilder actual, String indent) throws IOException {
+    private static void buildXfsDirStructure(XfsEntry entry, StringBuilder actual, String indent) throws IOException {
 
         actual.append(indent);
-        actual.append(entry.getName() );
+        actual.append(entry.getName());
         actual.append("; \n");
 
         if (entry.isDirectory()) {
@@ -343,10 +412,10 @@ public class XfsFileSystemTest {
             while (iterator.hasNext()) {
                 FSEntry child = iterator.next();
 
-                if ( ".".equals(child.getName()) || "..".equals(child.getName()) ) {
+                if (".".equals(child.getName()) || "..".equals(child.getName())) {
                     continue;
                 }
-                buildXfsDirStructure((XfsEntry)child, actual, indent + "  ");
+                buildXfsDirStructure((XfsEntry) child, actual, indent + "  ");
             }
         }
     }

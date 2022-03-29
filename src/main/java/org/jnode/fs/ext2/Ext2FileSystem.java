@@ -135,19 +135,19 @@ public class Ext2FileSystem extends AbstractFileSystem<Ext2Entry> {
         // throw new FileSystemException(getDevice().getId() +
         // " Unsupported filesystem feature (RECOVER) disallows mounting");
 
-        if (hasIncompatFeature(Ext2Constants.EXT4_FEATURE_INCOMPAT_64BIT))  {
-            log.info(getDevice().getId() + " Unsupported filesystem feature (64BIT) forces readonly mode");
+        if (hasIncompatFeature(Ext2Constants.EXT4_FEATURE_INCOMPAT_64BIT) && !isReadOnly())  {
+            log.info("{} Unsupported filesystem feature (64BIT) forces readonly mode", getDevice().getId());
             setReadOnly(true);
         }
 
-        if (hasIncompatFeature(Ext2Constants.EXT4_FEATURE_INCOMPAT_INLINE_DATA))  {
-            log.info(getDevice().getId() + " Unsupported filesystem feature (INLINE_DATA) forces readonly mode");
+        if (hasIncompatFeature(Ext2Constants.EXT4_FEATURE_INCOMPAT_INLINE_DATA) && !isReadOnly())  {
+            log.info("{} Unsupported filesystem feature (INLINE_DATA) forces readonly mode", getDevice().getId());
             setReadOnly(true);
         }
 
-        if (hasIncompatFeature(Ext2Constants.EXT4_FEATURE_INCOMPAT_MMP)) {
+        if (hasIncompatFeature(Ext2Constants.EXT4_FEATURE_INCOMPAT_MMP) && !isReadOnly()) {
             // TODO: this should really update the MMP block now, and periodically, to indicate that the filesystem is in use
-            log.info(getDevice().getId() + " file system has multi-mount protection, forcing readonly mode");
+            log.info("{} file system has multi-mount protection, forcing readonly mode", getDevice().getId());
             setReadOnly(true);
 
             try {
@@ -165,53 +165,53 @@ public class Ext2FileSystem extends AbstractFileSystem<Ext2Entry> {
             }
         }
 
-        if (hasIncompatFeature(Ext2Constants.EXT2_FEATURE_INCOMPAT_META_BG)) {
-            log.info(getDevice().getId() + " Unsupported filesystem feature (META_BG) forces readonly mode");
+        if (hasIncompatFeature(Ext2Constants.EXT2_FEATURE_INCOMPAT_META_BG) && !isReadOnly()) {
+            log.info("{} Unsupported filesystem feature (META_BG) forces readonly mode", getDevice().getId());
             setReadOnly(true);
         }
 
-        if (hasIncompatFeature(Ext2Constants.EXT4_FEATURE_INCOMPAT_FLEX_BG)) {
-            log.info(getDevice().getId() + " filesystem feature (FLEX_BG) is currently only implemented for reading, " +
-                "forcing readonly mode");
+        if (hasIncompatFeature(Ext2Constants.EXT4_FEATURE_INCOMPAT_FLEX_BG) && !isReadOnly()) {
+            log.info("{} filesystem feature (FLEX_BG) is currently only implemented for reading, " +
+                "forcing readonly mode", getDevice().getId());
             setReadOnly(true);
         }
 
         // an unsupported RO_COMPAT feature means that the filesystem can only
         // be mounted readonly
-        if (hasROFeature(Ext2Constants.EXT2_FEATURE_RO_COMPAT_LARGE_FILE)) {
-            log.info(getDevice().getId() + " Unsupported filesystem feature (LARGE_FILE) forces readonly mode");
+        if (hasROFeature(Ext2Constants.EXT2_FEATURE_RO_COMPAT_LARGE_FILE) && !isReadOnly()) {
+            log.info("{} Unsupported filesystem feature (LARGE_FILE) forces readonly mode", getDevice().getId());
             setReadOnly(true);
         }
-        if (hasROFeature(Ext2Constants.EXT2_FEATURE_RO_COMPAT_BTREE_DIR)) {
-            log.info(getDevice().getId() + " Unsupported filesystem feature (BTREE_DIR) forces readonly mode");
+        if (hasROFeature(Ext2Constants.EXT2_FEATURE_RO_COMPAT_BTREE_DIR) && !isReadOnly()) {
+            log.info("{} Unsupported filesystem feature (BTREE_DIR) forces readonly mode", getDevice().getId());
             setReadOnly(true);
         }
-        if (hasROFeature(Ext2Constants.EXT4_FEATURE_RO_COMPAT_HUGE_FILE)) {
-            log.info(getDevice().getId() + " Unsupported filesystem feature (HUGE_FILE) forces readonly mode");
+        if (hasROFeature(Ext2Constants.EXT4_FEATURE_RO_COMPAT_HUGE_FILE) && !isReadOnly()) {
+            log.info("{} Unsupported filesystem feature (HUGE_FILE) forces readonly mode", getDevice().getId());
             setReadOnly(true);
         }
-        if (hasROFeature(Ext2Constants.EXT4_FEATURE_RO_COMPAT_GDT_CSUM)) {
-            log.info(getDevice().getId() + " Unsupported filesystem feature (GDT_CSUM) forces readonly mode");
+        if (hasROFeature(Ext2Constants.EXT4_FEATURE_RO_COMPAT_GDT_CSUM) && !isReadOnly()) {
+            log.info("{} Unsupported filesystem feature (GDT_CSUM) forces readonly mode", getDevice().getId());
             setReadOnly(true);
         }
-        if (hasROFeature(Ext2Constants.EXT4_FEATURE_RO_COMPAT_DIR_NLINK)) {
-            log.info(getDevice().getId() + " Unsupported filesystem feature (DIR_NLINK) forces readonly mode");
+        if (hasROFeature(Ext2Constants.EXT4_FEATURE_RO_COMPAT_DIR_NLINK) && !isReadOnly()) {
+            log.info("{} Unsupported filesystem feature (DIR_NLINK) forces readonly mode", getDevice().getId());
             setReadOnly(true);
         }
-        if (hasROFeature(Ext2Constants.EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE)) {
-            log.info(getDevice().getId() + " Unsupported filesystem feature (EXTRA_ISIZE) forces readonly mode");
+        if (hasROFeature(Ext2Constants.EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE) && !isReadOnly()) {
+            log.info("{} Unsupported filesystem feature (EXTRA_ISIZE) forces readonly mode", getDevice().getId());
             setReadOnly(true);
         }
 
         // if the filesystem has not been cleanly unmounted, mount it readonly
-        if (superblock.getState() == Ext2Constants.EXT2_ERROR_FS) {
-            log.info(getDevice().getId() + " Filesystem has not been cleanly unmounted, mounting it readonly");
+        if (superblock.getState() == Ext2Constants.EXT2_ERROR_FS && !isReadOnly()) {
+            log.info("{} Filesystem has not been cleanly unmounted, mounting it readonly", getDevice().getId());
             setReadOnly(true);
         }
 
         // if the filesystem has been mounted R/W, set it to "unclean"
         if (!isReadOnly()) {
-            log.info(getDevice().getId() + " mounting fs r/w");
+            log.info("{} mounting fs r/w", getDevice().getId());
             superblock.setState(Ext2Constants.EXT2_ERROR_FS);
             // Mount successfull, update some superblock informations.
             superblock.setMntCount(superblock.getMntCount() + 1);
@@ -230,7 +230,7 @@ public class Ext2FileSystem extends AbstractFileSystem<Ext2Entry> {
     }
 
     public void create(BlockSize blockSize) throws FileSystemException {
-        log.info("Creating a new ext2 file system: " + blockSize);
+        log.info("Creating a new ext2 file system: {}", blockSize);
 
         try {
             // create the superblock

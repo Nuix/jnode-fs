@@ -25,10 +25,6 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * @author epr
- */
-
-/**
  * Entry of an FSDirectory.
  *
  * @author epr
@@ -41,21 +37,21 @@ public interface FSEntry extends FSObject {
      *
      * @return the unique ID for this entry.
      */
-    public String getId();
+    String getId();
 
     /**
      * Gets the name of this entry.
      *
      * @return name of the entry.
      */
-    public String getName();
+    String getName();
 
     /**
      * Gets the directory this entry is a part of.
      *
      * @return {@link FSDirectory} that is the parent of the entry.
      */
-    public FSDirectory getParent();
+    FSDirectory getParent();
 
     /**
      * Gets the last modification time of this entry.
@@ -64,21 +60,21 @@ public interface FSEntry extends FSObject {
      * if this files system does not support getting the last modified time.
      * @throws IOException if an error occurs retrieving the timestamp.
      */
-    public long getLastModified() throws IOException;
+    long getLastModified() throws IOException;
 
     /**
      * Returns <tt>true</tt> if this entry referring to a file.
      *
      * @return <tt>true</tt> if this entry referring to a file.
      */
-    public boolean isFile();
+    boolean isFile();
 
     /**
      * Returns <tt>true</tt> if this entry referring to a (sub-)directory.
      *
      * @return <tt>true</tt> if this entry referring to a (sub-)directory.
      */
-    public boolean isDirectory();
+    boolean isDirectory();
 
     /**
      * Sets the name of this entry.
@@ -86,7 +82,7 @@ public interface FSEntry extends FSObject {
      * @param newName new name that identify the entry.
      * @throws IOException if name already used.
      */
-    public void setName(String newName) throws IOException;
+    void setName(String newName) throws IOException;
 
     /**
      * Gets the last modification time of this entry.
@@ -94,7 +90,7 @@ public interface FSEntry extends FSObject {
      * @param lastModified the last modified time of the entry in millisecond.
      * @throws IOException if error occurs during set of the timestamp.
      */
-    public void setLastModified(long lastModified) throws IOException;
+    void setLastModified(long lastModified) throws IOException;
 
     /**
      * Gets the file this entry refers to.
@@ -102,7 +98,7 @@ public interface FSEntry extends FSObject {
      * @return The file described by this entry.
      * @throws IOException if entry is not a file.
      */
-    public FSFile getFile() throws IOException;
+    FSFile getFile() throws IOException;
 
     /**
      * Gets the directory this entry refers to.
@@ -110,7 +106,7 @@ public interface FSEntry extends FSObject {
      * @return The directory described by this entry.
      * @throws IOException of entry is not a directory.
      */
-    public FSDirectory getDirectory() throws IOException;
+    FSDirectory getDirectory() throws IOException;
 
     /**
      * Gets the access rights for this entry.
@@ -118,7 +114,7 @@ public interface FSEntry extends FSObject {
      * @return {@link FSAccessRights} represent rights for this entry.
      * @throws IOException if access rights are unavailable.
      */
-    public FSAccessRights getAccessRights() throws IOException;
+    FSAccessRights getAccessRights() throws IOException;
 
     /**
      * Returns <tt>true</tt> if the entry has been modified in memory and need to be saved.
@@ -126,13 +122,13 @@ public interface FSEntry extends FSObject {
      * @return <tt>true</tt> if the entry need to be saved
      * @throws IOException if error occurs during retrieving of the state of the entry.
      */
-    public boolean isDirty() throws IOException;
+    boolean isDirty() throws IOException;
 
     /**
      * Returns a List of FSAttributes representing the Extended Attributes allocated for each entry
      * @return List of FSAttributes, Defaults to an empty list when not implemented
      */
-    default public List<FSAttribute> getAttributes() throws IOException {
+    default List<FSAttribute> getAttributes() throws IOException {
         return Collections.emptyList();
     }
 }

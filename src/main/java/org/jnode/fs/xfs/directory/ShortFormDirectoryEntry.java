@@ -1,42 +1,49 @@
 package org.jnode.fs.xfs.directory;
 
 import org.jnode.fs.xfs.XfsObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 
 /**
- * A short form directory entry ('xfs_dir2_sf_entry_t').
+ * <p>A short form directory entry.</p>
+ *
+ * <pre>
+ * typedef struct xfs_dir2_sf_entry {
+ *     __uint8_t namelen;
+ *     xfs_dir2_sf_off_t offset;
+ *     __uint8_t name[1];
+ *     __uint8_t ftype;
+ *     xfs_dir2_inou_t inumber;
+ * } xfs_dir2_sf_entry_t;
+ * </pre>
  *
  * @author Luke Quinane
  */
 public class ShortFormDirectoryEntry extends XfsObject {
 
     /**
-     * The logger implementation.
+     * The number of bytes to get the next offset.
      */
-    private static final Logger log = LoggerFactory.getLogger(ShortFormDirectoryEntry.class);
+    private static final int BYTES_FOR_NEXT_OFFSET = 0x8;
+
+    private final boolean isV5;
 
     /**
      * The size of inode entries in this directory (4 or 8 bytes).
      */
-    private int inodeSize;
-
-    /**
-     * The number of bytes to get the next offset.
-     */
-    static int BYTES_FOR_NEXT_OFFSET = 0x8;
+    private final int inodeSize;
 
     /**
      * Creates a new short-form directory entry.
      *
-     * @param data the data.
-     * @param offset the offset.
+     * @param data      the data.
+     * @param offset    the offset.
      * @param inodeSize the size of inode entries in this directory (4 or 8 bytes).
+     * @param v5        is filesystem v5
      */
-    public ShortFormDirectoryEntry(byte[] data, int offset, int inodeSize) {
+    public ShortFormDirectoryEntry(byte[] data, int offset, int inodeSize, boolean v5) {
         super(data, offset);
+        this.isV5 = v5;
         this.inodeSize = inodeSize;
     }
 
@@ -64,11 +71,7 @@ public class ShortFormDirectoryEntry extends XfsObject {
      * @return the entry name.
      */
     public String getName() {
-        try {
-            return new String(getData(), getOffset() + 0x3, getNameLength(), "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new IllegalStateException("Error reading name bytes", e);
-        }
+        return new String(getData(), getOffset() + 0x3, getNameLength(), StandardCharsets.UTF_8);
     }
 
     /**
@@ -77,16 +80,19 @@ public class ShortFormDirectoryEntry extends XfsObject {
      * @return the inode number.
      */
     public long getINumber() {
-        int numberOffset = getNameLength() + inodeSize;
+        int baseOffset = isV5 ? 0x4 : 0x3;
+        int numberOffset = getNameLength() + baseOffset;
         return inodeSize == 4 ? getUInt32(numberOffset) : getInt64(numberOffset);
     }
 
     /**
      * Get the next offset.
+     *
      * @return the offset of the next entry.
      */
     public int getNextEntryOffset() {
-        return getNameLength() + BYTES_FOR_NEXT_OFFSET;
+        int baseOffset = isV5 ? BYTES_FOR_NEXT_OFFSET : 7;
+        return getNameLength() + baseOffset;
     }
 
     @Override

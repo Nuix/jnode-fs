@@ -59,7 +59,7 @@ public abstract class AbstractFSEntry extends AbstractFSObject implements FSEntr
     public static final int LAST_ENTRY = 3;
 
     /** Type of entry */
-    private int type;
+    private final int type;
 
     /** name of the entry */
     private String name;
@@ -71,34 +71,34 @@ public abstract class AbstractFSEntry extends AbstractFSObject implements FSEntr
     private final FSAccessRights rights;
 
     /** Parent directory of the entry */
-    private FSDirectory parent; // parent is null for a root
+    private final FSDirectory parent; // parent is null for a root
 
     /** Table of entries of our parent */
-    private FSEntryTable table; // table is null for a root
+    private final FSEntryTable table; // table is null for a root
 
     /** should we treat this directory entry as a file entry ? */
     private boolean treatDirectoryAsFile = false;
 
     /**
-     * Constructor for a root entry
+     * Constructor for a root entry.
      * 
-     * @param fs
+     * @param fs the {@link AbstractFileSystem}.
      */
-    public AbstractFSEntry(AbstractFileSystem<?> fs) {
+    protected AbstractFSEntry(AbstractFileSystem<?> fs) {
         // parent and table are null for a root
         this(fs, null, null, "/", ROOT_ENTRY);
     }
 
     /**
-     * Constructor for a non-root entry
+     * Constructor for a non-root entry.
      * 
-     * @param fs
-     * @param table
-     * @param parent
-     * @param name
-     * @param type
+     * @param fs the {@link AbstractFileSystem}.
+     * @param table the {@link FSEntryTable}.
+     * @param parent the parent {@link FSDirectory}.
+     * @param name the name.
+     * @param type the type.
      */
-    public AbstractFSEntry(AbstractFileSystem<?> fs, FSEntryTable table, FSDirectory parent,
+    protected AbstractFSEntry(AbstractFileSystem<?> fs, FSEntryTable table, FSDirectory parent,
             String name, int type) {
         super(fs);
         if ((type <= FIRST_ENTRY) || (type >= LAST_ENTRY))
@@ -135,9 +135,8 @@ public abstract class AbstractFSEntry extends AbstractFSObject implements FSEntr
      * Return the date of the last modification of this entry
      * 
      * @return the date of the last modification
-     * @throws IOException
      */
-    public long getLastModified() throws IOException {
+    public long getLastModified() {
         return lastModified;
     }
 
@@ -169,27 +168,27 @@ public abstract class AbstractFSEntry extends AbstractFSObject implements FSEntr
     }
 
     /**
-     * Change the name of this entry
+     * Change the name of this entry.
      * 
-     * @param newName
-     * @throws IOException
+     * @param newName the new name.
+     * @throws IOException if an error occurred setting the name.
      */
     public final void setName(String newName) throws IOException {
-        log.debug("<<< BEGIN setName newName=" + newName + " >>>");
+        log.debug("<<< BEGIN setName newName={} >>>", newName);
         // NB: table is null for a root
         if (isRoot()) {
-            log.debug("<<< END setName newName=" + newName + " ERROR: root >>>");
+            log.debug("<<< END setName newName={} ERROR: root >>>", newName);
             throw new IOException("Cannot change name of root directory");
         }
 
         // It's not a root --> table != null
         if (table.rename(name, newName) < 0) {
-            log.debug("<<< END setName newName=" + newName + " ERROR: table can't rename >>>");
+            log.debug("<<< END setName newName={} ERROR: table can't rename >>>", newName);
             throw new IOException("Cannot change name");
         }
 
         this.name = newName;
-        log.debug("<<< END setName newName=" + newName + " >>>");
+        log.debug("<<< END setName newName={} >>>", newName);
     }
 
     public void setLastModified(long lastModified) throws IOException {
@@ -204,7 +203,7 @@ public abstract class AbstractFSEntry extends AbstractFSObject implements FSEntr
      * Return the file associated with this entry
      * 
      * @return the FSFile associated with this entry
-     * @throws IOException
+     * @throws IOException if the entry is not a file.
      */
     public final FSFile getFile() throws IOException {
         if (!isFile())
@@ -217,7 +216,7 @@ public abstract class AbstractFSEntry extends AbstractFSObject implements FSEntr
      * Return the directory associated with this entry
      * 
      * @return the directory associated with this entry
-     * @throws IOException
+     * @throws IOException if the entry is not a directory.
      */
     public final FSDirectory getDirectory() throws IOException {
         if (!isDirectory())
@@ -229,15 +228,13 @@ public abstract class AbstractFSEntry extends AbstractFSObject implements FSEntr
     /**
      * Return the access rights for this entry
      * @return the FSAccessRights for this entry
-     * @throws IOException 
      */
-    public final FSAccessRights getAccessRights() throws IOException {
+    public final FSAccessRights getAccessRights() {
         return rights;
     }
 
     /**
      * Should we treat this directory entry as a file entry ? 
-     *
      */
     protected final void setTreatDirectoryAsFile() {
         this.treatDirectoryAsFile = true;

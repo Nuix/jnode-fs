@@ -27,5 +27,5 @@ import java.io.IOException;
  * until JNode adds it to {@link FSEntry}.
  */
 public interface FSEntryCreated {
-    public long getCreated() throws IOException;
+    long getCreated() throws IOException;
 }

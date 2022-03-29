@@ -17,7 +17,7 @@ public class XfsFile extends AbstractFSFile {
     /**
      * The entry.
      */
-    private XfsEntry entry;
+    private final XfsEntry entry;
 
     /**
      * Creates a new file.
@@ -35,22 +35,22 @@ public class XfsFile extends AbstractFSFile {
     }
 
     @Override
+    public void setLength(long length) throws IOException {
+        throw new UnsupportedOperationException(XfsConstants.XFS_IS_READ_ONLY);
+    }
+
+    @Override
     public void read(long fileOffset, ByteBuffer dest) throws IOException {
         entry.read(fileOffset, dest);
     }
 
     @Override
-    public void setLength(long length) throws IOException {
-        throw new UnsupportedOperationException("XFS is read only");
-    }
-
-    @Override
     public void write(long fileOffset, ByteBuffer src) throws IOException {
-        throw new UnsupportedOperationException("XFS is read only");
+        throw new UnsupportedOperationException(XfsConstants.XFS_IS_READ_ONLY);
     }
 
     @Override
     public void flush() throws IOException {
-        throw new UnsupportedOperationException("XFS is read only");
+        throw new UnsupportedOperationException(XfsConstants.XFS_IS_READ_ONLY);
     }
 }

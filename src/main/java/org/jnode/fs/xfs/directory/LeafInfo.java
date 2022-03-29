@@ -1,9 +1,6 @@
 package org.jnode.fs.xfs.directory;
 
-import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
@@ -16,19 +13,24 @@ import java.io.IOException;
 public class LeafInfo extends XfsObject {
 
     /**
-     * The logger implementation.
+     * The magic signature of a leaf directory entry v5.
      */
-    private static final Logger log = LoggerFactory.getLogger(LeafInfo.class);
+    private static final long LEAF_DIR_MAGIC_V5 = 0x3DF1;
 
     /**
-     * The magic signature of a leaf directory entry.
+     * The magic signature of a leaf directory entry v4.
      */
-    public static final long LEAF_DIR_MAGIC = 0x3df1;
+    private static final long LEAF_DIR_MAGIC = 0xD2F1;
+
+    /**
+     * The magic signature of the node directory entry v5.
+     */
+    private static final long NODE_DIR_MAGIC_V5 = 0x3dff;
 
     /**
      * The magic signature of the node directory entry.
      */
-    public static final long NODE_DIR_MAGIC = 0x3dff;
+    private static final long NODE_DIR_MAGIC = 0xd2ff;
 
     /**
      * Logical block offset of the previous block at this level.
@@ -68,44 +70,50 @@ public class LeafInfo extends XfsObject {
     /**
      * The Number of leaf entries.
      */
-    private final long count;
+    private final int count;
 
     /**
      * The Number of free leaf entries.
      */
-    private final long stale;
-
-    /**
-     * The filesystem.
-     */
-    private final XfsFileSystem fileSystem;
+    private final int stale;
 
     /**
      * Creates a Leaf block information entry.
      *
-     * @param data of the inode.
+     * @param data   of the inode.
      * @param offset of the inode's data
-     * @param fileSystem of the image
+     * @param v5     is filesystem on v5
      * @throws IOException if an error occurs reading in the leaf directory.
      */
-    public LeafInfo(byte [] data, long offset, XfsFileSystem fileSystem) throws IOException {
+    public LeafInfo(byte[] data, long offset, boolean v5) throws IOException {
         super(data, (int) offset);
 
-        if ((getMagicSignature() != LEAF_DIR_MAGIC) && (getMagicSignature() != NODE_DIR_MAGIC)) {
-            throw new IOException("Wrong magic number for XFS: " + getAsciiSignature(getMagicSignature()));
+        long signature = getMagicSignature();
+        if ((signature != LEAF_DIR_MAGIC) && (signature != LEAF_DIR_MAGIC_V5) && (signature != NODE_DIR_MAGIC_V5) && (signature != NODE_DIR_MAGIC)) {
+            throw new IOException("Wrong magic number for XFS Leaf Info: " + getAsciiSignature(signature));
         }
 
-        this.fileSystem = fileSystem;
         forward = getUInt32(0);
         backward = getUInt32(4);
-        crc = getUInt32(12);
-        blockNumber = getInt64(16);
-        logSequenceNumber = getInt64(24);
-        owner = getInt64(48);
-        uuid = readUuid(32);
-        count = getUInt16(56);
-        stale = getUInt16(58);
-        // 4 byte padding at the end
+        if (v5) {
+            // 4 byte padding at the end
+            crc = getUInt32(12);
+            blockNumber = getInt64(16);
+            logSequenceNumber = getInt64(24);
+            owner = getInt64(48);
+            uuid = readUuid(32);
+            count = getUInt16(56);
+            stale = getUInt16(58);
+        } else {
+            // if v4
+            crc = -1;
+            blockNumber = -1;
+            logSequenceNumber = -1;
+            owner = -1;
+            uuid = null;
+            count = getUInt16(12);
+            stale = getUInt16(14);
+        }
     }
 
     /**
@@ -185,7 +193,7 @@ public class LeafInfo extends XfsObject {
      *
      * @return a number of node entries.
      */
-    public long getCount() {
+    public int getCount() {
         return count;
     }
 
@@ -194,7 +202,7 @@ public class LeafInfo extends XfsObject {
      *
      * @return a number of free entries.
      */
-    public long getStale() {
+    public int getStale() {
         return stale;
     }
 

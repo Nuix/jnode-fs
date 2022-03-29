@@ -12,23 +12,23 @@ public class XfsLeafAttribute extends XfsObject implements FSAttribute {
         super(data, offset);
     }
 
-    public int getValueLength(){
+    public int getValueLength() {
         return getUInt16(0);
     }
-    public int getNameLength(){
+
+    public int getNameLength() {
         return getUInt8(2);
     }
 
     @Override
     public String getName() {
-        return new String(getData(),getOffset()+3,getNameLength(),StandardCharsets.UTF_8);
+        return new String(getData(), getOffset() + 3, getNameLength(), StandardCharsets.UTF_8);
     }
-
 
     @Override
     public byte[] getValue() {
-        final byte[] bytes = new byte[getValueLength()];
-        System.arraycopy(getData(),getNameLength() + getOffset()+3,bytes,0,getValueLength());
+        byte[] bytes = new byte[getValueLength()];
+        System.arraycopy(getData(), getNameLength() + getOffset() + 3, bytes, 0, getValueLength());
         return bytes;
     }
 
