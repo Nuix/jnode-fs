@@ -7,7 +7,7 @@
     <groupId>org.jnode</groupId>
     <artifactId>jnode-fs</artifactId>
     <packaging>jar</packaging>
-    <version>0.3.0.nuix1.0</version>
+    <version>0.3.2</version>
 
     <dependencies>
         <dependency>
@@ -44,6 +44,11 @@
             <version>31.0.1-jre</version>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>23.0.0</version>
+        </dependency>
     </dependencies>
 
     <properties>
@@ -53,5 +58,22 @@
         <project.reporting.outuputEncoding>UTF-8</project.reporting.outuputEncoding>
         <slf4jVersion>1.7.32</slf4jVersion>
     </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

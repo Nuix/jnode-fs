@@ -128,6 +128,13 @@ public final class FileNameAttribute extends NTFSResidentAttribute {
     }
 
     /**
+     * Gets the extended data.
+     */
+    public int getExtendedData() {
+        return fileNameStructure.getExtendedData();
+    }
+
+    /**
      * Gets the filename namespace.
      *
      * @return
@@ -257,6 +264,18 @@ public final class FileNameAttribute extends NTFSResidentAttribute {
          */
         public int getFlags() {
             return getUInt32AsInt(0x38);
+        }
+
+        /**
+         * Gets the extended data.
+         * <p>
+         *   The extended data contains:
+         *       the reparse point tag (see section Reparse point tag) if the reparse point file attribute flag (FILE_ATTRIBUTE_REPARSE_POINT) is set;
+         *       the extended attribute data size.
+         * </p>
+         */
+        public int getExtendedData() {
+            return getUInt32AsInt(0x3C);
         }
 
         /**

@@ -148,7 +148,10 @@ public class StandardInformationAttribute extends NTFSResidentAttribute {
     }
 
     /**
-     * The file attribute flags.
+     * NTFS File attribute flags.
+     * <p>
+     * <a href="https://github.com/libyal/libfsntfs/blob/main/documentation/New%20Technologies%20File%20System%20(NTFS).asciidoc#file_attribute_flags">NTFS File attribute flags</a>
+     * </p>
      */
     public static enum Flags {
 
