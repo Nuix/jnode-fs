@@ -11,7 +11,7 @@ import static org.jnode.fs.FileSystemTestUtils.*;
 /**
  * Tests for reparse point data in {@link NTFSAttribute}.
  */
-public class TestNtfsReparsePoint {
+public class NtfsReparsePointTest {
 
     @Test
     public void testResidentReparsePoint()  {
