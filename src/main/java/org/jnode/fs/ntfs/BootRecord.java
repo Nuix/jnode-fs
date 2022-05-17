@@ -23,6 +23,8 @@ package org.jnode.fs.ntfs;
 /**
  * @author Chira
  * @author Ewout Prangsma (epr@users.sourceforge.net)
+ *
+ * @see <a href="https://github.com/libyal/libfsntfs/blob/main/documentation/New%20Technologies%20File%20System%20(NTFS).asciidoc#4-the-volume-header">NTFS volume header</a>
  */
 public final class BootRecord extends NTFSStructure {
 

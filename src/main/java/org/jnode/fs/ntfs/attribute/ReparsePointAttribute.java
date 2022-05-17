@@ -1,6 +1,8 @@
 package org.jnode.fs.ntfs.attribute;
 
+import org.jetbrains.annotations.TestOnly;
 import org.jnode.fs.ntfs.FileRecord;
+import org.jnode.fs.ntfs.NTFSStructure;
 
 /**
  * A NTFS reparse point (symbolic link).
@@ -17,6 +19,11 @@ public class ReparsePointAttribute extends NTFSResidentAttribute {
      */
     public ReparsePointAttribute(FileRecord fileRecord, int offset) {
         super(fileRecord, offset);
+    }
+
+    @TestOnly
+    public ReparsePointAttribute(NTFSStructure ntfsStructure, int offset) {
+        super(ntfsStructure, offset);
     }
 
     /**

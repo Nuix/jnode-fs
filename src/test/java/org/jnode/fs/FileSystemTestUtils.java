@@ -85,4 +85,20 @@ public class FileSystemTestUtils
         return bytes;
     }
 
+    /**
+     * Converts a string of signed ints to a byte array.
+     *
+     * @param signedInts the signed ints, e.g. "-64 0" is equivalent to hex value "C0 00".
+     * @return the byte array.
+     */
+    public static byte[] intsToByteArray(String signedInts) {
+        String[] parts = signedInts.replace("\n", " ").trim().split(" ");
+        byte[] bytes = new byte[parts.length];
+
+        for (int i = 0; i < parts.length; i++) {
+            bytes[i] = Byte.parseByte(parts[i]);
+        }
+
+        return bytes;
+    }
 }

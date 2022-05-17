@@ -20,6 +20,7 @@
  
 package org.jnode.fs.ntfs.attribute;
 
+import org.jetbrains.annotations.TestOnly;
 import org.jnode.fs.ntfs.FileNameAttribute;
 import org.jnode.fs.ntfs.FileRecord;
 import org.jnode.fs.ntfs.NTFSStructure;
@@ -107,6 +108,14 @@ public abstract class NTFSAttribute extends NTFSStructure {
     public NTFSAttribute(FileRecord fileRecord, int offset) {
         super(fileRecord, offset);
         this.fileRecord = fileRecord;
+        this.type = Types.fromValue(getUInt32AsInt(0));
+        this.flags = getUInt16(0x0C);
+    }
+
+    @TestOnly
+    public NTFSAttribute(NTFSStructure ntfsStructure, int offset) {
+        super(ntfsStructure, offset);
+        this.fileRecord = null;
         this.type = Types.fromValue(getUInt32AsInt(0));
         this.flags = getUInt16(0x0C);
     }
@@ -248,7 +257,25 @@ public abstract class NTFSAttribute extends NTFSStructure {
                     return new IndexAllocationAttribute(fileRecord, offset);
 
                 case REPARSE_POINT:
-                    return new ReparsePointAttribute(fileRecord, offset);
+                    if (resident) {
+                        return new ReparsePointAttribute(fileRecord, offset);
+                    } else {
+                        // When the length exceeds some limit (less than 200), the attribute will be non-resident.
+
+                        // It is reproduced easily by running the command below
+                        // mklink /j "path200" c:\temp\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\01234
+
+                        // TODO:
+                        //  We haven't figured out how to extract it yet.
+                        //  All the doc we found so far are saying the reparse point attribute is stored as a resident.
+                        //  e.g.
+                        //  https://github.com/libyal/libfsntfs/blob/main/documentation/New%20Technologies%20File%20System%20(NTFS).asciidoc#615-the-reparse-point-attribute
+                        //  "The reparse point attribute ($REPARSE_POINT) contains information about a file system-level link. It is stored as a resident MFT attribute."
+                        //  or
+                        //  http://ftp.kolibrios.org/users/Asper/docs/NTFS/ntfsdoc.html#attribute_reparse_point which describes the structure like a resident one.
+                        //  So we just pass NTFSNonResidentAttribute to handle the case that "it is a reparse point but also a non-resident attribute."
+                        //  And unfortunately, neither AttributeListAttributeNonRes nor NTFSNonResidentAttribute could help to get the targetName/printName of the reparse point.
+                    }
 
                 default:
                     // check the resident flag
