@@ -1,6 +1,6 @@
 language: java
 jdk:
-  - openjdk7
+  - openjdk17
 install:
   - sudo apt-get -y install nasm
 script: "./build.sh clean cd-x86-lite regression-tests"
