@@ -21,7 +21,7 @@
 package org.jnode.fs.spi;
 
 import java.security.Principal;
-import java.security.acl.Group;
+
 import org.jnode.fs.FSAccessRights;
 import org.jnode.fs.FileSystem;
 
@@ -34,7 +34,7 @@ public class UnixFSAccessRights implements FSAccessRights {
     private final FileSystem<?> filesystem;
 
     private Principal owner;
-    private Group group;
+    private UnixFSGroup group;
 
     private final Rights ownerRights = new Rights(true, true, true);
     private final Rights groupRights = new Rights();

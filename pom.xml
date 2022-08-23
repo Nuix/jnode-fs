@@ -7,7 +7,7 @@
     <groupId>org.jnode</groupId>
     <artifactId>jnode-fs</artifactId>
     <packaging>jar</packaging>
-    <version>0.3.2</version>
+    <version>0.3.3</version>
 
     <dependencies>
         <dependency>
@@ -41,7 +41,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>31.0.1-jre</version>
+            <version>31.1-jre</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
@@ -52,8 +52,8 @@
     </dependencies>
 
     <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outuputEncoding>UTF-8</project.reporting.outuputEncoding>
         <slf4jVersion>1.7.32</slf4jVersion>
