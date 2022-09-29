@@ -84,10 +84,10 @@ public class DataExtent extends XfsObject {
      */
     public static long getFileSystemBlockOffset(long block, XfsFileSystem fileSystem) {
         Superblock sb = fileSystem.getSuperblock();
-        long agSizeLog2 = sb.getAGSizeLog2();
+        long agSizeLog2 = sb.getAgSizeLog2();
         long allocationGroupIndex = block >> agSizeLog2;
         long relativeBlockNumber = block & (((long) 1 << agSizeLog2) - 1);
-        long allocationGroupBlockNumber = allocationGroupIndex * sb.getAGSize();
+        long allocationGroupBlockNumber = allocationGroupIndex * sb.getAgBlockSize();
         return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
     }
 
@@ -148,10 +148,10 @@ public class DataExtent extends XfsObject {
      */
     public long getExtentOffset(XfsFileSystem fileSystem) {
         Superblock sb = fileSystem.getSuperblock();
-        long agSizeLog2 = sb.getAGSizeLog2();
+        long agSizeLog2 = sb.getAgSizeLog2();
         long allocationGroupIndex = startBlock >> agSizeLog2;
         long relativeBlockNumber = startBlock & (((long) 1 << agSizeLog2) - 1);
-        long allocationGroupBlockNumber = allocationGroupIndex * sb.getAGSize();
+        long allocationGroupBlockNumber = allocationGroupIndex * sb.getAgBlockSize();
         return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
     }
 
