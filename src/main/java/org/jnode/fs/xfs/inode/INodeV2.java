@@ -25,7 +25,7 @@ public class INodeV2 extends INode {
      */
     public int getProjectId() {
         int result = getUInt16(20);
-        if (Superblock.Features2.PROJID32BIT.isSet(fs.getSuperblock().getRawFeatures2())) {
+        if (Superblock.Features2.PROJID32BIT.isSet(fs.getSuperblock().getAdditionalFeatureFlags())) {
             result |= getUInt16(22) << 16;
         }
 

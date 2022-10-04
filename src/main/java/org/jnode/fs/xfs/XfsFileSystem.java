@@ -1,14 +1,19 @@
 package org.jnode.fs.xfs;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+
 import org.jnode.driver.Device;
 import org.jnode.driver.block.BlockDeviceAPI;
-import org.jnode.fs.*;
+import org.jnode.fs.FSDirectory;
+import org.jnode.fs.FSEntry;
+import org.jnode.fs.FSFile;
+import org.jnode.fs.FileSystem;
+import org.jnode.fs.FileSystemException;
+import org.jnode.fs.FileSystemType;
 import org.jnode.fs.spi.AbstractFileSystem;
 import org.jnode.fs.xfs.inode.INode;
 import org.jnode.fs.xfs.inode.INodeFactory;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
 
 /**
  * An XFS file system.
@@ -53,7 +58,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     public final void read() throws FileSystemException {
         superblock = new Superblock(this);
         agINode = new AllocationGroupINode(this);
-        allocationGroupSize = superblock.getBlockSize() * superblock.getTotalBlocks() / superblock.getAGCount();
+        allocationGroupSize = superblock.getBlockSize() * superblock.getDataBlockCount() / superblock.getAgCount();
     }
 
     /**
@@ -76,9 +81,9 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     }
 
     public long getINodeAbsoluteOffset(long absoluteINodeNumber) {
-        long numberOfRelativeINodeBits = getSuperblock().getAGSizeLog2() + getSuperblock().getINodePerBlockLog2();
+        long numberOfRelativeINodeBits = getSuperblock().getAgSizeLog2() + getSuperblock().getINodePerBlockLog2();
         int allocationGroupIndex = (int) (absoluteINodeNumber >> numberOfRelativeINodeBits);
-        long allocationGroupBlockNumber = (long) allocationGroupIndex * getSuperblock().getAGSize();
+        long allocationGroupBlockNumber = (long) allocationGroupIndex * getSuperblock().getAgBlockSize();
         long relativeINodeNumber = absoluteINodeNumber & (((long) 1 << numberOfRelativeINodeBits) - 1);
 
         // Calculate the offset of the iNode number.
@@ -90,7 +95,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      */
     @Override
     public long getTotalSpace() {
-        return superblock.getBlockSize() * superblock.getTotalBlocks();
+        return superblock.getBlockSize() * superblock.getDataBlockCount();
     }
 
     /**
@@ -98,7 +103,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      */
     @Override
     public long getFreeSpace() {
-        return superblock.getBlockSize() * superblock.getFreeBlocks();
+        return superblock.getBlockSize() * superblock.getFreeDataBlockCount();
     }
 
     /**
@@ -106,11 +111,11 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      */
     @Override
     public long getUsableSpace() {
-        return superblock.getBlockSize() * (superblock.getTotalBlocks() - superblock.getFreeBlocks());
+        return superblock.getBlockSize() * (superblock.getDataBlockCount() - superblock.getFreeDataBlockCount());
     }
 
     public boolean isV5() {
-        return superblock.getVersion() == 5;
+        return (superblock.getVersion()) == 5;
     }
 
     /**
@@ -118,7 +123,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      */
     @Override
     public String getVolumeName() {
-        return superblock.getName();
+        return superblock.getFileSystemName();
     }
 
     /**
@@ -142,7 +147,7 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      */
     @Override
     protected XfsEntry createRootEntry() throws IOException {
-        long rootIno = superblock.getRootInode();
+        long rootIno = superblock.getRootInodeNumber();
         return new XfsEntry(this.getINode(rootIno), "/", 0, this, null);
     }
 

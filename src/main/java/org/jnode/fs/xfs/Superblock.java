@@ -1,9 +1,5 @@
 package org.jnode.fs.xfs;
 
-import org.jnode.fs.FileSystemException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -11,6 +7,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.jnode.fs.FileSystemException;
 
 /**
  * <p>The XFS superblock.</p>
@@ -80,8 +81,9 @@ import java.util.stream.Collectors;
  *
  * @author Luke Quinane
  */
+@Slf4j
+@Getter
 public class Superblock extends XfsRecord {
-
     /**
      * The size of the super block.
      */
@@ -93,45 +95,309 @@ public class Superblock extends XfsRecord {
     public static final long XFS_SUPER_MAGIC = 0x58465342;
 
     /**
-     * The logger.
+     * The size of a basic unit of space allocation in bytes. Typically, this is 4096 (4KB) but can range from 512 to
+     * 65536 bytes.
      */
-    private static final Logger logger = LoggerFactory.getLogger(Superblock.class);
+    private final long blockSize; // sb_blocksize
 
     /**
-     * The block size.
+     * Total number of blocks available for data and metadata on the filesystem.
      */
-    private final long blockSize;
+    private final long dataBlockCount; // sb_dblocks
 
     /**
-     * The inode size.
+     * Number blocks in the real-time disk device. Refer to real-time sub-volumes for more information.
      */
-    private final int iNodeSize;
+    private final long realTimeBlockCount; // sb_rblocks
 
     /**
-     * The allocation group size value in log2.
+     * Number of extents on the real-time device.
      */
-    private final int aGSizeLog2;
+    private final long realTimeExtentCount; // sb_rextents
 
     /**
-     * The number of inodes per block in log2.
+     * UUID (Universally Unique ID) for the filesystem. Filesystems can be mounted by the UUID instead of device
+     * name.
      */
-    private final int iNodePerBlockLog2;
+    UUID uuid; // sb_uuid
 
     /**
-     * The UUID for the filesystem.
+     * First block number for the journaling log if the log is internal (ie. not on a separate disk device). For an external
+     * log device, this will be zero (the log will also start on the first block on the log device). The identity of the log
+     * devices is not recorded in the filesystem, but the UUIDs of the filesystem and the log device are compared to
+     * prevent corruption.
      */
-    private final UUID uuid;
+    private final long logStart; // sb_logstart
 
     /**
-     * If the XFS_SB_FEAT_INCOMPAT_META_UUID feature is set, then the UUID field in all metadata blocks must match
-     * this UUID. If not, the block header UUID field must match sb_uuid.
+     * Root inode number for the filesystem. Normally, the root inode is at the start of the first possible inode chunk
+     * in AG 0. This is 128 when using a 4KB block size.
      */
-    private final UUID metadataUuid;
+    private final long rootInodeNumber; // sb_rootino
 
     /**
-     * The name for the filesystem.
+     * Bitmap inode for real-time extents.
      */
-    private final String name;
+    private final long realTimeBitmapInode; // sb_rbmino
+
+    /**
+     * Summary inode for real-time bitmap.
+     */
+    private final long realTimeSummaryInode; // sb_rsumino
+
+    /**
+     * Realtime extent size in blocks.
+     */
+    private final long realTimeExtentSize; // sb_rextsize
+
+    /**
+     * Size of each AG in blocks. For the actual size of the last AG, refer to the free space agf_length value.
+     */
+    private final long agBlockSize; // sb_agblocks
+
+    /**
+     * Number of AGs in the filesystem.
+     */
+    private final long agCount; // sb_agcount
+
+    /**
+     * Number of real-time bitmap blocks.
+     */
+    private final long realTimeBitmapBlockCount; // sb_rbmblocks
+
+    /**
+     * Number of blocks for the journaling log.
+     */
+    private final long logBlockCount; // sb_logblocks
+
+    /**
+     * Filesystem version number. This is a bitmask specifying the features enabled when creating the filesystem.
+     * Any disk checking tools or drivers that do not recognize any set bits must not operate upon the filesystem.
+     * Most of the flags indicate features introduced over time. If the value of the lower nibble is >= 4, the higher bits
+     * indicate feature flags as {@link VersionFlags}.
+     * If the lower nibble of this value is 5, then this is a v5 filesystem; the XFS_SB_VERSION2_CRCBIT feature must
+     * be set in sb_features2.
+     */
+    private final int versionNumber; // sb_versionnum
+
+    /**
+     * Specifies the underlying disk sector size in bytes. Typically this is 512 or 4096 bytes. This determines the
+     * minimum I/O alignment, especially for direct I/O.
+     */
+    private final int sectorSize; // sb_sectsize
+
+    /**
+     * Size of the inode in bytes. The default is 256 (2 inodes per standard sector) but can be made as large as 2048
+     * bytes when creating the filesystem. On a v5 filesystem, the default and minimum inode size are both 512 bytes.
+     */
+    private final int inodeSize; // sb_inodesize
+
+    /**
+     * Number of inodes per block. This is equivalent to sb_blocksize / sb_inodesize.
+     */
+    private final int inodePerBlock; // sb_inopblock
+
+    /**
+     * Name for the filesystem. This value can be used in the mount command.
+     */
+    private final String fileSystemName; // sb_fname[12]
+
+    /**
+     * log2 value of sb_blocksize. In other terms, sb_blocksize = 2 sb_blocklog.
+     */
+    private final int blockSizeLog2; // sb_blocklog
+
+    /**
+     * log2 value of sb_sectsize.
+     */
+    private final int sectorSizeLog2; // sb_sectlog
+
+    /**
+     * log2 value of sb_inodesize.
+     */
+    private final int inodeSizeLog2; // sb_inodelog
+
+    /**
+     * log2 value of sb_inopblock.
+     */
+    private final int iNodePerBlockLog2; // sb_inopblog
+
+    /**
+     * log2 value of sb_agblocks (rounded up). This value is used to generate inode numbers and absolute block
+     * numbers defined in extent maps.
+     */
+    private final int agSizeLog2; // sb_agblklog
+
+    /**
+     * log2 value of sb_rextents.
+     */
+    private final int realTimeExtentSizeLog2; // sb_rextslog
+
+    /**
+     * Flag specifying that the filesystem is being created.
+     */
+    private final int inProgressFlag; // sb_inprogress
+
+    /**
+     * Maximum percentage of filesystem space that can be used for inodes. The default value is 5%.
+     */
+    private final int maxInodePercentage; // sb_imax_pct
+
+    /**
+     * Global count for number inodes allocated on the filesystem. This is only maintained in the first superblock.
+     */
+    private final long allocatedInodeCount; // sb_icount
+
+    /**
+     * Global count of free inodes on the filesystem. This is only maintained in the first superblock.
+     */
+    private final long freeInodeCount; // sb_ifree
+
+    /**
+     * Global count of free data blocks on the filesystem. This is only maintained in the first superblock.
+     */
+    private final long freeDataBlockCount; // sb_fdblocks
+
+    /**
+     * Global count of free real-time extents on the filesystem. This is only maintained in the first superblock.
+     */
+    private final long freeRealTimeExtentCount; // sb_frextents
+
+    /**
+     * Inode for user quotas. This and the following two quota fields only apply if XFS_SB_VERSION_QUOTABIT
+     * flag is set in sb_versionnum. Refer to quota inodes for more information
+     */
+    private final long userQuotaInode; // sb_uquotino
+
+    /**
+     * Inode for group or project quotas. Group and Project quotas cannot be used at the same time.
+     */
+    private final long groupQuotaInode; // sb_gquotino
+
+    /**
+     * Quota flags.
+     */
+    private final int quotaFlagNumber; // sb_qflags
+
+    /**
+     * Miscellaneous flags.
+     */
+    private final int flags; // sb_flags
+
+    /**
+     * Reserved and must be zero (“vn” stands for version number).
+     */
+    private final int sharedVersionNumber; // sb_shared_vn
+
+    /**
+     * Inode chunk alignment in fsblocks. Prior to v5, the default value provided for inode chunks to have an 8KiB
+     * alignment. Starting with v5, the default value scales with the multiple of the inode size over 256 bytes. Concretely,
+     * this means an alignment of 16KiB for 512-byte inodes, 32KiB for 1024-byte inodes, etc. If sparse inodes
+     * are enabled, the ir_startino field of each inode B+tree record must be aligned to this block granularity,
+     * even if the inode given by ir_startino itself is sparse.
+     */
+    private final long inodeChunkAlignment; // sb_inoalignmt
+
+    /**
+     * Underlying stripe or raid unit in blocks.
+     */
+    private final long unit; // sb_unit
+
+    /**
+     * Underlying stripe or raid width in blocks.
+     */
+    private final long width; // sb_width
+
+    /**
+     * log2 multiplier that determines the granularity of directory block allocations in fsblocks.
+     */
+    private final int directoryBlockLog2; // sb_dirblklog
+
+    /**
+     * log2 value of the log subvolume’s sector size. This is only used if the journaling log is on a separate disk device
+     * (i.e. not internal).
+     */
+    private final int externalLogSectorSizeLog2; // sb_logsectlog
+
+    /**
+     * The log’s sector size in bytes if the filesystem uses an external log device.
+     */
+    private final int externalLogSectorSize; // sb_logsectsize
+
+    /**
+     * The log device’s stripe or raid unit size. This only applies to version 2 logs XFS_SB_VERSION_LOGV2BIT
+     * is set in sb_versionnum.
+     */
+    private final long logUnitSize; // sb_logsunit
+
+    /**
+     * Additional version flags if XFS_SB_VERSION_MOREBITSBIT is set in sb_versionnum. The currently
+     * defined additional features include {@link Features2}
+     */
+    private final long additionalFeatureFlags; // sb_features2
+
+    /**
+     * This field mirrors sb_features2, due to past 64-bit alignment errors.
+     */
+    private final long additionalFeatureFlagsMirror; // sb_bad_features2
+
+    // version 5 superblock fields start here
+
+    /**
+     * Read-write compatible feature flags. The kernel can still read and write this FS even if it doesn’t understand
+     * the flag. Currently, there are no valid flags.
+     */
+    private final long readWriteCompatibleFlags; // sb_features_compat
+
+    /**
+     * Read-only compatible feature flags. The kernel can still read this FS even if it doesn’t understand the flag.
+     */
+    private final long readOnlyCompatibleFlags; // sb_features_ro_compat
+
+    /**
+     * Read-write incompatible feature flags. The kernel cannot read or write this FS if it doesn’t understand the flag.
+     */
+    private final long readWriteIncompatibleFlags; // sb_features_incompat
+
+    /**
+     * Read-write incompatible feature flags for the log. The kernel cannot read or write this FS log if it doesn’t
+     * understand the flag. Currently, no flags are defined.
+     */
+    private final long readWriteLogIncompatibleFlags; // sb_features_log_incompat
+
+    /**
+     * Superblock checksum.
+     */
+    private final long superblockChecksum; // sb_crc
+
+    /**
+     * Sparse inode alignment, in fsblocks. Each chunk of inodes referenced by a sparse inode B+tree record must be
+     * aligned to this block granularity.
+     */
+    private final long sparseInodeAlignment; // sb_spino_align
+
+    /**
+     * Project quota inode.
+     */
+    private final long projectQuotaInode; // sb_pquotino
+
+    /**
+     * Log sequence number of the last superblock update.
+     */
+    private final long logSequenceNumber; // sb_lsn
+
+    /**
+     * If the XFS_SB_FEAT_INCOMPAT_META_UUID feature is set, then the UUID field in all metadata blocks
+     * must match this UUID. If not, the block header UUID field must match sb_uuid.
+     */
+    private final UUID metadataUuid; // sb_meta_uuid
+
+    /**
+     * If the XFS_SB_FEAT_RO_COMPAT_RMAPBT feature is set and a real-time device is present (sb_rblocks
+     * > 0), this field points to an inode that contains the root to the Real-Time Reverse Mapping B+tree. This field is
+     * zero otherwise.
+     */
+    private final long realTimeReverseMappingBTreeInode; // sb_rrmapino
 
     /**
      * Creates a new super block.
@@ -156,95 +422,91 @@ public class Superblock extends XfsRecord {
         } catch (IOException e) {
             throw new FileSystemException(e);
         }
-        blockSize = getUInt32(4);
-        iNodeSize = getUInt16(104);
-        aGSizeLog2 = getUInt8(124);
-        iNodePerBlockLog2 = getUInt8(123);
+        skipBytes(4); // the magic
+        blockSize = readUInt32(); // sb_blocksize
 
-        long upperValue = getInt64(32);
-        long lowerValue = getInt64(40);
-        uuid = new UUID(upperValue, lowerValue);
+        dataBlockCount = readInt64(); // sb_dblocks
+        realTimeBlockCount = readInt64(); // sb_rblocks
+        realTimeExtentCount = readInt64(); // sb_rextents
 
-        upperValue = getInt64(248);
-        lowerValue = getInt64(256);
-        metadataUuid = new UUID(upperValue, lowerValue);
+        long upperValue = readInt64();
+        long lowerValue = readInt64();
+        uuid = new UUID(upperValue, lowerValue); // sb_uuid
 
-        byte[] buffer = new byte[12];
-        System.arraycopy(getData(), getOffset() + 108, buffer, 0, buffer.length);
-        name = new String(buffer, StandardCharsets.UTF_8).replace("\0", "");
+        logStart = readInt64(); // sb_logstart
+        rootInodeNumber = readInt64(); // sb_rootino
+        realTimeBitmapInode = readInt64(); // sb_rbmino
+        realTimeSummaryInode = readInt64(); // sb_rsumino
 
-    }
+        // Interestingly, the entire superblock seems to be 64-bit (8-byte) alignment, but there are FIVE 32-bit here...
+        // Well, the fileSystemName takes 12 bytes, so the entire superblock is still 8-byte alignment over all.
+        realTimeExtentSize = readUInt32(); // sb_rextsize
+        agBlockSize = readUInt32(); // sb_agblocks
+        agCount = readUInt32(); // sb_agcount
+        realTimeBitmapBlockCount = readUInt32(); // sb_rbmblocks
+        logBlockCount = readUInt32(); // sb_logblocks
 
-    /**
-     * Gets the block size stored in the super block.
-     *
-     * @return the block size.
-     */
-    public long getBlockSize() {
-        return blockSize;
-    }
+        versionNumber = readUInt16(); // sb_versionnum, a bitmask of VersionFlags
+        sectorSize = readUInt16(); // sb_sectsize
+        inodeSize = readUInt16(); // sb_inodesize
+        inodePerBlock = readUInt16(); // sb_inopblock
 
-    /**
-     * Gets the total block size stored in the super block.
-     *
-     * @return the total block size.
-     */
-    public long getTotalBlocks() {
-        return getInt64(8);
-    }
+        int nameLength = 12;
+        byte[] buffer = new byte[nameLength];
+        System.arraycopy(getData(), getOffset(), buffer, 0, nameLength);
+        fileSystemName = new String(buffer, StandardCharsets.UTF_8).replace("\0", ""); // sb_fname[12]
+        skipBytes(nameLength);
 
-    /**
-     * Gets the total free block size stored in the super block.
-     *
-     * @return the free block size.
-     */
-    public long getFreeBlocks() {
-        return getInt64(144);
-    }
+        blockSizeLog2 = readUInt8(); // sb_blocklog
+        sectorSizeLog2 = readUInt8(); // sb_sectlog
+        inodeSizeLog2 = readUInt8(); // sb_inodelog
+        iNodePerBlockLog2 = readUInt8(); // sb_inopblog
+        agSizeLog2 = readUInt8(); // sb_agblklog
+        realTimeExtentSizeLog2 = readUInt8(); // sb_rextslog
+        inProgressFlag = readUInt8(); // sb_inprogress
+        maxInodePercentage = readUInt8(); // sb_imax_pct
 
-    /**
-     * Gets the UUID for the volume stored in the super block.
-     *
-     * @return the UUID.
-     */
-    public UUID getUuid() {
-        return uuid;
-    }
+        allocatedInodeCount = readInt64(); // sb_icount
+        freeInodeCount = readInt64(); // sb_ifree
+        freeDataBlockCount = readInt64(); // sb_fdblocks
+        freeRealTimeExtentCount = readInt64(); // sb_frextents
+        userQuotaInode = readInt64(); // sb_uquotino
+        groupQuotaInode = readInt64(); // sb_gquotino
 
-    /**
-     * Gets the metadata UUID.
-     *
-     * @return the metadata UUID.
-     */
-    public UUID getMetadataUuid() {
-        return metadataUuid;
-    }
+        quotaFlagNumber = readUInt16(); // sb_qflags
+        flags = readUInt8(); // sb_flags
+        sharedVersionNumber = readUInt8(); // sb_shared_vn
+        inodeChunkAlignment = readUInt32(); // sb_inoalignmt
 
-    /**
-     * Gets the root inode.
-     *
-     * @return the root inode.
-     */
-    public long getRootInode() {
-        return getInt64(56);
-    }
+        unit = readUInt32(); // sb_unit
+        width = readUInt32(); // sb_width
 
-    /**
-     * Gets the size of each allocation group in blocks.
-     *
-     * @return the size in blocks.
-     */
-    public long getAGSize() {
-        return getUInt32(84);
-    }
+        directoryBlockLog2 = readUInt8(); // sb_dirblklog
+        externalLogSectorSizeLog2 = readUInt8(); // sb_logsectlog
+        externalLogSectorSize = readUInt16(); // sb_logsectsize
+        logUnitSize = readUInt32(); // sb_logsunit
 
-    /**
-     * Gets the number of allocation groups in the file system.
-     *
-     * @return the number of allocation groups.
-     */
-    public long getAGCount() {
-        return getUInt32(88);
+        additionalFeatureFlags = readUInt32(); // sb_features2, the bitmask of Features2
+        additionalFeatureFlagsMirror = readUInt32(); // sb_bad_features2
+
+        // version 5 superblock fields start here
+        readWriteCompatibleFlags = readUInt32(); // sb_features_compat
+        readOnlyCompatibleFlags = readUInt32(); // sb_features_ro_compat
+        readWriteIncompatibleFlags = readUInt32(); // sb_features_incompat
+        readWriteLogIncompatibleFlags = readUInt32(); // sb_features_log_incompat
+        superblockChecksum = readUInt32(); // sb_crc
+        sparseInodeAlignment = readUInt32(); // sb_spino_align
+
+        projectQuotaInode = readInt64(); // sb_pquotino
+        // sb_lsn is "Log sequence number of the last superblock update". But there is no definition of the type "xfs_lsn_t" in the document.
+        // It is "typedef	__int64_t	xfs_lsn_t" in https://github.com/torvalds/linux/blob/master/fs/xfs/libxfs/xfs_types.h#L23
+        logSequenceNumber = readInt64(); // sb_lsn
+
+        long upperMetaValue = readInt64();
+        long lowerMetaValue = readInt64();
+        metadataUuid = new UUID(upperMetaValue, lowerMetaValue); // sb_meta_uuid
+
+        realTimeReverseMappingBTreeInode = readInt64(); // sb_rrmapino
     }
 
     /**
@@ -253,80 +515,24 @@ public class Superblock extends XfsRecord {
      * @return the features.
      */
     public int getVersion() {
-        return getRawVersion() & 0xF;
+        return getVersionNumber() & 0xF;
     }
 
-    /**
-     * Gets the raw version value sb_versionnum.
-     *
-     * @return the raw version value.
-     */
-    public int getRawVersion() {
-        return getUInt16(100);
+    @Override
+    public String toString() {
+        return String.format(
+                "xfs-sb:[block-size:%d inode-size:%d root-ino:%d ag-size:%d ag-count: %d version:%d features2:0x%x]",
+                blockSize, inodeSize, rootInodeNumber, agBlockSize, agCount, getVersion(), additionalFeatureFlags);
     }
 
     /**
      * Gets the {@link List} of {@link VersionFlags} from the version value sb_versionnum.
      *
      * @return a {@link List} of {@link VersionFlags} from the version value sb_versionnum.
-     * @see #getRawVersion()
+     * @see #getVersionNumber()
      */
     public List<VersionFlags> getVersionFlags() {
-        return VersionFlags.fromValue(getRawVersion());
-    }
-
-    /**
-     * Gets the size of inodes in the file system.
-     *
-     * @return the inode size.
-     */
-    public int getInodeSize() {
-        return iNodeSize;
-    }
-
-    /**
-     * Gets the number of inodes per block (should be the same as block size / inode size).
-     *
-     * @return the inodes per block.
-     */
-    public int getInodesPerBlock() {
-        return getUInt16(0x6a);
-    }
-
-    /**
-     * Gets the name for the file system.
-     *
-     * @return the name.
-     */
-    public String getName() {
-        return name;
-    }
-
-    /**
-     * Gets the number of inodes currently allocation in the file system.
-     *
-     * @return the number of allocated inodes.
-     */
-    public long getInodeCount() {
-        return getInt64(0x80);
-    }
-
-    /**
-     * Gets the number of inodes currently allocation in the file system.
-     *
-     * @return the number of allocated inodes.
-     */
-    public long getInodeAlignment() {
-        return getUInt32(0xb4);
-    }
-
-    /**
-     * Gets additional features value sb_features2.
-     *
-     * @return the additional features.
-     */
-    public long getRawFeatures2() {
-        return getUInt32(0xc8);
+        return VersionFlags.fromValue(versionNumber);
     }
 
     /**
@@ -335,50 +541,22 @@ public class Superblock extends XfsRecord {
      * @return a {@link List} of {@link Features2} from sb_features2.
      */
     public List<Features2> getFeatures2() {
-        return Features2.fromValue(getRawFeatures2());
+        return Features2.fromValue(additionalFeatureFlags);
     }
 
     /**
-     * Allocation group size in log2, where
-     * value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0.
+     * Gets the {@link List} of {@link QuotaFlags} from sb_qflags.
+     *
+     * @return a {@link List} of {@link QuotaFlags} from sb_qflags.
      */
-    public long getAGSizeLog2() {
-        return aGSizeLog2;
-    }
-
-    /**
-     * Number of inodes per block in log2, where
-     * value = ( 2 ^ value in log2 ) or 0 if value in log2 is 0
-     */
-    public long getINodePerBlockLog2() {
-        return iNodePerBlockLog2;
-    }
-
-    /**
-     * Directory block size in log2.
-     */
-    public long getDirectoryBlockSizeLog2() {
-        return getUInt8(0xc0);
-    }
-
-    /**
-     * Journal device sector size in log2.
-     */
-    public long getJournalDeviceSizeLog2() {
-        return getUInt8(0xc1);
-    }
-
-    @Override
-    public String toString() {
-        return String.format(
-                "xfs-sb:[block-size:%d inode-size:%d root-ino:%d ag-size:%d ag-count: %d version:%d features2:0x%x]",
-                getBlockSize(), getInodeSize(), getRootInode(), getAGSize(), getAGCount(), getRawVersion(), getRawFeatures2());
+    public List<QuotaFlags> getQuotaFlags() {
+        return QuotaFlags.fromValue(quotaFlagNumber);
     }
 
     /**
      * The version flags in the version value sb_versionnum.
      */
-    public enum VersionFlags {
+    public enum VersionFlags implements Flags {
 
         /**
          * Set if any inode have extended attributes.
@@ -435,27 +613,101 @@ public class Superblock extends XfsRecord {
          */
         MOREBITSBIT(0x4000);
 
-        private final int flag;
+        private final FlagUtil flagUtil;
 
-        VersionFlags(int flag) {
-            this.flag = flag;
+        VersionFlags(int flags) {
+            this.flagUtil = new FlagUtil(flags);
         }
 
-        public boolean isSet(int value) {
-            return (flag & value) == flag;
+        public boolean isSet(long value) {
+            return flagUtil.isSet(value);
         }
 
         public static List<VersionFlags> fromValue(int value) {
-            return Arrays.stream(values())
-                    .filter(vf -> vf.isSet(value))
-                    .collect(Collectors.toList());
+            return FlagUtil.fromValue(values(), value);
+        }
+    }
+
+    /**
+     * Flags from the sb_qflags.
+     *
+     * @see <a href="https://github.com/torvalds/linux/blob/master/fs/xfs/libxfs/xfs_log_format.h#L857">xfs_log_format.h</a>
+     */
+    public enum QuotaFlags implements Flags {
+        /**
+         * User quota accounting is enabled.
+         */
+        XFS_UQUOTA_ACCT(0x0001),
+
+        /**
+         * User quota limits enforced.
+         */
+        XFS_UQUOTA_ENFD(0x0002),
+
+        /**
+         * User quotas have been checked.
+         */
+        XFS_UQUOTA_CHKD(0x0004),
+
+        /**
+         * Project quota accounting is enabled.
+         */
+        XFS_PQUOTA_ACCT(0x0008),
+
+        /**
+         * Other (group/project) quotas are enforced.
+         */
+        XFS_OQUOTA_ENFD(0x0010),
+
+        /**
+         * Other (group/project) quotas have been checked.
+         */
+        XFS_OQUOTA_CHKD(0x0020),
+
+        /**
+         * Group quota accounting is enabled.
+         */
+        XFS_GQUOTA_ACCT(0x0040),
+
+        /**
+         * Group quotas are enforced.
+         */
+        XFS_GQUOTA_ENFD(0x0080),
+
+        /**
+         * Group quotas have been checked.
+         */
+        XFS_GQUOTA_CHKD(0x0100),
+
+        /**
+         * Project quotas are enforced.
+         */
+        XFS_PQUOTA_ENFD(0x0200),
+
+        /**
+         * Project quotas have been checked.
+         */
+        XFS_PQUOTA_CHKD(0x0400);
+
+        private final FlagUtil flagUtil;
+
+        QuotaFlags(int flags) {
+            this.flagUtil = new FlagUtil(flags);
+        }
+
+        public boolean isSet(long value) {
+            return flagUtil.isSet(value);
+        }
+
+        public static List<QuotaFlags> fromValue(int value) {
+            return FlagUtil.fromValue(values(), value);
         }
     }
 
     /**
      * Flags from the sb_features2.
      */
-    public enum Features2 {
+    public enum Features2 implements Flags {
 
         /**
          * Lazy global counters. Making a filesystem with this bit set can improve
@@ -503,19 +755,48 @@ public class Superblock extends XfsRecord {
          */
         FTYPE(0x20);
 
-        private final int flag;
+        private final FlagUtil flagUtil;
 
-        Features2(int flag) {
-            this.flag = flag;
+        Features2(int flags) {
+            this.flagUtil = new FlagUtil(flags);
         }
 
         public boolean isSet(long value) {
-            return (flag & value) == flag;
+            return flagUtil.isSet(value);
         }
 
         public static List<Features2> fromValue(long value) {
-            return Arrays.stream(values())
-                    .filter(f2 -> f2.isSet(value))
+            return FlagUtil.fromValue(values(), value);
+        }
+    }
+
+    /**
+     * A bitmask of a set of flags.
+     */
+    interface Flags {
+        /**
+         * Check if a certain flag has been set in this flags.
+         *
+         * @param value the certain flag.
+         * @return {@code true} if the flag has been set, {@code false} otherwise.
+         */
+        boolean isSet(long value);
+    }
+
+    /**
+     * A Util class for getting the values out of a flag bitmask.
+     */
+    @AllArgsConstructor
+    private static class FlagUtil {
+        int flag;
+
+        boolean isSet(long value) {
+            return (flag & value) == flag;
+        }
+
+        static <F> List<F> fromValue(F[] values, long value) {
+            return Arrays.stream(values)
+                    .filter(f -> ((Flags) f).isSet(value))
                     .collect(Collectors.toList());
         }
     }
