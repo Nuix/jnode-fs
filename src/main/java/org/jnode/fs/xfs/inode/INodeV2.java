@@ -1,7 +1,7 @@
 package org.jnode.fs.xfs.inode;
 
-import org.jnode.fs.xfs.Superblock;
 import org.jnode.fs.xfs.XfsFileSystem;
+import org.jnode.fs.xfs.superblock.AdditionalVersionFlags;
 
 /**
  * An XFS v2 inode ('xfs_dinode_core'). Structure definition in {@link INode}.
@@ -25,7 +25,7 @@ public class INodeV2 extends INode {
      */
     public int getProjectId() {
         int result = getUInt16(20);
-        if (Superblock.Features2.PROJID32BIT.isSet(fs.getSuperblock().getAdditionalFeatureFlags())) {
+        if (AdditionalVersionFlags.PROJID32BIT.isSet(fs.getSuperblock().getFeature2())) {
             result |= getUInt16(22) << 16;
         }
 

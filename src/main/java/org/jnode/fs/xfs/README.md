@@ -4,9 +4,9 @@
 2. https://github.com/libyal/libfsxfs/blob/main/documentation/X%20File%20System%20(XFS).asciidoc
 
 ## Required information
-XFS file systems are divided into Aggregation groups(AG)
+XFS file systems are divided into Allocation groups(AG)
 
-Each agregation group contains serveral "main" elements of which only the Superblock(SB) of the first AG is useful for reading
+Each Allocation group contains several "main" elements of which only the Superblock(SB) of the first AG is useful for reading
 
 In order to partition data information is stored in Blocks(Blocks default size is 4096 Bytes)
 
@@ -30,12 +30,12 @@ it is recommended to compare the data structure Superblock to its PDF counterpar
 
 ### XFS Algorithms & Data Structures (PDF)
 
-This document contains the most recent spec as well as the v4 spec for every structure. 
+This document contains the most recent spec as well as the v4 and v5 spec for every structure. 
 B+tree Hash information can be ignored as it is only useful for optimized searches
 
 The information is recommended to be read in the following order:
 
-1. Aggregation groups
+1. Allocation groups
 2. SuperBlocks
 3. Data Extents
 4. INodes in the described order in the order presented in the PDF

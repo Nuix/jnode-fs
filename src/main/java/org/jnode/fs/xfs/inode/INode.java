@@ -1,5 +1,12 @@
 package org.jnode.fs.xfs.inode;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import org.jnode.fs.FSAttribute;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
@@ -8,15 +15,6 @@ import org.jnode.fs.xfs.attribute.XfsShortFormAttribute;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * An XFS inode ('xfs_dinode_core').
@@ -65,11 +63,9 @@ import java.util.stream.Collectors;
  *    uuid_t            di_uuid;
  * };
  * </pre>
- *
  * @author Luke Quinane
  */
 public class INode extends XfsObject {
-
     /**
      * The magic number ('IN').
      */
@@ -336,12 +332,12 @@ public class INode extends XfsObject {
     }
 
     /**
-     * Gets the {@link List} of {@link Flag}s for the inode.
+     * Gets the {@link List} of {@link InodeFlags}s for the inode.
      *
-     * @return the {@link List} of {@link Flag}s for the inode.
+     * @return the {@link List} of {@link InodeFlags}s for the inode.
      */
-    public List<Flag> getFlags() {
-        return Flag.fromValue(getRawFlags());
+    public List<InodeFlags> getFlags() {
+        return InodeFlags.fromValue(getRawFlags());
     }
 
     /**
@@ -459,229 +455,10 @@ public class INode extends XfsObject {
         return attributes;
     }
 
-
     @Override
     public String toString() {
         return String.format(
                 "inode:[%d version:%d format:%d size:%d uid:%d gid:%d]",
                 inodeNumber, getVersion(), getRawFormat(), getSize(), getUid(), getGid());
-    }
-
-    /**
-     * File modes.
-     */
-    public enum FileMode {
-        // FILE PERMISSIONS
-        OTHER_X(0x0007, 0x0001),
-        OTHER_W(0x0007, 0x0002),
-        OTHER_R(0x0007, 0x0004),
-        GROUP_X(0x0038, 0x0008),
-        GROUP_W(0x0038, 0x0010),
-        GROUP_R(0x0038, 0x0020),
-        USER_X(0x01c0, 0x0040),
-        USER_W(0x01c0, 0x0080),
-        USER_R(0x01c0, 0x0100),
-        //TODO: Check mask
-//        STICKY_BIT(0xFFFF,0x0200),
-//        SET_GID(0xFFFF,0x0400),
-//        SET_UID(0xFFFF,0x0800),
-        // FILE TYPE
-        NAMED_PIPE(0xf000, 0x1000),
-        CHARACTER_DEVICE(0xf000, 0x2000),
-        DIRECTORY(0xf000, 0x4000),
-        BLOCK_DEVICE(0xf000, 0x6000),
-        FILE(0xf000, 0x8000),
-        SYM_LINK(0xf000, 0xa000),
-        SOCKET(0xf000, 0xc000);
-
-        /**
-         * The mask.
-         */
-        final int mask;
-
-        /**
-         * The value.
-         */
-        final int val;
-
-        FileMode(int mask, int val) {
-            this.mask = mask;
-            this.val = val;
-        }
-
-        public boolean isSet(int data) {
-            return (data & mask) == val;
-        }
-
-        public static List<FileMode> getModes(int data) {
-            return Arrays.stream(FileMode.values()).filter(mode -> mode.isSet(data)).collect(Collectors.toList());
-        }
-    }
-
-    /**
-     * <p>inode format values.</p>
-     *
-     * <pre>
-     * typedef enum xfs_dinode_fmt {
-     *     XFS_DINODE_FMT_DEV,
-     *     XFS_DINODE_FMT_LOCAL,
-     *     XFS_DINODE_FMT_EXTENTS,
-     *     XFS_DINODE_FMT_BTREE,
-     *     XFS_DINODE_FMT_UUID,
-     *     XFS_DINODE_FMT_RMAP,
-     * } xfs_dinode_fmt_t;
-     * </pre>
-     */
-    public enum Format {
-        /**
-         * Character and block devices.
-         */
-        DEV,
-
-        /**
-         * All metadata associated with the file is within the inode.
-         */
-        LOCAL,
-
-        /**
-         * The inode contains an array of extents to other filesystem blocks which contain
-         * the associated metadata or data.
-         */
-        EXTENTS,
-
-        /**
-         * The inode contains a B+tree root node which points to filesystem blocks containing
-         * the metadata or data.
-         */
-        BTREE,
-
-        /**
-         * Defined, but currently not used.
-         */
-        UUID,
-
-        /**
-         * A reverse-mapping B+tree is rooted in the fork.
-         */
-        RMAP,
-
-        /**
-         * Unknown
-         */
-        UNKNOWN;
-
-        public static Format fromValue(int value) {
-            return Arrays.stream(values())
-                    .filter(fmt -> fmt.ordinal() == value)
-                    .findFirst()
-                    .orElse(UNKNOWN);
-        }
-    }
-
-    /**
-     * <p>inode flags.</p>
-     */
-    public enum Flag {
-
-        /**
-         * The inode’s data is located on the real-time device.
-         */
-        REALTIME(0x01),
-
-        /**
-         * The inode’s extents have been preallocated.
-         */
-        PREALLOC(0x02),
-
-        /**
-         * Specifies the sb_rbmino uses the new real-time bitmap
-         * format.
-         */
-        NEWRTBM(0x04),
-
-        /**
-         * Specifies the inode cannot be modified.
-         */
-        IMMUTABLE(0x08),
-
-        /**
-         * The inode is in append only mode.
-         */
-        APPEND(0x10),
-
-        /**
-         * The inode is written synchronously.
-         */
-        SYNC(0x20),
-
-        /**
-         * The inode’s di_atime is not updated.
-         */
-        NOATIME(0x40),
-
-        /**
-         * Specifies the inode is to be ignored by xfsdump.
-         */
-        NODUMP(0x80),
-
-        /**
-         * For directory inodes, new inodes inherit the
-         * XFS_DIFLAG_REALTIME bit.
-         */
-        RTINHERIT(0x100),
-
-        /**
-         * For directory inodes, new inodes inherit the di_projid
-         * value.
-         */
-        PROJINHERIT(0x200),
-
-        /**
-         * For directory inodes, symlinks cannot be created.
-         */
-        NOSYMLINKS(0x400),
-
-        /**
-         * Specifies the extent size for real-time files or an extent size
-         * hint for regular files.
-         */
-        EXTSIZE(0x800),
-
-        /**
-         * For directory inodes, new inodes inherit the di_extsize
-         * value.
-         */
-        EXTSZINHERIT(0x1000),
-
-        /**
-         * Specifies the inode is to be ignored when defragmenting
-         * the filesystem.
-         */
-        NODEFRAG(0x2000),
-
-        /**
-         * Use the filestream allocator. The filestreams allocator
-         * allows a directory to reserve an entire allocation group for
-         * exclusive use by files created in that directory. Files in
-         * other directories cannot use AGs reserved by other
-         * directories
-         */
-        FILESTREAMS(0x4000);
-
-        private final int bitValue;
-
-        Flag(int bitValue) {
-            this.bitValue = bitValue;
-        }
-
-        public boolean isSet(int value) {
-            return (bitValue & value) == bitValue;
-        }
-
-        public static List<Flag> fromValue(int value) {
-            return Arrays.stream(values())
-                    .filter(f -> f.isSet(value))
-                    .collect(Collectors.toList());
-        }
     }
 }

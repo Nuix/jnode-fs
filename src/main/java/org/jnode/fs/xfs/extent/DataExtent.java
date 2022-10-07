@@ -1,8 +1,8 @@
 package org.jnode.fs.xfs.extent;
 
-import org.jnode.fs.xfs.Superblock;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
+import org.jnode.fs.xfs.superblock.Superblock;
 
 /**
  * A data extent ('xfs_bmbt_rec_t' packed, or 'xfs_bmbt_irec_t' unpacked).
