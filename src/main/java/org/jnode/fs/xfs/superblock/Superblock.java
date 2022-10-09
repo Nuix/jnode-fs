@@ -1,17 +1,16 @@
-package org.jnode.fs.xfs;
+package org.jnode.fs.xfs.superblock;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.jnode.fs.FileSystemException;
+import org.jnode.fs.xfs.XfsFileSystem;
+import org.jnode.fs.xfs.XfsRecord;
 
 /**
  * <p>The XFS superblock.</p>
@@ -181,7 +180,7 @@ public class Superblock extends XfsRecord {
     private final int versionNumber; // sb_versionnum
 
     /**
-     * Specifies the underlying disk sector size in bytes. Typically this is 512 or 4096 bytes. This determines the
+     * Specifies the underlying disk sector size in bytes. Typically, this is 512 or 4096 bytes. This determines the
      * minimum I/O alignment, especially for direct I/O.
      */
     private final int sectorSize; // sb_sectsize
@@ -332,9 +331,9 @@ public class Superblock extends XfsRecord {
 
     /**
      * Additional version flags if XFS_SB_VERSION_MOREBITSBIT is set in sb_versionnum. The currently
-     * defined additional features include {@link Features2}
+     * defined additional features include {@link AdditionalVersionFlags}
      */
-    private final long additionalFeatureFlags; // sb_features2
+    private final long feature2; // sb_features2
 
     /**
      * This field mirrors sb_features2, due to past 64-bit alignment errors.
@@ -486,7 +485,7 @@ public class Superblock extends XfsRecord {
         externalLogSectorSize = readUInt16(); // sb_logsectsize
         logUnitSize = readUInt32(); // sb_logsunit
 
-        additionalFeatureFlags = readUInt32(); // sb_features2, the bitmask of Features2
+        feature2 = readUInt32(); // sb_features2, the bitmask of Features2
         additionalFeatureFlagsMirror = readUInt32(); // sb_bad_features2
 
         // version 5 superblock fields start here
@@ -522,7 +521,7 @@ public class Superblock extends XfsRecord {
     public String toString() {
         return String.format(
                 "xfs-sb:[block-size:%d inode-size:%d root-ino:%d ag-size:%d ag-count: %d version:%d features2:0x%x]",
-                blockSize, inodeSize, rootInodeNumber, agBlockSize, agCount, getVersion(), additionalFeatureFlags);
+                blockSize, inodeSize, rootInodeNumber, agBlockSize, agCount, getVersion(), feature2);
     }
 
     /**
@@ -536,12 +535,12 @@ public class Superblock extends XfsRecord {
     }
 
     /**
-     * Gets the {@link List} of {@link Features2} from sb_features2.
+     * Gets the {@link List} of {@link AdditionalVersionFlags} from sb_features2.
      *
-     * @return a {@link List} of {@link Features2} from sb_features2.
+     * @return a {@link List} of {@link AdditionalVersionFlags} from sb_features2.
      */
-    public List<Features2> getFeatures2() {
-        return Features2.fromValue(additionalFeatureFlags);
+    public List<AdditionalVersionFlags> getAdditionalVersionFlags() {
+        return AdditionalVersionFlags.fromValue(feature2);
     }
 
     /**
@@ -551,253 +550,5 @@ public class Superblock extends XfsRecord {
      */
     public List<QuotaFlags> getQuotaFlags() {
         return QuotaFlags.fromValue(quotaFlagNumber);
-    }
-
-    /**
-     * The version flags in the version value sb_versionnum.
-     */
-    public enum VersionFlags implements Flags {
-
-        /**
-         * Set if any inode have extended attributes.
-         */
-        ATTRBIT(0x10),
-
-        /**
-         * Set if any inodes use 32-bit di_nlink values.
-         */
-        NLINKBIT(0x20),
-
-        /**
-         * Quotas are enabled on the filesystem. This also brings in the various quota fields in the superblock.
-         */
-        QUOTABIT(0x40),
-
-        /**
-         * Set if sb_inoalignmt is used.
-         */
-        ALIGNBIT(0x80),
-
-        /**
-         * Set if sb_unit and sb_width are used.
-         */
-        DALIGNBIT(0x100),
-
-        /**
-         * Set if sb_shared_vn is used.
-         */
-        SHAREDBIT(0x200),
-
-        /**
-         * Version 2 journaling logs are used.
-         */
-        LOGV2BIT(0x400),
-
-        /**
-         * Set if sb_sectsize is not 512.
-         */
-        SECTORBIT(0x800),
-
-        /**
-         * Unwritten extents are used. This is always set.
-         */
-        EXTFLGBIT(0x1000),
-
-        /**
-         * Version 2 directories are used. This is always set.
-         */
-        DIRV2BIT(0x2000),
-
-        /**
-         * Set if the sb_features2 field in the superblock contains more flags.
-         */
-        MOREBITSBIT(0x4000);
-
-        private final FlagUtil flagUtil;
-
-        VersionFlags(int flags) {
-            this.flagUtil = new FlagUtil(flags);
-        }
-
-        public boolean isSet(long value) {
-            return flagUtil.isSet(value);
-        }
-
-        public static List<VersionFlags> fromValue(int value) {
-            return FlagUtil.fromValue(values(), value);
-        }
-    }
-
-    /**
-     * Flags from the sb_qflags.
-     *
-     * @see <a href="https://github.com/torvalds/linux/blob/master/fs/xfs/libxfs/xfs_log_format.h#L857">xfs_log_format.h</a>
-     */
-    public enum QuotaFlags implements Flags {
-        /**
-         * User quota accounting is enabled.
-         */
-        XFS_UQUOTA_ACCT(0x0001),
-
-        /**
-         * User quota limits enforced.
-         */
-        XFS_UQUOTA_ENFD(0x0002),
-
-        /**
-         * User quotas have been checked.
-         */
-        XFS_UQUOTA_CHKD(0x0004),
-
-        /**
-         * Project quota accounting is enabled.
-         */
-        XFS_PQUOTA_ACCT(0x0008),
-
-        /**
-         * Other (group/project) quotas are enforced.
-         */
-        XFS_OQUOTA_ENFD(0x0010),
-
-        /**
-         * Other (group/project) quotas have been checked.
-         */
-        XFS_OQUOTA_CHKD(0x0020),
-
-        /**
-         * Group quota accounting is enabled.
-         */
-        XFS_GQUOTA_ACCT(0x0040),
-
-        /**
-         * Group quotas are enforced.
-         */
-        XFS_GQUOTA_ENFD(0x0080),
-
-        /**
-         * Group quotas have been checked.
-         */
-        XFS_GQUOTA_CHKD(0x0100),
-
-        /**
-         * Project quotas are enforced.
-         */
-        XFS_PQUOTA_ENFD(0x0200),
-
-        /**
-         * Project quotas have been checked.
-         */
-        XFS_PQUOTA_CHKD(0x0400);
-
-        private final FlagUtil flagUtil;
-
-        QuotaFlags(int flags) {
-            this.flagUtil = new FlagUtil(flags);
-        }
-
-        public boolean isSet(long value) {
-            return flagUtil.isSet(value);
-        }
-
-        public static List<QuotaFlags> fromValue(int value) {
-            return FlagUtil.fromValue(values(), value);
-        }
-    }
-
-    /**
-     * Flags from the sb_features2.
-     */
-    public enum Features2 implements Flags {
-
-        /**
-         * Lazy global counters. Making a filesystem with this bit set can improve
-         * performance. The global free space and inode counts are only updated in
-         * the primary superblock when the filesystem is cleanly unmounted.
-         */
-        LAZYSBCOUNTBIT(0x01),
-
-        /**
-         * Extended attributes version 2. Making a filesystem with this optimises
-         * the inode layout of extended attributes. If this bit is set and the noattr2
-         * mount flag is not specified, the di_forkoff inode field will be dynamically
-         * adjusted.
-         */
-        ATTR2BIT(0x02),
-
-        /**
-         * Parent pointers. All inodes must have an extended attribute that points
-         * back to its parent node. The primary purpose for this information is in
-         * backup systems.
-         */
-        PARENTBIT(0x04),
-
-        /**
-         * 32-bit Project ID. Inodes can be associated with a project ID number,
-         * which can be used to enforce disk space usage quotas for a particular
-         * group of directories.This flag indicates that project IDs can be 32 bits
-         * in size.
-         */
-        PROJID32BIT(0x08),
-
-        /**
-         * Metadata checksumming. All metadata blocks have an extended header containing
-         * the block checksum, a copy of the metadata UUID, the log sequence number of the
-         * last update to prevent stale replays, and a back pointer to the owner of the
-         * block. This feature must be and can only be set of the lowest nibble of
-         * sb_versionnum is set to 5.
-         */
-        CRCBIT(0x10),
-
-        /**
-         * Directory file type. Each directory entry records the type of the inode to which
-         * the entry points. This speeds up directory iteration by removing the need to load
-         * every inode into memory.
-         */
-        FTYPE(0x20);
-
-        private final FlagUtil flagUtil;
-
-        Features2(int flags) {
-            this.flagUtil = new FlagUtil(flags);
-        }
-
-        public boolean isSet(long value) {
-            return flagUtil.isSet(value);
-        }
-
-        public static List<Features2> fromValue(long value) {
-            return FlagUtil.fromValue(values(), value);
-        }
-    }
-
-    /**
-     * A bitmask of a set of flags.
-     */
-    interface Flags {
-        /**
-         * Check if a certain flag has been set in this flags.
-         *
-         * @param value the certain flag.
-         * @return {@code true} if the flag has been set, {@code false} otherwise.
-         */
-        boolean isSet(long value);
-    }
-
-    /**
-     * A Util class for getting the values out of a flag bitmask.
-     */
-    @AllArgsConstructor
-    private static class FlagUtil {
-        int flag;
-
-        boolean isSet(long value) {
-            return (flag & value) == flag;
-        }
-
-        static <F> List<F> fromValue(F[] values, long value) {
-            return Arrays.stream(values)
-                    .filter(f -> ((Flags) f).isSet(value))
-                    .collect(Collectors.toList());
-        }
     }
 }

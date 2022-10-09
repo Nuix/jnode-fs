@@ -14,6 +14,7 @@ import org.jnode.fs.FileSystemType;
 import org.jnode.fs.spi.AbstractFileSystem;
 import org.jnode.fs.xfs.inode.INode;
 import org.jnode.fs.xfs.inode.INodeFactory;
+import org.jnode.fs.xfs.superblock.Superblock;
 
 /**
  * An XFS file system.

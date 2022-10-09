@@ -1,15 +1,14 @@
 package org.jnode.fs.xfs.inode;
 
+import java.io.IOException;
+
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
-
-import java.io.IOException;
 
 /**
  * Creates inodes based on the version value read from the data.
  */
 public class INodeFactory {
-
     /**
      * Prevent instantiation.
      */
@@ -36,14 +35,13 @@ public class INodeFactory {
         }
 
         int version = obj.getUInt8(4);
-        if (version == 1) {
-            return new INode(inodeNumber, data, offset, fs);
-        }
-        else if (version == 2) {
-            return new INodeV2(inodeNumber, data, offset, fs);
-        }
-        else {
-            return new INodeV3(inodeNumber, data, offset, fs);
+        switch (version) {
+            case 1:
+                return new INode(inodeNumber, data, offset, fs);
+            case 2:
+                return new INodeV2(inodeNumber, data, offset, fs);
+            default:
+                return new INodeV3(inodeNumber, data, offset, fs);
         }
     }
 }

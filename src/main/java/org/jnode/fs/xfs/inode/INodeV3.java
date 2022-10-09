@@ -1,17 +1,14 @@
 package org.jnode.fs.xfs.inode;
 
-import org.jnode.fs.xfs.XfsFileSystem;
-
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
+
+import org.jnode.fs.xfs.XfsFileSystem;
 
 /**
  * An XFS v3 inode ('xfs_dinode_core'). Structure definition in {@link INode}.
  */
 public class INodeV3 extends INodeV2 {
-
     /**
      * The offset to the v3 inode data.
      */
@@ -81,12 +78,12 @@ public class INodeV3 extends INodeV2 {
     }
 
     /**
-     * Gets the {@link List} of {@link Flag2} for the inode.
+     * Gets the {@link List} of {@link InodeV3Flags} for the inode.
      *
-     * @return the {@link List} of {@link Flag2} for the inode.
+     * @return the {@link List} of {@link InodeV3Flags} for the inode.
      */
-    public List<Flag2> getFlags2() {
-        return Flag2.fromValue(getRawFlags2());
+    public List<InodeV3Flags> getV3Flags() {
+        return InodeV3Flags.fromValue(getRawFlags2());
     }
 
     /**
@@ -146,48 +143,5 @@ public class INodeV3 extends INodeV2 {
     @Override
     public int getDataOffset() {
         return V3_DATA_OFFSET;
-    }
-
-    /**
-     * Extended flags associated with a v3 inode.
-     */
-    public enum Flag2 {
-
-        /**
-         * For a file, enable DAX to increase performance on
-         * persistent-memory storage. If set on a directory, files
-         * created in the directory will inherit this flag.
-         */
-        DAX(0x01),
-
-        /**
-         * This inode shares (or has shared) data blocks with another
-         * inode.
-         */
-        REFLINK(0x02),
-
-        /**
-         * For files, this is the extent size hint for copy on write
-         * operations; see di_cowextsize for details. For
-         * directories, the value in di_cowextsize will be copied
-         * to all newly created files and directories.
-         */
-        COWEXTSIZE(0x04);
-
-        private final long bitValue;
-
-        Flag2(int bitValue) {
-            this.bitValue = bitValue;
-        }
-
-        public boolean isSet(long value) {
-            return (bitValue & value) == bitValue;
-        }
-
-        static List<Flag2> fromValue(long value) {
-            return Arrays.stream(values())
-                    .filter(f -> f.isSet(value))
-                    .collect(Collectors.toList());
-        }
     }
 }
