@@ -346,23 +346,23 @@ public class Superblock extends XfsRecord {
      * Read-write compatible feature flags. The kernel can still read and write this FS even if it doesn’t understand
      * the flag. Currently, there are no valid flags.
      */
-    private final long readWriteCompatibleFlags; // sb_features_compat
+    private final long compat; // sb_features_compat
 
     /**
      * Read-only compatible feature flags. The kernel can still read this FS even if it doesn’t understand the flag.
      */
-    private final long readOnlyCompatibleFlags; // sb_features_ro_compat
+    private final long roCompat; // sb_features_ro_compat
 
     /**
      * Read-write incompatible feature flags. The kernel cannot read or write this FS if it doesn’t understand the flag.
      */
-    private final long readWriteIncompatibleFlags; // sb_features_incompat
+    private final long incompat; // sb_features_incompat
 
     /**
      * Read-write incompatible feature flags for the log. The kernel cannot read or write this FS log if it doesn’t
      * understand the flag. Currently, no flags are defined.
      */
-    private final long readWriteLogIncompatibleFlags; // sb_features_log_incompat
+    private final long logIncompat; // sb_features_log_incompat
 
     /**
      * Superblock checksum.
@@ -489,10 +489,10 @@ public class Superblock extends XfsRecord {
         additionalFeatureFlagsMirror = readUInt32(); // sb_bad_features2
 
         // version 5 superblock fields start here
-        readWriteCompatibleFlags = readUInt32(); // sb_features_compat
-        readOnlyCompatibleFlags = readUInt32(); // sb_features_ro_compat
-        readWriteIncompatibleFlags = readUInt32(); // sb_features_incompat
-        readWriteLogIncompatibleFlags = readUInt32(); // sb_features_log_incompat
+        compat = readUInt32(); // sb_features_compat
+        roCompat = readUInt32(); // sb_features_ro_compat
+        incompat = readUInt32(); // sb_features_incompat
+        logIncompat = readUInt32(); // sb_features_log_incompat
         superblockChecksum = readUInt32(); // sb_crc
         sparseInodeAlignment = readUInt32(); // sb_spino_align
 
@@ -550,5 +550,52 @@ public class Superblock extends XfsRecord {
      */
     public List<QuotaFlags> getQuotaFlags() {
         return QuotaFlags.fromValue(quotaFlagNumber);
+    }
+
+    /**
+     * Gets the {@link List} of {@link MiscFlags} from sb_flags.
+     *
+     * @return a {@link List} of {@link MiscFlags} from sb_flags.
+     */
+    public List<MiscFlags> getMiscFlags() {
+        return MiscFlags.fromValue(flags);
+    }
+
+    /**
+     * Gets the raw value of sb_features_compat.
+     * The doc says "Currently, there are no valid flags."
+     *
+     * @return the raw value of from sb_features_compat.
+     */
+    public long getReadWriteCompatibilityFlags() {
+        return compat;
+    }
+
+    /**
+     * Gets the {@link List} of {@link ReadOnlyCompatibilityFlags} from sb_features_ro_compat.
+     *
+     * @return a {@link List} of {@link ReadOnlyCompatibilityFlags} from sb_features_ro_compat.
+     */
+    public List<ReadOnlyCompatibilityFlags> getReadOnlyCompatibilityFlags() {
+        return ReadOnlyCompatibilityFlags.fromValue(roCompat);
+    }
+
+    /**
+     * Gets the {@link List} of {@link ReadWriteIncompatibilityFlags} from sb_features_incompat.
+     *
+     * @return a {@link List} of {@link ReadWriteIncompatibilityFlags} from sb_features_incompat.
+     */
+    public List<ReadWriteIncompatibilityFlags> getReadWriteIncompatibilityFlags() {
+        return ReadWriteIncompatibilityFlags.fromValue(incompat);
+    }
+
+    /**
+     * Gets the raw value of sb_features_log_incompat.
+     * The doc says "Currently, no flags are defined."
+     *
+     * @return the raw value of sb_features_log_incompat.
+     */
+    public long getLogReadWriteIncompatibilityFlags() {
+        return logIncompat;
     }
 }
