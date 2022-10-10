@@ -12,11 +12,6 @@ import org.jnode.fs.xfs.Flags;
  */
 public enum MiscFlags implements Flags {
     /**
-     * no flags set.
-     */
-    NOFLAGS(0x00),
-
-    /**
      * only read-only mounts allowed.
      */
     READONLY(0x01);
