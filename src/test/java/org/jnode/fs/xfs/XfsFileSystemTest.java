@@ -154,7 +154,7 @@ public class XfsFileSystemTest {
         actual.append("atime : ").append(getDate(entry.getLastAccessed())).append("; ");
         if (entry.getINode() instanceof INodeV3) {
             INodeV3 v3 = (INodeV3) entry.getINode();
-            actual.append("ctime : ").append(getDate(v3.getCreated())).append("; ");
+            actual.append("ctime : ").append(getDate(entry.getCreated())).append("; ");
         }
         actual.append("mtime : ").append(getDate(entry.getLastChanged())).append("\n");
         actual.append(indent).append(indent);

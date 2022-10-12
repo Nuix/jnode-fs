@@ -137,7 +137,7 @@ public class INode extends XfsObject {
      * @return a {@link List} of {@link FileMode}s from the inode.
      */
     public List<FileMode> getFileModes() {
-        return FileMode.getModes(getMode());
+        return FileMode.fromValue(getMode());
     }
 
     /**
@@ -292,7 +292,7 @@ public class INode extends XfsObject {
      * @return the extent count.
      */
     public long getExtentCount() {
-        return getUInt32(76);
+        return getUInt32(76); // xfs_extnum_t
     }
 
     /**
@@ -435,6 +435,13 @@ public class INode extends XfsObject {
 
     /**
      * Gets the {@link List} of {@link XfsShortFormAttribute}s.
+     * Read the header first to get the number of entries that can be found in this structure, then get them one by one.
+     * <pre>
+     *   struct xfs_attr_sf_hdr {
+     *     __be16 totsize;
+     *     __u8 count;
+     *   } hdr;
+     * </pre>
      *
      * @param offset the offset to start reading data from.
      * @return the {@link List} of {@link XfsShortFormAttribute}s.
@@ -449,7 +456,7 @@ public class INode extends XfsObject {
         for (int i = 0; i < attributeCount; i++) {
             XfsShortFormAttribute attribute = new XfsShortFormAttribute(getData(), offset);
             attributes.add(attribute);
-            offset += attribute.getAttributeSizeForOffset();
+            offset = attribute.getOffset();
         }
 
         return attributes;
