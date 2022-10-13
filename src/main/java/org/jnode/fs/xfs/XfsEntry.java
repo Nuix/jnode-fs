@@ -1,29 +1,30 @@
 package org.jnode.fs.xfs;
 
-import org.jnode.fs.*;
-import org.jnode.fs.spi.AbstractFSEntry;
-import org.jnode.fs.util.UnixFSConstants;
-import org.jnode.fs.xfs.extent.DataExtent;
-import org.jnode.fs.xfs.inode.INode;
-import org.jnode.fs.xfs.inode.INodeV3;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jnode.fs.FSAttribute;
+import org.jnode.fs.FSDirectory;
+import org.jnode.fs.FSEntryCreated;
+import org.jnode.fs.FSEntryLastAccessed;
+import org.jnode.fs.FSEntryLastChanged;
+import org.jnode.fs.spi.AbstractFSEntry;
+import org.jnode.fs.util.UnixFSConstants;
+import org.jnode.fs.xfs.extent.DataExtent;
+import org.jnode.fs.xfs.inode.INode;
+import org.jnode.fs.xfs.inode.INodeV3;
+
 /**
  * <p>An entry in a XFS file system.</p>
- *
- * <p>TODO: Extend this class to implement {@link FSEntryCreated} to support {@link INodeV3},
- * which has inode creation date or something cleaner.</p>
  *
  * @author Luke Quinane
  * @author Ricardo Garza
  * @author Julio Parra
  */
-public class XfsEntry extends AbstractFSEntry implements FSEntryLastAccessed, FSEntryLastChanged {
+public class XfsEntry extends AbstractFSEntry implements FSEntryLastAccessed, FSEntryLastChanged, FSEntryCreated {
 
     /**
      * The inode.
@@ -113,6 +114,16 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryLastAccessed, FS
      */
     public long getInodeLastChanged() {
         return getMilliseconds(inode.getInodeChangeTimeSec(), inode.getInodeChangeTimeNsec());
+    }
+
+    @Override
+    public long getCreated() {
+        if (inode.getVersion() > 2) {
+            INodeV3 iNodeV3 = (INodeV3) inode;
+            return getMilliseconds(iNodeV3.getCreatedTimeSec(), iNodeV3.getCreatedTimeNsec());
+        } else {
+            throw new UnsupportedOperationException("Not supported in Inode version " + inode.getVersion());
+        }
     }
 
     /**

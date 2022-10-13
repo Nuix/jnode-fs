@@ -1,32 +1,38 @@
 package org.jnode.fs.xfs;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.TimeZone;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jnode.driver.block.FileDevice;
 import org.jnode.fs.DataStructureAsserts;
+import org.jnode.fs.FSAttribute;
+import org.jnode.fs.FSDirectory;
+import org.jnode.fs.FSEntry;
 import org.jnode.fs.FileSystemTestUtils;
-import org.jnode.fs.*;
 import org.jnode.fs.service.FileSystemService;
-
 import org.jnode.fs.xfs.inode.INode;
 import org.jnode.fs.xfs.inode.INodeV3;
-import org.junit.*;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Ignore;
+import org.junit.Test;
 
-import java.io.File;
-import java.io.IOException;
-
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-
-import java.util.*;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
 
 public class XfsFileSystemTest {
@@ -69,12 +75,11 @@ public class XfsFileSystemTest {
         }
     }
 
-
     @Test
     public void testXfsMetaData() throws Exception {
         // Arrange
         String expectedStructure =
-                        "  /; \n" +
+                "  /; \n" +
                         "    atime : 2021-11-17T06:50:04.416+0000; ctime : 2021-11-17T06:47:39.355+0000; mtime : 2021-11-17T06:48:33.735+0000\n" +
                         "    owner : 0; group : 0; size : 57; mode : 777; \n" +
                         "    folder1; \n" +
@@ -154,7 +159,7 @@ public class XfsFileSystemTest {
         actual.append("atime : ").append(getDate(entry.getLastAccessed())).append("; ");
         if (entry.getINode() instanceof INodeV3) {
             INodeV3 v3 = (INodeV3) entry.getINode();
-            actual.append("ctime : ").append(getDate(v3.getCreated())).append("; ");
+            actual.append("ctime : ").append(getDate(entry.getCreated())).append("; ");
         }
         actual.append("mtime : ").append(getDate(entry.getLastChanged())).append("\n");
         actual.append(indent).append(indent);
@@ -179,11 +184,8 @@ public class XfsFileSystemTest {
     @Test
     public void testShortFormAttribute() throws Exception {
         try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
-            XfsFileSystemType type = new XfsFileSystemType();
-            XfsFileSystem fs = type.create(device, true);
-            INode shortAttributeINode = fs.getINode(11075L);
-            XfsEntry entry = new XfsEntry(shortAttributeINode, "", 0, fs, null);
-            assertThat(shortAttributeINode.getAttributesFormat(), is(1));// Short form attribute format
+            XfsEntry entry = DataTestUtils.getDescendantData(new XfsFileSystemType().create(device, true), "short-form-attr.txt");
+            assertThat(entry.getINode().getAttributesFormat(), is(1));// Short form attribute format
             List<FSAttribute> attributes = entry.getAttributes();
             assertThat(attributes, hasSize(1));
             FSAttribute attribute = attributes.get(0);
@@ -197,11 +199,9 @@ public class XfsFileSystemTest {
     @Test
     public void testLeafAttributes() throws Exception {
         try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
-            XfsFileSystemType type = new XfsFileSystemType();
-            XfsFileSystem fs = type.create(device, true);
-            INode leafAttributeINode = fs.getINode(11076L);
-            XfsEntry entry = new XfsEntry(leafAttributeINode, "", 0, fs, null);
+            XfsEntry entry = DataTestUtils.getDescendantData(new XfsFileSystemType().create(device, true), "leaf-attr.txt");
 
+            INode leafAttributeINode = entry.getINode();
             // leaf/node form attribute format
             assertThat(leafAttributeINode.getAttributesFormat(), is(2));
 
@@ -217,10 +217,8 @@ public class XfsFileSystemTest {
     @Test
     public void testNodeAttributes() throws Exception {
         try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
-            XfsFileSystemType type = new XfsFileSystemType();
-            XfsFileSystem fs = type.create(device, true);
-            INode nodeAttributeINode = fs.getINode(11077L);
-            XfsEntry entry = new XfsEntry(nodeAttributeINode, "", 0, fs, null);
+            XfsEntry entry = DataTestUtils.getDescendantData(new XfsFileSystemType().create(device, true), "node-attr.txt");
+            INode nodeAttributeINode = entry.getINode();
             // leaf/node form attribute format
             assertThat(nodeAttributeINode.getAttributesFormat(), is(2));
             // node has more than 1 extent
@@ -235,11 +233,10 @@ public class XfsFileSystemTest {
     @Test
     public void testSparseFiles() throws Exception {
         try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
-            XfsFileSystemType type = new XfsFileSystemType();
-            XfsFileSystem fs = type.create(device, true);
+            XfsFileSystem fs = new XfsFileSystemType().create(device, true);
+            XfsEntry entry = DataTestUtils.getDescendantData(fs, "sparse.dat");
             long blockSize = fs.getSuperblock().getBlockSize();
-            INode sparseFileINode = fs.getINode(11078L);
-            XfsEntry entry = new XfsEntry(sparseFileINode, "sparse.dat", 0, fs, null);
+            INode sparseFileINode = entry.getINode();
             long fileSize = sparseFileINode.getSize();
             for (int offset = 0; offset < fileSize; offset += blockSize) {
                 int bufferSize = (int) Math.min(blockSize, fileSize - offset);

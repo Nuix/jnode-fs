@@ -114,15 +114,6 @@ public class INodeV3 extends INodeV2 {
     }
 
     /**
-     * Gets the inode creation time in milliseconds. TODO: move elsewhere.
-     *
-     * @return the inode creation time.
-     */
-    public long getCreated() {
-        return (getCreatedTimeSec() * 1000) + (getCreatedTimeNsec() / 1_000_000);
-    }
-
-    /**
      * Gets the stored inode number if this is a v3 inode.
      *
      * @return the number.
