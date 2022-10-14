@@ -1,10 +1,10 @@
 package org.jnode.fs.xfs.attribute;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
 import org.jnode.fs.FSAttribute;
+import org.jnode.fs.util.FSUtils;
 import org.jnode.fs.xfs.XfsObject;
 
 /**
@@ -71,7 +71,7 @@ public class XfsShortFormAttribute extends XfsObject implements FSAttribute {
         value = new byte[valueLength];
         System.arraycopy(data, getOffset(), attributeName, 0, nameLength);
         System.arraycopy(data, getOffset() + nameLength, value, 0, valueLength);
-        name = new String(attributeName, StandardCharsets.UTF_8);
+        name = FSUtils.toNormalizedString(attributeName);
         skipBytes(nameLength + valueLength);
     }
 

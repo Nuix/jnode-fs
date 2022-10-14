@@ -1,22 +1,27 @@
 package org.jnode.fs.xfs;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.annotation.Nonnull;
+
 import lombok.Getter;
-import lombok.NonNull;
 import org.jnode.driver.ApiNotFoundException;
 import org.jnode.fs.FSDirectoryId;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.spi.AbstractFSDirectory;
 import org.jnode.fs.spi.FSEntryTable;
-import org.jnode.fs.xfs.directory.*;
+import org.jnode.fs.xfs.directory.BPlusTreeDirectory;
+import org.jnode.fs.xfs.directory.BlockDirectory;
+import org.jnode.fs.xfs.directory.LeafDirectory;
+import org.jnode.fs.xfs.directory.NodeDirectory;
+import org.jnode.fs.xfs.directory.ShortFormDirectoryEntry;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.inode.INode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * A XFS directory.
@@ -35,7 +40,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
     /**
      * The related entry.
      */
-    @NonNull
+    @Nonnull
     @Getter
     private final XfsEntry entry;
 

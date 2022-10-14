@@ -1,8 +1,7 @@
 package org.jnode.fs.xfs.directory;
 
+import org.jnode.fs.util.FSUtils;
 import org.jnode.fs.xfs.XfsObject;
-
-import java.nio.charset.StandardCharsets;
 
 /**
  * A XFS block directory entry inode.
@@ -53,7 +52,7 @@ public class BlockDirectoryEntry extends XfsObject {
             iNodeNumber = getInt64(0);
             byte[] buffer = new byte[nameSize];
             System.arraycopy(data, (int) offset + 9, buffer, 0, nameSize);
-            name = new String(buffer, StandardCharsets.UTF_8);
+            name = FSUtils.toNormalizedString(buffer);
         } else {
             nameSize = 0;
             iNodeNumber = 0;

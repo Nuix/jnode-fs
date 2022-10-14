@@ -2,12 +2,12 @@ package org.jnode.fs.xfs.inode;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import org.jnode.fs.FSAttribute;
+import org.jnode.fs.util.FSUtils;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.attribute.XfsLeafOrNodeAttributeReader;
@@ -393,7 +393,7 @@ public class INode extends XfsObject {
     public String getSymLinkText() {
         ByteBuffer buffer = ByteBuffer.allocate((int) getSize());
         System.arraycopy(getData(), getOffset() + getDataOffset(), buffer.array(), 0, (int) getSize());
-        return new String(buffer.array(), StandardCharsets.UTF_8);
+        return FSUtils.toNormalizedString(buffer.array());
     }
 
     /**
