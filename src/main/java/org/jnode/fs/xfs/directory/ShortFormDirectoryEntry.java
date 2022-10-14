@@ -1,8 +1,7 @@
 package org.jnode.fs.xfs.directory;
 
+import org.jnode.fs.util.FSUtils;
 import org.jnode.fs.xfs.XfsObject;
-
-import java.nio.charset.StandardCharsets;
 
 /**
  * <p>A short form directory entry.</p>
@@ -71,7 +70,7 @@ public class ShortFormDirectoryEntry extends XfsObject {
      * @return the entry name.
      */
     public String getName() {
-        return new String(getData(), getOffset() + 0x3, getNameLength(), StandardCharsets.UTF_8);
+        return FSUtils.toNormalizedString(getData(), getOffset() + 0x3, getNameLength());
     }
 
     /**

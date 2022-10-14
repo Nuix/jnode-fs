@@ -76,9 +76,6 @@ public class BPlusTreeDirectory extends XfsObject {
 
     /**
      * Gets all the entries of the current b+tree directory.
-     * Note: When level &gt; 1 this won't work.
-     * Need an example with more than 1 level to introduce recursively.
-     * TODO: determine if this needs a test based on note.
      *
      * @param parentDirectory of the inode.
      * @return a {@link List} of {@link FSEntry}.

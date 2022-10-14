@@ -1,10 +1,10 @@
 package org.jnode.fs.xfs.attribute;
 
-import org.jnode.fs.FSAttribute;
-import org.jnode.fs.xfs.XfsObject;
-
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+
+import org.jnode.fs.FSAttribute;
+import org.jnode.fs.util.FSUtils;
+import org.jnode.fs.xfs.XfsObject;
 
 public class XfsLeafAttribute extends XfsObject implements FSAttribute {
 
@@ -22,7 +22,7 @@ public class XfsLeafAttribute extends XfsObject implements FSAttribute {
 
     @Override
     public String getName() {
-        return new String(getData(), getOffset() + 3, getNameLength(), StandardCharsets.UTF_8);
+        return FSUtils.toNormalizedString(getData(), getOffset() + 3, getNameLength());
     }
 
     @Override

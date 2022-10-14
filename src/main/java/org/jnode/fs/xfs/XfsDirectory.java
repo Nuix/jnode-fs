@@ -1,20 +1,27 @@
 package org.jnode.fs.xfs;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.annotation.Nonnull;
+
+import lombok.Getter;
 import org.jnode.driver.ApiNotFoundException;
 import org.jnode.fs.FSDirectoryId;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.spi.AbstractFSDirectory;
 import org.jnode.fs.spi.FSEntryTable;
-import org.jnode.fs.xfs.directory.*;
+import org.jnode.fs.xfs.directory.BPlusTreeDirectory;
+import org.jnode.fs.xfs.directory.BlockDirectory;
+import org.jnode.fs.xfs.directory.LeafDirectory;
+import org.jnode.fs.xfs.directory.NodeDirectory;
+import org.jnode.fs.xfs.directory.ShortFormDirectoryEntry;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.inode.INode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * A XFS directory.
@@ -33,12 +40,9 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
     /**
      * The related entry.
      */
+    @Nonnull
+    @Getter
     private final XfsEntry entry;
-
-    /**
-     * The inode.
-     */
-    private final INode inode;
 
     /**
      * The file system.
@@ -55,12 +59,11 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
 
         this.entry = entry;
         fileSystem = (XfsFileSystem) entry.getFileSystem();
-        inode = entry.getINode();
     }
 
     @Override
     public String getDirectoryId() {
-        return Long.toString(inode.getINodeNumber());
+        return Long.toString(entry.getINode().getINodeNumber());
     }
 
     @Override
@@ -73,6 +76,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
     protected FSEntryTable readEntries() throws IOException {
         List<FSEntry> entries = new ArrayList<>();
 
+        INode inode = entry.getINode();
         switch (inode.getFormat()) {
             case LOCAL:
                 // Entries are stored within the inode record itself
@@ -91,7 +95,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                         // This is the root, just add it again
                         entries.add(new XfsEntry(inode, "..", 1, fileSystem, null));
                     } else {
-                        entries.add(new XfsEntry(parent.inode, "..", 1, fileSystem, parent.entry.getParent()));
+                        entries.add(new XfsEntry(parent.getEntry().getINode(), "..", 1, fileSystem, parent.entry.getParent()));
                     }
                     entryCount += entries.size();
 
@@ -121,7 +125,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
 
             case EXTENTS:
                 if (!inode.isDirectory()) {
-                    throw new UnsupportedOperationException("Trying to get directories of a non directory inode");
+                    throw new UnsupportedOperationException("Trying to get directories of a non directory inode (node mode " + inode.getMode() + ")");
                 }
                 final List<DataExtent> extents = inode.getExtentInfo();
 
@@ -176,11 +180,11 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                 break;
 
             case BTREE:
-                long iNodeNumber = entry.getINode().getINodeNumber();
+                long iNodeNumber = inode.getINodeNumber();
                 if (logger.isDebugEnabled()) {
                     logger.debug("Processing a B+tree directory, Inode Number: {}", iNodeNumber);
                 }
-                BPlusTreeDirectory myBPlusTreeDirectory = new BPlusTreeDirectory(entry.getINode().getData(), 0, iNodeNumber, fileSystem);
+                BPlusTreeDirectory myBPlusTreeDirectory = new BPlusTreeDirectory(inode.getData(), 0, iNodeNumber, fileSystem);
                 entries = myBPlusTreeDirectory.getEntries(this);
                 break;
 

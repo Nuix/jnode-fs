@@ -2,13 +2,13 @@ package org.jnode.fs.xfs.superblock;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.jnode.fs.FileSystemException;
+import org.jnode.fs.util.FSUtils;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsRecord;
 
@@ -453,7 +453,7 @@ public class Superblock extends XfsRecord {
         int nameLength = 12;
         byte[] buffer = new byte[nameLength];
         System.arraycopy(getData(), getOffset(), buffer, 0, nameLength);
-        fileSystemName = new String(buffer, StandardCharsets.UTF_8).replace("\0", ""); // sb_fname[12]
+        fileSystemName = FSUtils.toNormalizedString(buffer); // sb_fname[12]
         skipBytes(nameLength);
 
         blockSizeLog2 = readUInt8(); // sb_blocklog

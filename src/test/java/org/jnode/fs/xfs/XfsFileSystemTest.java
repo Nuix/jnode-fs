@@ -3,7 +3,6 @@ package org.jnode.fs.xfs;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Iterator;
 import java.util.List;
@@ -25,6 +24,7 @@ import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.FileSystemTestUtils;
 import org.jnode.fs.service.FileSystemService;
+import org.jnode.fs.xfs.inode.Format;
 import org.jnode.fs.xfs.inode.INode;
 import org.jnode.fs.xfs.inode.INodeV3;
 import org.junit.AfterClass;
@@ -34,6 +34,7 @@ import org.junit.Test;
 
 import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
+import static org.jnode.fs.util.FSUtils.*;
 
 public class XfsFileSystemTest {
 
@@ -190,9 +191,36 @@ public class XfsFileSystemTest {
             assertThat(attributes, hasSize(1));
             FSAttribute attribute = attributes.get(0);
             assertThat(attribute.getName(), is("selinux"));
-            String stringValue = new String(attribute.getValue(), StandardCharsets.UTF_8)
-                    .replace("\0", "");
+            String stringValue = toNormalizedString(attribute.getValue());
             assertThat(stringValue, is("unconfined_u:object_r:unlabeled_t:s0"));
+        }
+    }
+
+    @Ignore("test data not in project, it is 17GB, too large to put in code.")
+    @Test
+    public void testBtreeWithHierarchy() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/v5/centos-xfs.img");
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsEntry entry = DataTestUtils.getDescendantData(new XfsFileSystemType().create(device, true), "usr", "lib64");
+
+            // It's the Btree node with complex folder / file hierarchy.
+            XfsDirectory directory = new XfsDirectory(entry);
+            assertThat(directory.getEntry().getINode().getFormat(), is(Format.BTREE));
+
+            // It seems that all items in the same folder have the same attribute value of name "selinux".
+            FSEntry file = directory.getEntry("librt.so.1"); // a file
+            assertThat(toNormalizedString(file.getAttributes().get(0).getValue()), is("system_u:object_r:lib_t:s0"));
+
+            FSEntry folder = directory.getEntry("dri"); // a folder
+            assertThat(toNormalizedString(folder.getAttributes().get(0).getValue()), is("system_u:object_r:lib_t:s0"));
+
+            FSEntry file1InFolder = new XfsDirectory((XfsEntry) folder).getEntry("i965_dri.so");
+            assertThat(toNormalizedString(file1InFolder.getAttributes().get(0).getValue()), is("system_u:object_r:textrel_shlib_t:s0"));
+
+            FSEntry file2InFolder = new XfsDirectory((XfsEntry) folder).getEntry("r600_dri.so");
+            assertThat(toNormalizedString(file2InFolder.getAttributes().get(0).getValue()), is("system_u:object_r:textrel_shlib_t:s0"));
+        } finally {
+            testFile.delete();
         }
     }
 
@@ -246,8 +274,7 @@ public class XfsFileSystemTest {
                     // in case of sparse data the buffer should be left untouched
                     assertThat(buffer.position(), is(0));
                 } else {
-                    byte[] array = buffer.array();
-                    String stringData = new String(array, StandardCharsets.UTF_8);
+                    String stringData = toNormalizedString(buffer.array());
                     assertThat(stringData, is("Just a little bit of data right at the end...\n"));
                 }
 
@@ -265,9 +292,7 @@ public class XfsFileSystemTest {
                 if (o instanceof FSAttribute) {
                     FSAttribute attr = (FSAttribute) o;
                     String name = attr.getName();
-                    byte[] value = attr.getValue();
-                    String stringValue = new String(value, StandardCharsets.UTF_8)
-                            .replace("\0", "");
+                    String stringValue = toNormalizedString(attr.getValue());
                     if (name.equals("selinux")) {
                         return stringValue.equals("unconfined_u:object_r:unlabeled_t:s0");
                     }

@@ -1,9 +1,12 @@
 package org.jnode.fs.xfs;
 
-import org.jnode.fs.spi.AbstractFSFile;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
+
+import javax.annotation.Nonnull;
+
+import lombok.Getter;
+import org.jnode.fs.spi.AbstractFSFile;
 
 /**
  * A XFS file.
@@ -17,6 +20,8 @@ public class XfsFile extends AbstractFSFile {
     /**
      * The entry.
      */
+    @Nonnull
+    @Getter
     private final XfsEntry entry;
 
     /**

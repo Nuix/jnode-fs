@@ -8,19 +8,20 @@
  * by the Free Software Foundation; either version 2.1 of the License, or
  * (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful, but 
+ * This library is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public 
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; If not, write to the Free Software Foundation, Inc., 
+ * along with this library; If not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
- 
+
 package org.jnode.fs.util;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -32,7 +33,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * 
+ * Utilities used in all fs.
+ *
  * @author Fabien DUMINY
  */
 public class FSUtils {
@@ -42,8 +44,8 @@ public class FSUtils {
     protected static DateFormat dateFormat = new SimpleDateFormat();
 
     /**
-     * @param path
-     * @param separator
+     * @param path the path.
+     * @param separator the separator.
      * @return the file name of a filename + path
      */
     public static String getName(String path, char separator) {
@@ -130,7 +132,7 @@ public class FSUtils {
     /**
      * @param dir an FSDirectory
      * @param deep if {@code true} also render the directory's entries
-     * @return a human readable rendering of the FSDirectory
+     * @return a human-readable rendering of the FSDirectory
      * @throws IOException
      */
     public static String toString(FSDirectory dir, boolean deep) throws IOException {
@@ -146,7 +148,7 @@ public class FSUtils {
 
     /**
      * @param file an FSFile
-     * @return  a human readable rendering of the FSFile
+     * @return  a human-readable rendering of the FSFile
      */
     public static String toString(FSFile file) {
         if (file == null)
@@ -181,6 +183,28 @@ public class FSUtils {
     }
 
     /**
+     * Render bytes as a String by removing "\0".
+     *
+     * @param data an array of bytes.
+     * @return a rendering of the bytes.
+     */
+    public static String toNormalizedString(byte[] data) {
+        return new String(data, StandardCharsets.UTF_8).replace("\0", "");
+    }
+
+    /**
+     * Render bytes as a String by removing "\0".
+     *
+     * @param data an array of bytes.
+     * @param offset the start position of the first byte to be rendered.
+     * @param length the number of bytes to be rendered.
+     * @return a rendering of the bytes.
+     */
+    public static String toNormalizedString(byte[] data, int offset, int length) {
+        return new String(data, offset, length, StandardCharsets.UTF_8).replace("\0", "");
+    }
+
+    /**
      * @param data bytes to be rendered
      * @return a rendering of the bytes
      */
@@ -191,7 +215,7 @@ public class FSUtils {
     /**
      * @param data an array of bytes
      * @param offset the start position of the first byte to be rendered
-     * @param length the number of bytes to be rendered 
+     * @param length the number of bytes to be rendered
      * @return a rendering of the bytes
      */
     public static String toString(byte[] data, int offset, int length) {
@@ -253,7 +277,7 @@ public class FSUtils {
      * in the range 0 to 255.
      * @param data an array of bytes
      * @param offset the start position of the first byte to be rendered
-     * @param length the number of bytes to be rendered 
+     * @param length the number of bytes to be rendered
      * @return a rendering of the bytes
      */
     public static String toStringAsChars(byte[] data, int offset, int length) {
