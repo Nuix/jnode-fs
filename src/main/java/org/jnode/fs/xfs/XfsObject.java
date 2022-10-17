@@ -201,6 +201,21 @@ public class XfsObject {
     }
 
     /**
+     * Gets the UUID value, and increment the offset by 16. (the last 4 bytes are not read for now.)
+     *
+     * @return the uuid value.
+     */
+    protected String readUuid() {
+        String uuid = Long.toHexString(getUInt32(offset))
+                + "-" + Long.toHexString(getUInt16(offset + 4))
+                + "-" + Long.toHexString(getUInt16(offset + 6))
+                + "-" + Long.toHexString(getUInt16(offset + 8))
+                + "-" + Long.toHexString(getUInt16(offset + 10));
+        offset += 16;
+        return uuid;
+    }
+
+    /**
      * Gets signature as ascii.
      *
      * @param signature Xfs magic number

@@ -116,9 +116,8 @@ public class LeafDirectory extends XfsObject {
      * @return a list of inode entries.
      */
     public List<FSEntry> getEntries(XfsDirectory parentDirectory) throws IOException {
-        Leaf leaf = new Leaf(getData(), getOffset(), fileSystem.isV5(), extents.size() - 1);
-        LeafInfo leafInfo = leaf.getLeafInfo();
-        int entryCount = leafInfo.getCount() - leafInfo.getStale();
+        LeafHeader leafHeader = new LeafHeader(getData(), getOffset(), fileSystem.isV5());
+        int entryCount = leafHeader.getCount() - leafHeader.getStale();
         List<FSEntry> entries = new ArrayList<>(entryCount);
         for (DataExtent dataExtent : extents) {
             LeafDirectory.extractEntriesFromExtent(fileSystem, dataExtent, entries, parentDirectory);

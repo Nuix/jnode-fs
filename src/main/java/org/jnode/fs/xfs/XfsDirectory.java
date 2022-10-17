@@ -79,6 +79,11 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
         INode inode = entry.getINode();
         switch (inode.getFormat()) {
             case LOCAL:
+                //  typedef struct xfs_dir2_sf {
+                //    xfs_dir2_sf_hdr_t hdr;
+                //    xfs_dir2_sf_entry_t list[1];
+                //  } xfs_dir2_sf_t;
+
                 // Entries are stored within the inode record itself
                 int inodeDataOffset = inode.getDataOffset();
                 int fourByteEntries = inode.getUInt8(inodeDataOffset);
@@ -97,9 +102,8 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                     } else {
                         entries.add(new XfsEntry(parent.getEntry().getINode(), "..", 1, fileSystem, parent.entry.getParent()));
                     }
-                    entryCount += entries.size();
 
-                    while (entries.size() < entryCount) {
+                    while (entryCount > 0) {
                         ShortFormDirectoryEntry dirEntry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize, fileSystem.isV5());
 
                         if (dirEntry.getINumber() == 0) {
@@ -110,7 +114,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                         entries.add(new XfsEntry(childInode, dirEntry.getName(), entries.size(), fileSystem, this));
 
                         offset += dirEntry.getNextEntryOffset();
-
+                        entryCount--;
                     }
                 } else {
                     ShortFormDirectoryEntry dirEntry = new ShortFormDirectoryEntry(inode.getData(), offset, recordSize, fileSystem.isV5());
@@ -140,7 +144,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                     try {
                         fileSystem.getFSApi().read(extOffset, buffer);
                     } catch (ApiNotFoundException e) {
-                        logger.warn("Failed to read directory entries at offset: " + extOffset, e);
+                        logger.warn("Failed to read directory entries at offset: {}", extOffset, e);
                     }
                     final BlockDirectory myBlockDirectory = new BlockDirectory(buffer.array(), 0, fileSystem);
                     entries = myBlockDirectory.getEntries(this);
@@ -158,7 +162,7 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
                     try {
                         fileSystem.getFSApi().read(extOffset, buffer);
                     } catch (ApiNotFoundException e) {
-                        logger.warn("Failed to read directory entries at offset: " + extOffset, e);
+                        logger.warn("Failed to read directory entries at offset: {}", extOffset, e);
                     }
 
                     if (leafExtentIndex == (extents.size() - 1)) {

@@ -1,14 +1,24 @@
 package org.jnode.fs.xfs.extent;
 
+import lombok.Getter;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.superblock.Superblock;
 
 /**
  * A data extent ('xfs_bmbt_rec_t' packed, or 'xfs_bmbt_irec_t' unpacked).
- *
+ * It is the packed format in this class, and the unpacked version is below.
+ * <pre>
+ *   struct xfs_bmbt_irec {
+ *     xfs_fileoff_t br_startoff;
+ *     xfs_fsblock_t br_startblock;
+ *     xfs_filblks_t br_blockcount;
+ *     xfs_exntst_t br_state;
+ *   };
+ * </pre>
  * @author Luke Quinane
  */
+@Getter
 public class DataExtent extends XfsObject {
 
     /**
@@ -89,42 +99,6 @@ public class DataExtent extends XfsObject {
         long relativeBlockNumber = block & (((long) 1 << agSizeLog2) - 1);
         long allocationGroupBlockNumber = allocationGroupIndex * sb.getAgBlockSize();
         return (allocationGroupBlockNumber + relativeBlockNumber) * sb.getBlockSize();
-    }
-
-    /**
-     * Gets the start offset.
-     *
-     * @return the start offset.
-     */
-    public long getStartOffset() {
-        return startOffset;
-    }
-
-    /**
-     * Gets the start block for the extent.
-     *
-     * @return the start block.
-     */
-    public long getStartBlock() {
-        return startBlock;
-    }
-
-    /**
-     * Gets the block count.
-     *
-     * @return the block count.
-     */
-    public long getBlockCount() {
-        return blockCount;
-    }
-
-    /**
-     * Gets the preallocate flag value.
-     *
-     * @return {@code true} if space is preallocated.
-     */
-    public boolean isInitialised() {
-        return initialised;
     }
 
     /**

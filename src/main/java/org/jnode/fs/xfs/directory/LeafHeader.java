@@ -1,16 +1,63 @@
 package org.jnode.fs.xfs.directory;
 
+import lombok.Getter;
 import org.jnode.fs.xfs.XfsObject;
 
 import java.io.IOException;
 
 /**
  * A XFS leaf info.
+ * It is either
+ * <pre>
+ *     typedef struct xfs_dir2_leaf_hdr {
+ *         xfs_da_blkinfo_t info;
+ *         __uint16_t count;
+ *         __uint16_t stale;
+ *     } xfs_dir2_leaf_hdr_t;
+ * </pre>
+ *
+ * or
+ * <pre>
+ *     struct xfs_dir3_leaf_hdr {
+ *         struct xfs_da3_blkinfo info;
+ *         __uint16_t count;
+ *         __uint16_t stale;
+ *         __be32 pad;
+ *     };
+ * </pre>
+ *
+ * There are two versions of the blkinfo
+ *
+ * Version before v5:
+ * <pre>
+ *     typedef struct xfs_da_blkinfo {
+ *         __be32 forw;
+ *         __be32 back;
+ *         __be16 magic;
+ *         __be16 pad;
+ *     } xfs_da_blkinfo_t;
+ * </pre>
+ *
+ * Version v5:
+ * <pre>
+ *     struct xfs_da3_blkinfo {
+ *         __be32 forw;
+ *         __be32 back;
+ *         __be16 magic;
+ *         __be16 pad;
+ *         __be32 crc;
+ *         __be64 blkno;
+ *         __be64 lsn;
+ *         uuid_t uuid;
+ *         __be64 owner;
+ *     };
+ * </pre>
  *
  * @author Ricardo Garza
  * @author Julio Parra
  */
-public class LeafInfo extends XfsObject {
+@Getter
+public class LeafHeader extends XfsObject {
 
     /**
      * The magic signature of a leaf directory entry v5.
@@ -85,25 +132,28 @@ public class LeafInfo extends XfsObject {
      * @param v5     is filesystem on v5
      * @throws IOException if an error occurs reading in the leaf directory.
      */
-    public LeafInfo(byte[] data, long offset, boolean v5) throws IOException {
+    public LeafHeader(byte[] data, long offset, boolean v5) throws IOException {
         super(data, (int) offset);
 
-        long signature = getMagicSignature();
+        forward = readUInt32();
+        backward = readUInt32();
+        long signature = readUInt16();
         if ((signature != LEAF_DIR_MAGIC) && (signature != LEAF_DIR_MAGIC_V5) && (signature != NODE_DIR_MAGIC_V5) && (signature != NODE_DIR_MAGIC)) {
             throw new IOException("Wrong magic number for XFS Leaf Info: " + getAsciiSignature(signature));
         }
 
-        forward = getUInt32(0);
-        backward = getUInt32(4);
+        //Padding to maintain alignment.
+        skipBytes(2);
+
         if (v5) {
-            // 4 byte padding at the end
-            crc = getUInt32(12);
-            blockNumber = getInt64(16);
-            logSequenceNumber = getInt64(24);
-            owner = getInt64(48);
-            uuid = readUuid(32);
-            count = getUInt16(56);
-            stale = getUInt16(58);
+            crc = readUInt32();
+            blockNumber = readInt64();
+            logSequenceNumber = readInt64();
+            uuid = readUuid();
+            owner = readInt64();
+
+            //skip the __be32 pad, "Padding to maintain alignment rules."
+            skipBytes(4);
         } else {
             // if v4
             crc = -1;
@@ -111,99 +161,9 @@ public class LeafInfo extends XfsObject {
             logSequenceNumber = -1;
             owner = -1;
             uuid = null;
-            count = getUInt16(12);
-            stale = getUInt16(14);
         }
-    }
-
-    /**
-     * Gets the magic signature of the leaf.
-     *
-     * @return the magic value of the leaf block
-     */
-    public long getMagicSignature() {
-        return getUInt16(8);
-    }
-
-    /**
-     * Gets the Logical block offset of the previous block at this level.
-     *
-     * @return a block offset
-     */
-    public long getForward() {
-        return forward;
-    }
-
-    /**
-     * Gets the Logical block offset of the next block at this level.
-     *
-     * @return a block offset
-     */
-    public long getBackward() {
-        return backward;
-    }
-
-    /**
-     * Gets the Checksum of the directory/attribute block.
-     *
-     * @return a checksum value
-     */
-    public long getCrc() {
-        return crc;
-    }
-
-    /**
-     * Gets the Block number of this directory/attribute block..
-     *
-     * @return a block number
-     */
-    public long getBlockNumber() {
-        return blockNumber;
-    }
-
-    /**
-     * Gets the Log sequence number of the last write to this block.
-     *
-     * @return a sequence number
-     */
-    public long getLogSequenceNumber() {
-        return logSequenceNumber;
-    }
-
-    /**
-     * Gets the The UUID of this block.
-     *
-     * @return a UUID value
-     */
-    public String getUuid() {
-        return uuid;
-    }
-
-    /**
-     * Gets the The inode number that this directory/attribute block belongs to.
-     *
-     * @return the owner of the block
-     */
-    public long getOwner() {
-        return owner;
-    }
-
-    /**
-     * Gets the Number of leaf entries.
-     *
-     * @return a number of node entries.
-     */
-    public int getCount() {
-        return count;
-    }
-
-    /**
-     * Gets the Number of free leaf entries.
-     *
-     * @return a number of free entries.
-     */
-    public int getStale() {
-        return stale;
+        count = readUInt16();
+        stale = readUInt16();
     }
 
     /**

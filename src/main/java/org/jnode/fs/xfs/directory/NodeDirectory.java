@@ -21,11 +21,13 @@ public class NodeDirectory extends XfsObject {
     // TODO: check where these values need to be used and the name of the class.
     /**
      * v3 directory block magic number header "XDF3".
+     * XFS_DIR3_FREE_MAGIC
      */
     private static final long NODE_FREE_SPACE_V5 = asciiToHex("XDF3");
 
     /**
      * directory block magic number header "XD2F".
+     * XFS_DIR2_FREE_MAGIC
      */
     private static final long NODE_FREE_SPACE = asciiToHex("XD2F");
 
@@ -81,6 +83,9 @@ public class NodeDirectory extends XfsObject {
      * @return a list of inode entries
      */
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
+        // TODO,
+        //  1. what does the 120 mean here? Average entry count per extent?
+        //  2. there is no logic differnt between this method and LeafDirectory.getEntries?
         List<FSEntry> entries = new ArrayList<>(extents.size() * 120);
         for (DataExtent dataExtent : extents) {
             LeafDirectory.extractEntriesFromExtent(fs, dataExtent, entries, parentDirectory);
