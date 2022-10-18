@@ -104,13 +104,21 @@ public class LeafDirectory extends XfsObject {
             long extentSignature = BigEndian.getUInt32(buffer.array(), 0);
             if (extentSignature == XFS_DIR3_DATA_MAGIC || extentSignature == XFS_DIR2_DATA_MAGIC) {
                 int extentOffset = extentSignature == XFS_DIR3_DATA_MAGIC ? 64 : 16;
-                while (extentOffset < blockSize) {
-                    BlockDirectoryEntry blockDirectoryEntry = new BlockDirectoryEntry(buffer.array(), extentOffset, fs.isV5());
-                    if (!blockDirectoryEntry.isFreeTag()) {
-                        XfsEntry entry = new XfsEntry(fs.getINode(blockDirectoryEntry.getINodeNumber()), blockDirectoryEntry.getName(), x++, fs, parentDirectory);
-                        entries.add(entry);
+                try {
+                    while (extentOffset < blockSize) {
+                        BlockDirectoryEntry blockDirectoryEntry;
+                        if (BlockDirectoryEntry.isFreeTag(buffer.array(), extentOffset)) {
+                            blockDirectoryEntry = new BlockDirectoryDataUnusedEntry(buffer.array(), extentOffset);
+                        } else {
+                            BlockDirectoryDataEntry dataEntry = new BlockDirectoryDataEntry(buffer.array(), extentOffset, fs.isV5());
+                            XfsEntry entry = new XfsEntry(fs.getINode(dataEntry.getINodeNumber()), dataEntry.getName(), x++, fs, parentDirectory);
+                            entries.add(entry);
+                            blockDirectoryEntry = dataEntry;
+                        }
+                        extentOffset += blockDirectoryEntry.getOffsetSize();
                     }
-                    extentOffset += blockDirectoryEntry.getOffsetSize();
+                } catch (Exception e) {
+                    logger.error("Failed to get extent entries", e);
                 }
             }
         }

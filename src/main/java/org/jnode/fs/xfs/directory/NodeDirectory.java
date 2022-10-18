@@ -1,14 +1,15 @@
 package org.jnode.fs.xfs.directory;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import lombok.Getter;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.extent.DataExtent;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * A XFS Node Directory.
@@ -16,6 +17,7 @@ import java.util.List;
  * @author Ricardo Garza
  * @author Julio Parra
  */
+@Getter
 public class NodeDirectory extends XfsObject {
 
     // TODO: check where these values need to be used and the name of the class.
@@ -67,14 +69,6 @@ public class NodeDirectory extends XfsObject {
         this.fs = fileSystem;
         this.iNodeNumber = iNodeNumber;
         this.leafExtentIndex = (int) leafExtentIndex;
-    }
-
-    public long getiNodeNumber() {
-        return iNodeNumber;
-    }
-
-    public int getLeafExtentIndex() {
-        return leafExtentIndex;
     }
 
     /**

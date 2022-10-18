@@ -1,5 +1,9 @@
 package org.jnode.fs.xfs.directory;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 import lombok.Getter;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
@@ -7,10 +11,6 @@ import org.jnode.fs.xfs.XfsEntry;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.inode.INode;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * <p>A XFS block directory inode.</p>
@@ -68,16 +68,18 @@ public class BlockDirectory extends XfsObject {
         int activeDirs = (int) (tail.getCount() - tail.getStale());
 
         List<FSEntry> data = new ArrayList<>(activeDirs);
-        int leafOffset = blockSize - ((activeDirs + 1) * 8);
+        int leafOffset = blockSize - ((activeDirs + 1) * LeafEntry.ADDRESS_TO_BYTES);
         for (int i = 0; i < activeDirs; i++) {
-            LeafEntry leafEntry = new LeafEntry(getData(), leafOffset + (i * 8L));
+            LeafEntry leafEntry = new LeafEntry(getData(), leafOffset + (i * (long) LeafEntry.ADDRESS_TO_BYTES));
             if (leafEntry.getAddress() == 0) {
                 continue;
             }
-            BlockDirectoryEntry entry = new BlockDirectoryEntry(getData(), leafEntry.getAddress() * 8, fs.isV5());
+            if (!BlockDirectoryEntry.isFreeTag(getData(), leafEntry.getAddress() * LeafEntry.ADDRESS_TO_BYTES)) {
+                BlockDirectoryDataEntry entry = new BlockDirectoryDataEntry(getData(), leafEntry.getAddress() * LeafEntry.ADDRESS_TO_BYTES, fs.isV5());
 
-            INode iNode = fs.getINode(entry.getINodeNumber());
-            data.add(new XfsEntry(iNode, entry.getName(), i, fs, parentDirectory));
+                INode iNode = fs.getINode(entry.getINodeNumber());
+                data.add(new XfsEntry(iNode, entry.getName(), i, fs, parentDirectory));
+            }
         }
         return data;
     }

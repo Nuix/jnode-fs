@@ -3,8 +3,6 @@ package org.jnode.fs.xfs.directory;
 import lombok.Getter;
 import org.jnode.fs.xfs.XfsObject;
 
-import java.io.IOException;
-
 /**
  * Leaf entry.
  *
@@ -22,6 +20,11 @@ import java.io.IOException;
 public class LeafEntry extends XfsObject {
 
     /**
+     * The unit of the address, it is 8 bytes.
+     */
+    public static final int ADDRESS_TO_BYTES = 8;
+
+    /**
      * The Hash value of the name of the directory entry. This is used to speed up entry lookups.
      */
     private final long hashval;
@@ -35,8 +38,7 @@ public class LeafEntry extends XfsObject {
      * Creates a Leaf entry.
      *
      * @param data   of the inode.
-     * @param offset of the inode's data
-     * @throws IOException if an error occurs reading in the leaf directory.
+     * @param offset of the inode's data.
      */
     public LeafEntry(byte[] data, long offset) {
         super(data, (int) offset);

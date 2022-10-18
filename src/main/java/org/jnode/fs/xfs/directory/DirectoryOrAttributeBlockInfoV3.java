@@ -24,6 +24,11 @@ import lombok.Getter;
  */
 @Getter
 public class DirectoryOrAttributeBlockInfoV3 extends DirectoryOrAttributeBlockInfo {
+    /**
+     * The size of this class, it is sizeof(xfs_da_blkinfo_t) + sizeof(__be32 + __be64 + __be64 + uuid_t + __be64)
+     * = 12 + 44 = 56.
+     */
+    public static final int SIZE = DirectoryOrAttributeBlockInfo.SIZE + 44;
 
     /**
      * The magic signature of a leaf directory entry v5.
