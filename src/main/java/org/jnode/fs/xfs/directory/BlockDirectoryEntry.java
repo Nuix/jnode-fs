@@ -99,6 +99,8 @@ public class BlockDirectoryEntry extends XfsObject {
             iNodeNumber = 0;
             name = "";
 
+            skipBytes(2); //the read for freeTag
+
             unusedLength = readUInt16();
         }
 

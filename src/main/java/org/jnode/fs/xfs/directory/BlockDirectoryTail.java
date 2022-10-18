@@ -1,7 +1,5 @@
 package org.jnode.fs.xfs.directory;
 
-import java.io.IOException;
-
 import lombok.Getter;
 import org.jnode.fs.xfs.XfsObject;
 
@@ -33,7 +31,7 @@ public class BlockDirectoryTail extends XfsObject {
      * @param data   the data.
      * @param offset the offset.
      */
-    public BlockDirectoryTail(byte[] data, int offset) throws IOException {
+    public BlockDirectoryTail(byte[] data, int offset) {
         super(data, offset);
 
         int blockSize = getData().length;

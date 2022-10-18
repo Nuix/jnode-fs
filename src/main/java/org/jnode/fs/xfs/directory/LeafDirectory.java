@@ -1,16 +1,21 @@
 package org.jnode.fs.xfs.directory;
 
-import org.jnode.driver.ApiNotFoundException;
-import org.jnode.fs.FSDirectory;
-import org.jnode.fs.FSEntry;
-import org.jnode.fs.xfs.*;
-import org.jnode.fs.xfs.extent.DataExtent;
-import org.jnode.util.BigEndian;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+
+import lombok.extern.slf4j.Slf4j;
+import org.jnode.driver.ApiNotFoundException;
+import org.jnode.fs.FSDirectory;
+import org.jnode.fs.FSEntry;
+import org.jnode.fs.xfs.XfsConstants;
+import org.jnode.fs.xfs.XfsDirectory;
+import org.jnode.fs.xfs.XfsEntry;
+import org.jnode.fs.xfs.XfsFileSystem;
+import org.jnode.fs.xfs.XfsObject;
+import org.jnode.fs.xfs.extent.DataExtent;
+import org.jnode.util.BigEndian;
 
 /**
  * <p>Leaf directory.</p>
@@ -20,6 +25,7 @@ import java.util.List;
  * @author Ricardo Garza
  * @author Julio Parra
  */
+@Slf4j
 public class LeafDirectory extends XfsObject {
 
     /**
@@ -93,7 +99,7 @@ public class LeafDirectory extends XfsObject {
             try {
                 fs.getFSApi().read(dataExtentOffset + (i * blockSize), buffer);
             } catch (ApiNotFoundException e) {
-                e.printStackTrace();
+                logger.error("Failed to read data extent from offset: {}", dataExtentOffset + i * blockSize, e);
             }
             long extentSignature = BigEndian.getUInt32(buffer.array(), 0);
             if (extentSignature == XFS_DIR3_DATA_MAGIC || extentSignature == XFS_DIR2_DATA_MAGIC) {
@@ -116,7 +122,8 @@ public class LeafDirectory extends XfsObject {
      * @return a list of inode entries.
      */
     public List<FSEntry> getEntries(XfsDirectory parentDirectory) throws IOException {
-        LeafHeader leafHeader = new LeafHeader(getData(), getOffset(), fileSystem.isV5());
+        LeafHeader leafHeader = fileSystem.isV5() ?
+                new LeafHeaderV3(getData(), getOffset()) : new LeafHeaderV2(getData(), getOffset());
         int entryCount = leafHeader.getCount() - leafHeader.getStale();
         List<FSEntry> entries = new ArrayList<>(entryCount);
         for (DataExtent dataExtent : extents) {

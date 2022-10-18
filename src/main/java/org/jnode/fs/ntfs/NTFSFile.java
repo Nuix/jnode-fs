@@ -27,6 +27,8 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+
+import lombok.extern.slf4j.Slf4j;
 import org.jnode.fs.FSFile;
 import org.jnode.fs.FSFileSlackSpace;
 import org.jnode.fs.FSFileStreams;
@@ -39,6 +41,7 @@ import org.jnode.util.ByteBufferUtils;
  * @author vali
  * @author Ewout Prangsma (epr@users.sourceforge.net)
  */
+@Slf4j
 public class NTFSFile implements FSFile, FSFileSlackSpace, FSFileStreams {
 
     /**
@@ -146,7 +149,7 @@ public class NTFSFile implements FSFile, FSFileSlackSpace, FSFileStreams {
             try {
                 fileRecord = indexEntry.getParentFileRecord().getVolume().getMFT().getIndexedFileRecord(indexEntry);
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.error("Failed to get file record.", e);
             }
         }
         return this.fileRecord;

@@ -1,6 +1,7 @@
 package org.jnode.fs.xfs.directory;
 
 import java.io.IOException;
+import java.util.UUID;
 
 import lombok.Getter;
 import org.jnode.fs.xfs.XfsObject;
@@ -22,16 +23,6 @@ import org.jnode.fs.xfs.XfsObject;
 @Getter
 public class BlockDirectoryHeader extends XfsObject {
     /**
-     * The offset of the first entry version 4
-     */
-    public static final int V4_LENGTH = 16;
-
-    /**
-     * The offset of the first entry version 5
-     */
-    public static final int V5_LENGTH = 64;
-
-    /**
      * The magic number XD2B on < v5 filesystem
      */
     private static final long MAGIC_V4 = asciiToHex("XD2B");
@@ -44,33 +35,33 @@ public class BlockDirectoryHeader extends XfsObject {
     /**
      * Magic number for this directory block.
      */
-    long magic;
+    private final long magic;
 
     /**
      * Checksum of the directory block.
      */
-    long checkSum;
+    private final long checkSum;
 
     /**
      * Block number of this directory block.
      */
-    long blockNumber;
+    private final long blockNumber;
 
     /**
      * Log sequence number of the last write to this block.
      */
-    long logSequenceNumber;
+    private final long logSequenceNumber;
 
     /**
      * The UUID of this block, which must match either sb_uuid or sb_meta_uuid depending on which features
      * are set.
      */
-    String uuid;
+    private final UUID uuid;
 
     /**
      * The inode number that this directory block belongs to.
      */
-    long parentInodeNumber;
+    private final long parentInodeNumber;
 
     /**
      * Creates a new block directory entry.
@@ -86,7 +77,7 @@ public class BlockDirectoryHeader extends XfsObject {
             throw new IOException("Wrong magic number for XFS: " + getAsciiSignature(magic));
         }
         checkSum = readUInt32();
-        blockNumber = readUInt32();
+        blockNumber = readInt64();
         logSequenceNumber = readInt64();
         uuid = readUuid();
         parentInodeNumber = readInt64();

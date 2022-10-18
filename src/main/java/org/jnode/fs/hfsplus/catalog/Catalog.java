@@ -287,7 +287,7 @@ public class Catalog {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to get records.", e);
             throw new IOException(e);
         }
     }
