@@ -11,39 +11,38 @@ import org.jnode.fs.util.FSUtils;
  *         __uint8_t namelen;
  *         __uint8_t name[1];
  *         __uint8_t ftype;
- *         xfs_dir2_data_off_t tag; // read in parent class.
+ *         xfs_dir2_data_off_t tag;
  *     } xfs_dir2_data_entry_t;
  * </pre>
  */
 @Getter
 public class BlockDirectoryDataEntry extends BlockDirectoryEntry {
-
     /**
      * The inode number that this entry points to.
      */
-    private long iNodeNumber;
+    private final long iNodeNumber;
 
     /**
      * Length of the name, in bytes
      */
-    private int nameLength;
+    private final int nameLength;
 
     /**
      * The name associated with this entry.
      */
-    private String name;
+    private final String name;
 
     /**
      * ftype.
      * The type of the inode. This is used to avoid reading the inode while iterating a directory. The XFS_SB_VERSION2_FTYPE
      * feature must be set, or this field will not be present.
      */
-    private int inodeType;
+    private final int inodeType;
 
     /**
-     * The file system instance.
+     * The offset size of the directory block.
      */
-    private final boolean isV5;
+    private final long offsetSize;
 
     /**
      * Creates a block directory entry.
@@ -54,11 +53,7 @@ public class BlockDirectoryDataEntry extends BlockDirectoryEntry {
      */
     public BlockDirectoryDataEntry(byte[] data, long offset, boolean v5) {
         super(data, (int) offset);
-        this.isV5 = v5;
-    }
 
-    @Override
-    void readEntryInfo() {
         iNodeNumber = readInt64();
         nameLength = readUInt8();
         byte[] buffer = new byte[nameLength];
@@ -66,12 +61,16 @@ public class BlockDirectoryDataEntry extends BlockDirectoryEntry {
         name = FSUtils.toNormalizedString(buffer);
         skipBytes(nameLength);
         inodeType = readUInt8();
+        tag = readUInt16();
+
+        //calculate the offset size of the directory block.
+        long l = 12 + nameLength - (v5 ? 0 : 1);
+        double v = l / 8.0;
+        offsetSize = (long) Math.ceil(v) * 8;
     }
 
     @Override
     public long getOffsetSize() {
-        long l = 12 + nameLength - (isV5 ? 0 : 1);
-        double v = l / 8.0;
-        return (long) Math.ceil(v) * 8;
+        return offsetSize;
     }
 }

@@ -20,9 +20,10 @@ import org.jnode.fs.xfs.XfsObject;
 public class LeafEntry extends XfsObject {
 
     /**
-     * The unit of the address, it is 8 bytes.
+     * The unit of the address is 8 bytes.
+     * So when reading data (by offset), the address needs to be converted to offset first.
      */
-    public static final int ADDRESS_TO_BYTES = 8;
+    public static final int ADDRESS_TO_OFFSET = 8;
 
     /**
      * The Hash value of the name of the directory entry. This is used to speed up entry lookups.
@@ -30,7 +31,7 @@ public class LeafEntry extends XfsObject {
     private final long hashval;
 
     /**
-     * The Block offset of the entry, in eight byte units.
+     * The Block offset of the entry, in eight byte units {@link #ADDRESS_TO_OFFSET}.
      */
     private final long address;
 

@@ -68,14 +68,14 @@ public class BlockDirectory extends XfsObject {
         int activeDirs = (int) (tail.getCount() - tail.getStale());
 
         List<FSEntry> data = new ArrayList<>(activeDirs);
-        int leafOffset = blockSize - ((activeDirs + 1) * LeafEntry.ADDRESS_TO_BYTES);
+        int leafOffset = blockSize - ((activeDirs + 1) * LeafEntry.ADDRESS_TO_OFFSET);
         for (int i = 0; i < activeDirs; i++) {
-            LeafEntry leafEntry = new LeafEntry(getData(), leafOffset + (i * (long) LeafEntry.ADDRESS_TO_BYTES));
+            LeafEntry leafEntry = new LeafEntry(getData(), leafOffset + (i * (long) LeafEntry.ADDRESS_TO_OFFSET));
             if (leafEntry.getAddress() == 0) {
                 continue;
             }
-            if (!BlockDirectoryEntry.isFreeTag(getData(), leafEntry.getAddress() * LeafEntry.ADDRESS_TO_BYTES)) {
-                BlockDirectoryDataEntry entry = new BlockDirectoryDataEntry(getData(), leafEntry.getAddress() * LeafEntry.ADDRESS_TO_BYTES, fs.isV5());
+            if (!BlockDirectoryEntry.isFreeTag(getData(), leafEntry.getAddress() * LeafEntry.ADDRESS_TO_OFFSET)) {
+                BlockDirectoryDataEntry entry = new BlockDirectoryDataEntry(getData(), leafEntry.getAddress() * LeafEntry.ADDRESS_TO_OFFSET, fs.isV5());
 
                 INode iNode = fs.getINode(entry.getINodeNumber());
                 data.add(new XfsEntry(iNode, entry.getName(), i, fs, parentDirectory));

@@ -2,6 +2,7 @@ package org.jnode.fs.xfs.directory;
 
 import lombok.Getter;
 import org.jnode.fs.xfs.XfsObject;
+import org.jnode.util.BigEndian;
 
 /**
  * A XFS block directory entry inode.
@@ -41,7 +42,7 @@ public abstract class BlockDirectoryEntry extends XfsObject {
     /**
      * Starting offset of the entry, in bytes. This is used for directory iteration.
      */
-    private final long tag;
+    long tag;
 
     /**
      * Creates a directory entry.
@@ -51,10 +52,6 @@ public abstract class BlockDirectoryEntry extends XfsObject {
      */
     public BlockDirectoryEntry(byte[] data, long offset) {
         super(data, (int) offset);
-
-        readEntryInfo();
-
-        tag = readUInt16();
     }
 
     /**
@@ -65,13 +62,8 @@ public abstract class BlockDirectoryEntry extends XfsObject {
      * @return {@code true} if it is unused data, or {@code false} if it is data entry.
      */
     public static boolean isFreeTag(byte[] data, long offset) {
-        return new XfsObject(data, (int) offset).getUInt16(0) == 0xFFFF;
+        return BigEndian.getUInt16(data, (int) offset) == 0xFFFF;
     }
-
-    /**
-     * Reads the content of the entry.
-     */
-    abstract void readEntryInfo();
 
     /**
      * Gets the offset size of the directory block.

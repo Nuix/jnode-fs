@@ -79,7 +79,7 @@ public class NodeDirectory extends XfsObject {
     public List<FSEntry> getEntries(FSDirectory parentDirectory) throws IOException {
         // TODO,
         //  1. what does the 120 mean here? Average entry count per extent?
-        //  2. there is no logic differnt between this method and LeafDirectory.getEntries?
+        //  2. other than the init capacity, there is no logical difference between this method and LeafDirectory.getEntries()?
         List<FSEntry> entries = new ArrayList<>(extents.size() * 120);
         for (DataExtent dataExtent : extents) {
             LeafDirectory.extractEntriesFromExtent(fs, dataExtent, entries, parentDirectory);

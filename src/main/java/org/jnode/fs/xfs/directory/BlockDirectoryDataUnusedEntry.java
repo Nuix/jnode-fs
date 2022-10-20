@@ -8,7 +8,7 @@ import lombok.Getter;
  *     typedef struct xfs_dir2_data_unused {
  *         __uint16_t freetag; // Must be 0xffff
  *         xfs_dir2_data_off_t length;
- *         xfs_dir2_data_off_t tag; // read in parent class.
+ *         xfs_dir2_data_off_t tag;
  *     } xfs_dir2_data_unused_t;
  * </pre>
  */
@@ -17,7 +17,7 @@ public class BlockDirectoryDataUnusedEntry extends BlockDirectoryEntry {
     /**
      * Length of this unused entry in bytes, if it is xfs_dir2_data_unu. Or 0, otherwise.
      */
-    private int unusedLength;
+    private final int unusedLength;
 
     /**
      * Creates an unused block directory entry.
@@ -27,11 +27,9 @@ public class BlockDirectoryDataUnusedEntry extends BlockDirectoryEntry {
      */
     public BlockDirectoryDataUnusedEntry(byte[] data, long offset) {
         super(data, (int) offset);
-    }
-
-    void readEntryInfo() {
         skipBytes(2); //the read for freeTag
         unusedLength = readUInt16();
+        tag = readUInt16();
     }
 
     @Override

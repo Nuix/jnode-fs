@@ -79,7 +79,7 @@ public class LeafDirectory extends XfsObject {
         int leafExtentIndex = -1;
         for (int i = 0; i < extents.size(); i++) {
             if (extents.get(i).getStartOffset() == leafOffset) {
-                leafExtentIndex = i;
+                return i;
             }
         }
         return leafExtentIndex;
@@ -91,9 +91,9 @@ public class LeafDirectory extends XfsObject {
 
     public static void extractEntriesFromExtent(XfsFileSystem fs, DataExtent extent, List<FSEntry> entries, FSDirectory parentDirectory) throws IOException {
         int blockSize = (int) fs.getSuperblock().getBlockSize();
-        int blockCount = (int) extent.getBlockCount();
+        int blockCount = extent.getBlockCount();
         long dataExtentOffset = extent.getExtentOffset(fs);
-        int x = 2;
+        int directoryRecordId = 2; // skip "." and "..".
         for (long i = 0; i < blockCount; i++) {
             ByteBuffer buffer = ByteBuffer.allocate(blockSize);
             try {
@@ -111,14 +111,14 @@ public class LeafDirectory extends XfsObject {
                             blockDirectoryEntry = new BlockDirectoryDataUnusedEntry(buffer.array(), extentOffset);
                         } else {
                             BlockDirectoryDataEntry dataEntry = new BlockDirectoryDataEntry(buffer.array(), extentOffset, fs.isV5());
-                            XfsEntry entry = new XfsEntry(fs.getINode(dataEntry.getINodeNumber()), dataEntry.getName(), x++, fs, parentDirectory);
+                            XfsEntry entry = new XfsEntry(fs.getINode(dataEntry.getINodeNumber()), dataEntry.getName(), directoryRecordId++, fs, parentDirectory);
                             entries.add(entry);
                             blockDirectoryEntry = dataEntry;
                         }
                         extentOffset += blockDirectoryEntry.getOffsetSize();
                     }
                 } catch (Exception e) {
-                    logger.error("Failed to get extent entries", e);
+                    logger.error("Failed to get extent entries for directory record id {}", directoryRecordId, e);
                 }
             }
         }
