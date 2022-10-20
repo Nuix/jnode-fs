@@ -1,6 +1,7 @@
 package org.jnode.fs.xfs;
 
 import java.util.Locale;
+import java.util.UUID;
 
 import lombok.Getter;
 import org.jnode.util.BigEndian;
@@ -198,6 +199,17 @@ public class XfsObject {
                 + "-" + Long.toHexString(getUInt16(offset + 6))
                 + "-" + Long.toHexString(getUInt16(offset + 8))
                 + "-" + Long.toHexString(getUInt16(offset + 10));
+    }
+
+    /**
+     * Gets the UUID value, and increment the offset by 16.
+     *
+     * @return the uuid value.
+     */
+    protected UUID readUuid() {
+        long upperValue = readInt64();
+        long lowerValue = readInt64();
+        return new UUID(upperValue, lowerValue);
     }
 
     /**

@@ -8,8 +8,8 @@ import java.util.List;
 
 public class XfsLeafAttributeBlock extends XfsObject {
 
-    public static final int MAGIC_V5 = 0x3BEE;
-    public static final int MAGIC = 0xFBEE;
+    public static final int MAGIC_V5 = 0x3BEE; // XFS_ATTR3_LEAF_MAGIC
+    public static final int MAGIC = 0xFBEE; // XFS_ATTR_LEAF_MAGIC
     public static final int BASE_ATTRIBUTE_LEAF_OFFSET = 0x20;
     public static final int BASE_ATTRIBUTE_LEAF_OFFSET_V5 = 0x50;
     private final boolean isV5;
