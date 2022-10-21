@@ -3,6 +3,7 @@ package org.jnode.fs.xfs.directory;
 import java.io.IOException;
 
 import lombok.Getter;
+import org.jnode.fs.xfs.common.DirectoryOrAttributeBlockInfoV3;
 
 /**
  * A XFS V3 dir leaf header.
@@ -32,7 +33,6 @@ public class LeafHeaderV3 extends LeafHeaderV2 {
      *
      * @param data   of the inode.
      * @param offset of the inode's data
-     * @param v5     is filesystem on v5
      * @throws IOException if an error occurs reading in the leaf directory.
      */
     public LeafHeaderV3(byte[] data, long offset) throws IOException {

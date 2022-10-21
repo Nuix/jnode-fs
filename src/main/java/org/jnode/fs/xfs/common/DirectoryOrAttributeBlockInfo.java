@@ -1,9 +1,10 @@
-package org.jnode.fs.xfs.directory;
+package org.jnode.fs.xfs.common;
 
 import java.io.IOException;
 
 import lombok.Getter;
 import org.jnode.fs.xfs.XfsObject;
+import org.jnode.util.BigEndian;
 
 /**
  * Tree nodes, leaf and node directories, and leaf and node extended attributes use the xfs_da_blkinfo_t filesystem block header.
@@ -32,6 +33,11 @@ public class DirectoryOrAttributeBlockInfo extends XfsObject {
      * The magic signature of the node directory entry.
      */
     private static final long NODE_DIR_MAGIC = 0xd2ff;
+
+    /**
+     * The magic signature of the leaf attribute header.
+     */
+    private static final int ATTR_LEAF_MAGIC = 0xFBEE; // XFS_ATTR_LEAF_MAGIC
 
     /**
      * Logical block offset of the previous block at this level.
@@ -69,8 +75,22 @@ public class DirectoryOrAttributeBlockInfo extends XfsObject {
     }
 
     protected void checkSignature() throws IOException {
-        if ((magic != LEAF_DIR_MAGIC) && (magic != NODE_DIR_MAGIC)) {
+        if ((magic != LEAF_DIR_MAGIC) && (magic != NODE_DIR_MAGIC) && (magic != ATTR_LEAF_MAGIC)) {
             throw new IOException("Wrong magic number for V2 XFS Leaf Dir or Node Dir Info: " + getAsciiSignature(magic));
         }
+    }
+
+    /**
+     * Gets the size of this structure.
+     *
+     * @return the size of this structure.
+     */
+    public int getSize() {
+        return DirectoryOrAttributeBlockInfo.SIZE;
+    }
+
+    public static boolean isLeafAttribute(byte[] data, long offset) {
+        int signature = BigEndian.getUInt16(data, (int)offset + 8); //skip forward and backward
+        return signature == ATTR_LEAF_MAGIC || signature == DirectoryOrAttributeBlockInfoV3.ATTR3_LEAF_MAGIC;
     }
 }

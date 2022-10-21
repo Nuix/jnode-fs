@@ -5,11 +5,11 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.jnode.driver.ApiNotFoundException;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
-import org.jnode.fs.xfs.XfsConstants;
 import org.jnode.fs.xfs.XfsDirectory;
 import org.jnode.fs.xfs.XfsEntry;
 import org.jnode.fs.xfs.XfsFileSystem;
@@ -51,6 +51,7 @@ public class LeafDirectory extends XfsObject {
     /**
      * The number of the inode.
      */
+    @Getter
     private final long iNodeNumber;
 
     /**
@@ -67,26 +68,6 @@ public class LeafDirectory extends XfsObject {
         this.extents = extents;
         this.fileSystem = fileSystem;
         this.iNodeNumber = iNodeNumber;
-    }
-
-    /**
-     * Gets the extent index of the leaf.
-     *
-     * @return the index of the leaf block
-     */
-    public static long getLeafExtentIndex(List<DataExtent> extents, XfsFileSystem fs) {
-        long leafOffset = XfsConstants.BYTES_IN_32G / fs.getSuperblock().getBlockSize();
-        int leafExtentIndex = -1;
-        for (int i = 0; i < extents.size(); i++) {
-            if (extents.get(i).getStartOffset() == leafOffset) {
-                return i;
-            }
-        }
-        return leafExtentIndex;
-    }
-
-    public long getINodeNumber() {
-        return iNodeNumber;
     }
 
     public static void extractEntriesFromExtent(XfsFileSystem fs, DataExtent extent, List<FSEntry> entries, FSDirectory parentDirectory) throws IOException {

@@ -3,6 +3,7 @@ package org.jnode.fs.xfs;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import lombok.Getter;
 import org.jnode.driver.Device;
 import org.jnode.driver.block.BlockDeviceAPI;
 import org.jnode.fs.FSDirectory;
@@ -21,6 +22,7 @@ import org.jnode.fs.xfs.superblock.Superblock;
  *
  * @author Luke Quinane
  */
+@Getter
 public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
 
     /**
@@ -173,32 +175,5 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
      */
     public void readBlocks(long startBlock, int blockOffset, ByteBuffer dest) throws IOException {
         getApi().read(superblock.getBlockSize() * startBlock + blockOffset, dest);
-    }
-
-    /**
-     * Gets the superblock.
-     *
-     * @return the superblock.
-     */
-    public Superblock getSuperblock() {
-        return superblock;
-    }
-
-    /**
-     * Gets the {@link AllocationGroupINode}.
-     *
-     * @return the {@link AllocationGroupINode}.
-     */
-    public AllocationGroupINode getAgINode() {
-        return agINode;
-    }
-
-    /**
-     * Gets the allocation group size.
-     *
-     * @return the allocation group size.
-     */
-    public long getAllocationGroupSize() {
-        return allocationGroupSize;
     }
 }

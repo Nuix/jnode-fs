@@ -3,6 +3,7 @@ package org.jnode.fs.xfs.directory;
 import java.io.IOException;
 
 import lombok.Getter;
+import org.jnode.fs.xfs.common.DirectoryOrAttributeBlockInfo;
 
 /**
  * A XFS V2 leaf info.
@@ -23,7 +24,6 @@ public class LeafHeaderV2 extends LeafHeader {
      *
      * @param data   of the inode.
      * @param offset of the inode's data
-     * @param v5     is filesystem on v5
      * @throws IOException if an error occurs reading in the leaf directory.
      */
     public LeafHeaderV2(byte[] data, long offset) throws IOException {
