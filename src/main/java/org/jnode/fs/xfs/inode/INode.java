@@ -8,6 +8,7 @@ import java.util.List;
 
 import javax.annotation.Nonnull;
 
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -482,9 +483,9 @@ public class INode extends XfsObject {
     }
 
     @Getter
-    @AllArgsConstructor
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
     public static class ExtentInfo {
-        private List<DataExtent> extents;
-        private int leafExtentIndex;
+        private final List<DataExtent> extents;
+        private final int leafExtentIndex;
     }
 }

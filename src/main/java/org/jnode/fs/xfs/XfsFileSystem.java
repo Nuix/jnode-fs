@@ -28,17 +28,17 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
     /**
      * The superblock.
      */
-    private Superblock superblock;
+    private final Superblock superblock;
 
     /**
      * The allocation group for inodes.
      */
-    private AllocationGroupINode agINode;
+    private final AllocationGroupINode agINode;
 
     /**
      * The allocation group size.
      */
-    private long allocationGroupSize;
+    private final long allocationGroupSize;
 
     /**
      * Construct an XFS file system.
@@ -51,14 +51,6 @@ public class XfsFileSystem extends AbstractFileSystem<XfsEntry> {
             throws FileSystemException {
 
         super(device, true, type);
-    }
-
-    /**
-     * Reads in the file system from the block device.
-     *
-     * @throws FileSystemException if an error occurs reading the file system.
-     */
-    public final void read() throws FileSystemException {
         superblock = new Superblock(this);
         agINode = new AllocationGroupINode(this);
         allocationGroupSize = superblock.getBlockSize() * superblock.getDataBlockCount() / superblock.getAgCount();
