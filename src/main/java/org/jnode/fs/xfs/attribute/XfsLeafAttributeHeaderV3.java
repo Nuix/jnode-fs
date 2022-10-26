@@ -31,18 +31,15 @@ public class XfsLeafAttributeHeaderV3 extends XfsLeafAttributeHeader {
 
     public XfsLeafAttributeHeaderV3(byte[] data, int offset) throws IOException {
         super(data, offset);
+
+        //skip __be32 pad2;
+        skipBytes(4);
     }
 
     @Override
     protected void readBlockInfo() throws IOException {
         blockInfo = new DirectoryOrAttributeBlockInfoV3(getData(), getOffset());
         skipBytes(blockInfo.getSize());
-    }
-
-    @Override
-    protected void skipEndPad() {
-        //skip __be32 pad2;
-        skipBytes(4);
     }
 
     @Override

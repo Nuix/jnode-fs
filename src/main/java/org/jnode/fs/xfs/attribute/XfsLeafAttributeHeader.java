@@ -80,16 +80,11 @@ public class XfsLeafAttributeHeader extends XfsObject {
             freeMap[i] = new XfsLeafAttributeMap(data, getOffset());
             skipBytes(XfsLeafAttributeMap.SIZE);
         }
-
-        skipEndPad();
     }
 
     protected void readBlockInfo() throws IOException {
         blockInfo = new DirectoryOrAttributeBlockInfo(getData(), getOffset());
         skipBytes(blockInfo.getSize());
-    }
-
-    protected void skipEndPad() {
     }
 
     /**

@@ -232,7 +232,7 @@ public class XfsFileSystemTest {
             INode leafAttributeINode = entry.getINode();
 
             // Only v3 has this property.
-            assertThat(((INodeV3) leafAttributeINode).getCreated(), is(1643387236646L));
+            assertThat(getDate(((INodeV3) leafAttributeINode).getCreated()), is("2022-01-28T16:27:16.646+0000"));
 
             // leaf/node form attribute format
             assertThat(leafAttributeINode.getAttributesFormat(), is(2));
