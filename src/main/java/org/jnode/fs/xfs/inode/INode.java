@@ -6,15 +6,20 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.jnode.fs.FSAttribute;
 import org.jnode.fs.util.FSUtils;
+import org.jnode.fs.xfs.XfsConstants;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
 import org.jnode.fs.xfs.attribute.XfsLeafOrNodeAttributeReader;
 import org.jnode.fs.xfs.attribute.XfsShortFormAttribute;
 import org.jnode.fs.xfs.extent.DataExtent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * An XFS inode ('xfs_dinode_core').
@@ -63,8 +68,10 @@ import org.slf4j.LoggerFactory;
  *    uuid_t            di_uuid;
  * };
  * </pre>
+ *
  * @author Luke Quinane
  */
+@Slf4j
 public class INode extends XfsObject {
     /**
      * The magic number ('IN').
@@ -75,11 +82,6 @@ public class INode extends XfsObject {
      * The offset to the inode data.
      */
     private static final int DATA_OFFSET = 100;
-
-    /**
-     * The logger implementation.
-     */
-    private static final Logger logger = LoggerFactory.getLogger(INode.class);
 
     /**
      * The {@link XfsFileSystem}.
@@ -397,20 +399,31 @@ public class INode extends XfsObject {
     }
 
     /**
-     * Gets all the entries of the current b+tree directory.
+     * Gets all the entries of the current b+tree directory, and the index of the leaf extent.
      *
-     * @return the list of extents entries.
+     * @return the list of extents entries and the index of the leaf extent.
      */
-    public List<DataExtent> getExtentInfo() {
-        long offset = getOffset() + getDataOffset();
-        int count = (int) getExtentCount();
-        ArrayList<DataExtent> list = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) {
-            DataExtent info = new DataExtent(this.getData(), (int) offset);
+    @Nonnull
+    public ExtentInfo getExtentInfo() {
+        int extentOffset = getOffset() + getDataOffset();
+        int extentCount = (int) getExtentCount();
+
+        //The “leaf” block has a special offset defined by XFS_DIR2_LEAF_OFFSET. Currently, this is 32GB and in the
+        //extent view, a block offset of 32GB / sb_blocksize. On a 4KB block filesystem, this is 0x800000 (8388608
+        //decimal).
+        long leafOffset = XfsConstants.BYTES_IN_32G / fs.getSuperblock().getBlockSize();
+        int leafExtentIndex = -1;
+
+        ArrayList<DataExtent> list = new ArrayList<>(extentCount);
+        for (int i = 0; i < extentCount; i++) {
+            DataExtent info = new DataExtent(this.getData(), extentOffset);
+            if (leafExtentIndex == -1 && info.getStartOffset() == leafOffset) {
+                leafExtentIndex = i;
+            }
             list.add(info);
-            offset += 0x10;
+            extentOffset += DataExtent.PACKED_LENGTH;
         }
-        return list;
+        return new ExtentInfo(list, leafExtentIndex);
     }
 
     /**
@@ -467,5 +480,12 @@ public class INode extends XfsObject {
         return String.format(
                 "inode:[%d version:%d format:%d size:%d uid:%d gid:%d]",
                 inodeNumber, getVersion(), getRawFormat(), getSize(), getUid(), getGid());
+    }
+
+    @Getter
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class ExtentInfo {
+        private final List<DataExtent> extents;
+        private final int leafExtentIndex;
     }
 }

@@ -188,20 +188,6 @@ public class XfsObject {
     }
 
     /**
-     * Gets the UUID value.
-     *
-     * @param offset the offset to read from.
-     * @return the uuid value.
-     */
-    protected String readUuid(int offset) {
-        return Long.toHexString(getUInt32(offset))
-                + "-" + Long.toHexString(getUInt16(offset + 4))
-                + "-" + Long.toHexString(getUInt16(offset + 6))
-                + "-" + Long.toHexString(getUInt16(offset + 8))
-                + "-" + Long.toHexString(getUInt16(offset + 10));
-    }
-
-    /**
      * Gets the UUID value, and increment the offset by 16.
      *
      * @return the uuid value.

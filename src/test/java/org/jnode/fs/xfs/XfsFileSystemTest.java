@@ -160,7 +160,7 @@ public class XfsFileSystemTest {
         actual.append("atime : ").append(getDate(entry.getLastAccessed())).append("; ");
         if (entry.getINode() instanceof INodeV3) {
             INodeV3 v3 = (INodeV3) entry.getINode();
-            actual.append("ctime : ").append(getDate(entry.getCreated())).append("; ");
+            actual.append("ctime : ").append(getDate(v3.getCreated())).append("; ");
         }
         actual.append("mtime : ").append(getDate(entry.getLastChanged())).append("\n");
         actual.append(indent).append(indent);
@@ -230,6 +230,10 @@ public class XfsFileSystemTest {
             XfsEntry entry = DataTestUtils.getDescendantData(new XfsFileSystemType().create(device, true), "leaf-attr.txt");
 
             INode leafAttributeINode = entry.getINode();
+
+            // Only v3 has this property.
+            assertThat(getDate(((INodeV3) leafAttributeINode).getCreated()), is("2022-01-28T16:27:16.646+0000"));
+
             // leaf/node form attribute format
             assertThat(leafAttributeINode.getAttributesFormat(), is(2));
 

@@ -1,4 +1,4 @@
-package org.jnode.fs.xfs.directory;
+package org.jnode.fs.xfs.common;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -41,6 +41,11 @@ public class DirectoryOrAttributeBlockInfoV3 extends DirectoryOrAttributeBlockIn
     private static final long NODE_DIR_MAGIC_V5 = 0x3dff;
 
     /**
+     * The magic signature of the leaf attribute header v5.
+     */
+    public static final int ATTR3_LEAF_MAGIC = 0x3BEE; // XFS_ATTR3_LEAF_MAGIC
+
+    /**
      * Checksum of the directory block.
      */
     private final long crc;
@@ -70,7 +75,6 @@ public class DirectoryOrAttributeBlockInfoV3 extends DirectoryOrAttributeBlockIn
      *
      * @param data   of the inode.
      * @param offset of the inode's data
-     * @param v5     is filesystem on v5
      * @throws IOException if an error occurs reading in the leaf directory.
      */
     public DirectoryOrAttributeBlockInfoV3(byte[] data, long offset) throws IOException {
@@ -85,8 +89,13 @@ public class DirectoryOrAttributeBlockInfoV3 extends DirectoryOrAttributeBlockIn
 
     @Override
     protected void checkSignature() throws IOException {
-        if ((magic != LEAF_DIR_MAGIC_V5) && (magic != NODE_DIR_MAGIC_V5)) {
+        if ((magic != LEAF_DIR_MAGIC_V5) && (magic != NODE_DIR_MAGIC_V5) && (magic != ATTR3_LEAF_MAGIC)) {
             throw new IOException("Wrong magic number for V3 XFS Leaf Dir or Node Dir Info: " + getAsciiSignature(magic));
         }
+    }
+
+    @Override
+    public int getSize() {
+        return DirectoryOrAttributeBlockInfoV3.SIZE;
     }
 }

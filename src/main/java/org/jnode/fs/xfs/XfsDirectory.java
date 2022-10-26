@@ -8,7 +8,7 @@ import java.util.List;
 import javax.annotation.Nonnull;
 
 import lombok.Getter;
-import org.jnode.driver.ApiNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 import org.jnode.fs.FSDirectoryId;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.spi.AbstractFSDirectory;
@@ -20,8 +20,6 @@ import org.jnode.fs.xfs.directory.NodeDirectory;
 import org.jnode.fs.xfs.directory.ShortFormDirectoryEntry;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.inode.INode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A XFS directory.
@@ -30,12 +28,8 @@ import org.slf4j.LoggerFactory;
  * @author Ricardo Garza
  * @author Julio Parra
  */
+@Slf4j
 public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
-
-    /**
-     * The logger implementation.
-     */
-    private static final Logger logger = LoggerFactory.getLogger(XfsDirectory.class);
 
     /**
      * The related entry.
@@ -153,7 +147,8 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
         if (!inode.isDirectory()) {
             throw new UnsupportedOperationException("Trying to get directories of a non directory inode (node mode " + inode.getMode() + ")");
         }
-        final List<DataExtent> extents = inode.getExtentInfo();
+        INode.ExtentInfo extentInfo = inode.getExtentInfo();
+        List<DataExtent> extents = extentInfo.getExtents();
 
         if (extents.size() == 1) {
             // Block Directory
@@ -165,14 +160,14 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
             ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize() * (int) extentInformation.getBlockCount());
             try {
                 fileSystem.getFSApi().read(extOffset, buffer);
-            } catch (ApiNotFoundException e) {
+            } catch (Exception e) {
                 logger.warn("Failed to read directory entries at offset: {}", extOffset, e);
             }
             final BlockDirectory myBlockDirectory = new BlockDirectory(buffer.array(), 0, fileSystem);
             entries = myBlockDirectory.getEntries(this);
         } else {
 
-            long leafExtentIndex = LeafDirectory.getLeafExtentIndex(extents, fileSystem);
+            long leafExtentIndex = extentInfo.getLeafExtentIndex();
             long iNodeNumber = entry.getINode().getINodeNumber();
 
             if (leafExtentIndex == -1) {
@@ -180,10 +175,10 @@ public class XfsDirectory extends AbstractFSDirectory implements FSDirectoryId {
             }
             final DataExtent extentInformation = extents.get((int) leafExtentIndex);
             final long extOffset = extentInformation.getExtentOffset(fileSystem);
-            ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize() * (int) extentInformation.getBlockCount());
+            ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize() * extentInformation.getBlockCount());
             try {
                 fileSystem.getFSApi().read(extOffset, buffer);
-            } catch (ApiNotFoundException e) {
+            } catch (Exception e) {
                 logger.warn("Failed to read directory entries at offset: {}", extOffset, e);
             }
 

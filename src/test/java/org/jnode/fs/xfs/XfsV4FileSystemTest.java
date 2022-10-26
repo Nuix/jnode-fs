@@ -13,6 +13,7 @@ import org.jnode.fs.FSAttribute;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.FileSystemTestUtils;
 import org.jnode.fs.service.FileSystemService;
+import org.jnode.fs.xfs.inode.FileMode;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -125,5 +126,20 @@ public class XfsV4FileSystemTest {
     public <T> List<T> iteratorToList(Iterator<T> iterator) {
         Spliterator<T> spliterator = Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED);
         return StreamSupport.stream(spliterator, false).collect(Collectors.toList());
+    }
+
+    //@Ignore("test data not in project, it is 10.5GB, too large to put in code.")
+    @Test
+    public void testSocket() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/v4/ubuntu_xfs_v4.img");
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsEntry entry = DataTestUtils.getDescendantData(new XfsFileSystemType().create(device, true), "tmp", "keyring-eoplNH", "ssh");
+
+            assertThat(entry.getName(), is ("ssh"));
+            assertThat(entry.getId(), is("2084921-4"));
+            assertThat(FileMode.SOCKET.isSet(entry.getINode().getMode()), is(true));
+        } finally {
+            testFile.delete();
+        }
     }
 }

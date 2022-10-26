@@ -25,9 +25,7 @@ public class XfsFileSystemType implements BlockDeviceFileSystemType<XfsFileSyste
 
     @Override
     public XfsFileSystem create(Device device, boolean readOnly) throws FileSystemException {
-        XfsFileSystem fs = new XfsFileSystem(device, this);
-        fs.read();
-        return fs;
+        return new XfsFileSystem(device, this);
     }
 
     @Override
