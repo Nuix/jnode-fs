@@ -1,16 +1,21 @@
 package org.jnode.fs.xfs.directory;
 
-import org.jnode.driver.ApiNotFoundException;
-import org.jnode.fs.FSDirectory;
-import org.jnode.fs.FSEntry;
-import org.jnode.fs.xfs.*;
-import org.jnode.fs.xfs.extent.DataExtent;
-import org.jnode.util.BigEndian;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.jnode.driver.ApiNotFoundException;
+import org.jnode.fs.FSDirectory;
+import org.jnode.fs.FSEntry;
+import org.jnode.fs.xfs.XfsDirectory;
+import org.jnode.fs.xfs.XfsEntry;
+import org.jnode.fs.xfs.XfsFileSystem;
+import org.jnode.fs.xfs.XfsObject;
+import org.jnode.fs.xfs.extent.DataExtent;
+import org.jnode.util.BigEndian;
 
 /**
  * <p>Leaf directory.</p>
@@ -20,6 +25,7 @@ import java.util.List;
  * @author Ricardo Garza
  * @author Julio Parra
  */
+@Slf4j
 public class LeafDirectory extends XfsObject {
 
     /**
@@ -45,6 +51,7 @@ public class LeafDirectory extends XfsObject {
     /**
      * The number of the inode.
      */
+    @Getter
     private final long iNodeNumber;
 
     /**
@@ -63,48 +70,36 @@ public class LeafDirectory extends XfsObject {
         this.iNodeNumber = iNodeNumber;
     }
 
-    /**
-     * Gets the extent index of the leaf.
-     *
-     * @return the index of the leaf block
-     */
-    public static long getLeafExtentIndex(List<DataExtent> extents, XfsFileSystem fs) {
-        long leafOffset = XfsConstants.BYTES_IN_32G / fs.getSuperblock().getBlockSize();
-        int leafExtentIndex = -1;
-        for (int i = 0; i < extents.size(); i++) {
-            if (extents.get(i).getStartOffset() == leafOffset) {
-                leafExtentIndex = i;
-            }
-        }
-        return leafExtentIndex;
-    }
-
-    public long getINodeNumber() {
-        return iNodeNumber;
-    }
-
     public static void extractEntriesFromExtent(XfsFileSystem fs, DataExtent extent, List<FSEntry> entries, FSDirectory parentDirectory) throws IOException {
         int blockSize = (int) fs.getSuperblock().getBlockSize();
-        int blockCount = (int) extent.getBlockCount();
+        int blockCount = extent.getBlockCount();
         long dataExtentOffset = extent.getExtentOffset(fs);
-        int x = 2;
+        int directoryRecordId = 2; // skip "." and "..".
         for (long i = 0; i < blockCount; i++) {
             ByteBuffer buffer = ByteBuffer.allocate(blockSize);
             try {
                 fs.getFSApi().read(dataExtentOffset + (i * blockSize), buffer);
             } catch (ApiNotFoundException e) {
-                e.printStackTrace();
+                logger.error("Failed to read data extent from offset: {}", dataExtentOffset + i * blockSize, e);
             }
             long extentSignature = BigEndian.getUInt32(buffer.array(), 0);
             if (extentSignature == XFS_DIR3_DATA_MAGIC || extentSignature == XFS_DIR2_DATA_MAGIC) {
                 int extentOffset = extentSignature == XFS_DIR3_DATA_MAGIC ? 64 : 16;
-                while (extentOffset < blockSize) {
-                    BlockDirectoryEntry blockDirectoryEntry = new BlockDirectoryEntry(buffer.array(), extentOffset, fs.isV5());
-                    if (!blockDirectoryEntry.isFreeTag()) {
-                        XfsEntry entry = new XfsEntry(fs.getINode(blockDirectoryEntry.getINodeNumber()), blockDirectoryEntry.getName(), x++, fs, parentDirectory);
-                        entries.add(entry);
+                try {
+                    while (extentOffset < blockSize) {
+                        BlockDirectoryEntry blockDirectoryEntry;
+                        if (BlockDirectoryEntry.isFreeTag(buffer.array(), extentOffset)) {
+                            blockDirectoryEntry = new BlockDirectoryDataUnusedEntry(buffer.array(), extentOffset);
+                        } else {
+                            BlockDirectoryDataEntry dataEntry = new BlockDirectoryDataEntry(buffer.array(), extentOffset, fs.isV5());
+                            XfsEntry entry = new XfsEntry(fs.getINode(dataEntry.getINodeNumber()), dataEntry.getName(), directoryRecordId++, fs, parentDirectory);
+                            entries.add(entry);
+                            blockDirectoryEntry = dataEntry;
+                        }
+                        extentOffset += blockDirectoryEntry.getOffsetSize();
                     }
-                    extentOffset += blockDirectoryEntry.getOffsetSize();
+                } catch (Exception e) {
+                    logger.error("Failed to get extent entries for directory record id {}", directoryRecordId, e);
                 }
             }
         }
@@ -116,9 +111,9 @@ public class LeafDirectory extends XfsObject {
      * @return a list of inode entries.
      */
     public List<FSEntry> getEntries(XfsDirectory parentDirectory) throws IOException {
-        Leaf leaf = new Leaf(getData(), getOffset(), fileSystem.isV5(), extents.size() - 1);
-        LeafInfo leafInfo = leaf.getLeafInfo();
-        int entryCount = leafInfo.getCount() - leafInfo.getStale();
+        LeafHeader leafHeader = fileSystem.isV5() ?
+                new LeafHeaderV3(getData(), getOffset()) : new LeafHeaderV2(getData(), getOffset());
+        int entryCount = leafHeader.getCount() - leafHeader.getStale();
         List<FSEntry> entries = new ArrayList<>(entryCount);
         for (DataExtent dataExtent : extents) {
             LeafDirectory.extractEntriesFromExtent(fileSystem, dataExtent, entries, parentDirectory);

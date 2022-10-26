@@ -145,7 +145,7 @@ public class Extent {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to get overflow extents.", e);
             throw new IOException(e);
         }
     }

@@ -1,10 +1,11 @@
 package org.jnode.fs.xfs.attribute;
 
-import org.jnode.fs.FSAttribute;
-import org.jnode.fs.xfs.XfsObject;
-
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.List;
+
+import org.jnode.fs.FSAttribute;
+import org.jnode.fs.util.FSUtils;
+import org.jnode.fs.xfs.XfsObject;
 
 /**
  * <p>An XFS short form attribute.</p>
@@ -47,9 +48,11 @@ public class XfsShortFormAttribute extends XfsObject implements FSAttribute {
     /**
      * The name of the attribute.
      */
-    private final String attributeName;
+    private final String name;
 
-    // TODO: what's here that's not in the parent class?
+    /**
+     * The value of the attribute.
+     */
     private final byte[] value;
 
     /**
@@ -60,23 +63,16 @@ public class XfsShortFormAttribute extends XfsObject implements FSAttribute {
      */
     public XfsShortFormAttribute(byte[] data, long offset) {
         super(data, (int) offset);
-        nameLength = getUInt8(0);
-        valueLength = getUInt8(1);
-        flags = getUInt8(2);
-        value = new byte[valueLength];
-        byte[] name = new byte[nameLength];
-        System.arraycopy(data, (int) offset + 3, name, 0, nameLength);
-        System.arraycopy(data, (int) offset + 3 + nameLength, value, 0, valueLength);
-        attributeName = new String(name, StandardCharsets.UTF_8);
-    }
+        nameLength = readUInt8();
+        valueLength = readUInt8();
+        flags = readUInt8();
 
-    /**
-     * Gets the attribute size offset of this node.
-     *
-     * @return the inode number.
-     */
-    public int getAttributeSizeForOffset() {
-        return nameLength + valueLength + 3;
+        byte[] attributeName = new byte[nameLength];
+        value = new byte[valueLength];
+        System.arraycopy(data, getOffset(), attributeName, 0, nameLength);
+        System.arraycopy(data, getOffset() + nameLength, value, 0, valueLength);
+        name = FSUtils.toNormalizedString(attributeName);
+        skipBytes(nameLength + valueLength);
     }
 
     /**
@@ -84,9 +80,8 @@ public class XfsShortFormAttribute extends XfsObject implements FSAttribute {
      *
      * @return the flags.
      */
-    public int getFlags() {
-        // TODO: possible flag values
-        return flags;
+    public List<AttributeFlags> getAttributeFlags() {
+        return AttributeFlags.fromValue(flags);
     }
 
     /**
@@ -112,8 +107,9 @@ public class XfsShortFormAttribute extends XfsObject implements FSAttribute {
      *
      * @return the attribute name.
      */
+    @Override
     public String getName() {
-        return attributeName;
+        return name;
     }
 
     /**
@@ -121,6 +117,7 @@ public class XfsShortFormAttribute extends XfsObject implements FSAttribute {
      *
      * @return the value.
      */
+    @Override
     public byte[] getValue() {
         return value;
     }
@@ -134,6 +131,6 @@ public class XfsShortFormAttribute extends XfsObject implements FSAttribute {
     public String toString() {
         return String.format(
                 "Attribute:[Name:%s Name Value:%s flags:%x]",
-                getName(), Arrays.toString(getValue()), getFlags());
+                getName(), Arrays.toString(getValue()), flags);
     }
 }

@@ -3,12 +3,14 @@ package org.jnode.fs.xfs.inode;
 import java.util.List;
 import java.util.UUID;
 
+import org.jnode.fs.FSEntryCreated;
+import org.jnode.fs.xfs.XfsEntry;
 import org.jnode.fs.xfs.XfsFileSystem;
 
 /**
  * An XFS v3 inode ('xfs_dinode_core'). Structure definition in {@link INode}.
  */
-public class INodeV3 extends INodeV2 {
+public class INodeV3 extends INodeV2 implements FSEntryCreated {
     /**
      * The offset to the v3 inode data.
      */
@@ -114,15 +116,6 @@ public class INodeV3 extends INodeV2 {
     }
 
     /**
-     * Gets the inode creation time in milliseconds. TODO: move elsewhere.
-     *
-     * @return the inode creation time.
-     */
-    public long getCreated() {
-        return (getCreatedTimeSec() * 1000) + (getCreatedTimeNsec() / 1_000_000);
-    }
-
-    /**
      * Gets the stored inode number if this is a v3 inode.
      *
      * @return the number.
@@ -143,5 +136,10 @@ public class INodeV3 extends INodeV2 {
     @Override
     public int getDataOffset() {
         return V3_DATA_OFFSET;
+    }
+
+    @Override
+    public long getCreated() {
+        return XfsEntry.getMilliseconds(getCreatedTimeSec(), getCreatedTimeNsec());
     }
 }

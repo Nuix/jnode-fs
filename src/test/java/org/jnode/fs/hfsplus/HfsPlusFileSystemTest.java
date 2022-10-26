@@ -24,7 +24,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import org.jnode.driver.block.FileDevice;
@@ -39,6 +38,7 @@ import org.junit.Test;
 
 import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
+import static org.jnode.fs.util.FSUtils.*;
 
 
 public class HfsPlusFileSystemTest
@@ -251,13 +251,13 @@ public class HfsPlusFileSystemTest
                                                                           "com.apple.metadata:kMDItemWhereFroms");
             ByteBuffer whereFromBuffer = ByteBuffer.allocate(6);
             whereFromAttr.read(fs, 0, whereFromBuffer);
-            String whereFrom = new String(whereFromBuffer.array(), StandardCharsets.UTF_8);
+            String whereFrom = toNormalizedString(whereFromBuffer.array());
 
             AttributeData quarantineAttr = fs.getAttributes().getAttribute(file.getCatalogFile().getFileId(),
                                                                            "com.apple.quarantine");
             ByteBuffer quarantineBuffer = ByteBuffer.allocate((int) quarantineAttr.getSize());
             quarantineAttr.read(fs, 0, quarantineBuffer);
-            String quarantine = new String(quarantineBuffer.array(), StandardCharsets.UTF_8);
+            String quarantine = toNormalizedString(quarantineBuffer.array());
 
             assertThat(attributes.toString(), is("[com.apple.metadata:kMDItemWhereFroms, com.apple.quarantine]"));
             assertThat(whereFromAttr.getSize(), is(144));

@@ -1,21 +1,24 @@
 package org.jnode.fs.xfs.directory;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
+import lombok.extern.slf4j.Slf4j;
 import org.jnode.driver.ApiNotFoundException;
 import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
+import org.jnode.fs.xfs.XfsConstants;
 import org.jnode.fs.xfs.XfsFileSystem;
 import org.jnode.fs.xfs.XfsObject;
-import org.jnode.fs.xfs.extent.BPlusTreeDataExtent;
+import org.jnode.fs.xfs.common.LongFormBPlusTreeData;
+import org.jnode.fs.xfs.common.LongFormBPlusTreeDataV3;
 import org.jnode.fs.xfs.extent.DataExtent;
 import org.jnode.fs.xfs.inode.INode;
 import org.jnode.util.BigEndian;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * <p>An XFS B+tree directory.</p>
@@ -26,6 +29,7 @@ import java.util.List;
  * @author Ricardo Garza
  * @author Julio Parra
  */
+@Slf4j
 public class BPlusTreeDirectory extends XfsObject {
 
     /**
@@ -76,9 +80,6 @@ public class BPlusTreeDirectory extends XfsObject {
 
     /**
      * Gets all the entries of the current b+tree directory.
-     * Note: When level &gt; 1 this won't work.
-     * Need an example with more than 1 level to introduce recursively.
-     * TODO: determine if this needs a test based on note.
      *
      * @param parentDirectory of the inode.
      * @return a {@link List} of {@link FSEntry}.
@@ -96,7 +97,7 @@ public class BPlusTreeDirectory extends XfsObject {
         // 8 byte alignment. not sure if it should be a 16 byte alignment?
         btreeBlockOffset = btreeBlockOffset + (btreeBlockOffset % 8);
         List<DataExtent> extents = getFlattenedExtents(getData(), level, new ArrayList<>(200), btreeBlockOffset, numrecs);
-        long leafExtentIndex = LeafDirectory.getLeafExtentIndex(extents, fileSystem);
+        long leafExtentIndex = getLeafExtentIndex(extents);
         DataExtent extentInformation = extents.get((int) leafExtentIndex);
         long extOffset = extentInformation.getExtentOffset(fileSystem);
         ByteBuffer buffer = ByteBuffer.allocate((int) fileSystem.getSuperblock().getBlockSize() * (int) extentInformation.getBlockCount());
@@ -105,6 +106,9 @@ public class BPlusTreeDirectory extends XfsObject {
         } catch (ApiNotFoundException e) {
             log.warn("Failed to read node directory at offset: " + extOffset, e);
         }
+
+        // TODO, it seems that, theoretically, we need to use LeafDirectory here,
+        //  but there is no difference between LeafDirectory and NodeDirectory regarding the getEntries() for now.
         NodeDirectory leafDirectory = new NodeDirectory(buffer.array(), 0, fileSystem, iNodeNumber, extents, leafExtentIndex);
         return leafDirectory.getEntries(parentDirectory);
     }
@@ -129,13 +133,43 @@ public class BPlusTreeDirectory extends XfsObject {
             } catch (ApiNotFoundException e) {
                 log.warn("Failed to read FS entry list at offset: " + offset, e);
             }
+            // The doc says:
+            // "The bb_level value determines if the node is an intermediate node or a leaf. Leaves have a bb_level of zero,
+            // nodes are one or greater"
+            //
+            // So, if level > 1, it is a node that has extents in the sub node, so we flatten the sub nodes.
+            // if level == 1, it is a node that doesn't have sub node, but has extent leaf, so we add the leaves.
+            // if level == 0, it is a leaf with no extents.
             if (level > 1) {
                 return getFlattenedExtents(buffer.array(), level - 1, currentExtents, 0, 0);
-            } else {
-                BPlusTreeDataExtent extentList = new BPlusTreeDataExtent(buffer.array(), 0, fileSystem.isV5());
+            } else if (level == 1) {
+                LongFormBPlusTreeData extentList = fileSystem.isV5() ?
+                        new LongFormBPlusTreeDataV3(buffer.array(), 0) :
+                        new LongFormBPlusTreeData(buffer.array(), 0);
                 currentExtents.addAll(extentList.getExtents());
+            } else {
+                logger.error("Do not extent leaf as it has been in the lowest level {}.", level);
             }
         }
         return currentExtents;
+    }
+
+    /**
+     * Gets the extent index of the leaf.
+     *
+     * @return the index of the leaf block, or {@code -1} if not fount.
+     */
+    private int getLeafExtentIndex(List<DataExtent> extents) {
+        //The “leaf” block has a special offset defined by XFS_DIR2_LEAF_OFFSET. Currently, this is 32GB and in the
+        //extent view, a block offset of 32GB / sb_blocksize. On a 4KB block filesystem, this is 0x800000 (8388608
+        //decimal).
+        long leafOffset = XfsConstants.BYTES_IN_32G / fileSystem.getSuperblock().getBlockSize();
+
+        for (int i = 0; i < extents.size(); i++) {
+            if (extents.get(i).getStartOffset() == leafOffset) {
+                return i;
+            }
+        }
+        return -1;
     }
 }

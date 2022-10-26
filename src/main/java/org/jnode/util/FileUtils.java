@@ -30,11 +30,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * <description>
  *
  * @author epr
  */
+@Slf4j
 public class FileUtils {
 
     /**
@@ -122,7 +125,7 @@ public class FileUtils {
 
             ok = true;
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("Failed to close stream", e);
         }
 
         return ok;

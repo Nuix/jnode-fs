@@ -1,23 +1,22 @@
 package org.jnode.fs.xfs;
 
-import org.jnode.fs.*;
-import org.jnode.fs.spi.AbstractFSEntry;
-import org.jnode.fs.util.UnixFSConstants;
-import org.jnode.fs.xfs.extent.DataExtent;
-import org.jnode.fs.xfs.inode.INode;
-import org.jnode.fs.xfs.inode.INodeV3;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jnode.fs.FSAttribute;
+import org.jnode.fs.FSDirectory;
+import org.jnode.fs.FSEntryLastAccessed;
+import org.jnode.fs.FSEntryLastChanged;
+import org.jnode.fs.spi.AbstractFSEntry;
+import org.jnode.fs.util.UnixFSConstants;
+import org.jnode.fs.xfs.extent.DataExtent;
+import org.jnode.fs.xfs.inode.INode;
+
 /**
  * <p>An entry in a XFS file system.</p>
- *
- * <p>TODO: Extend this class to implement {@link FSEntryCreated} to support {@link INodeV3},
- * which has inode creation date or something cleaner.</p>
  *
  * @author Luke Quinane
  * @author Ricardo Garza
@@ -71,7 +70,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryLastAccessed, FS
             return AbstractFSEntry.DIR_ENTRY;
         else if (mode == UnixFSConstants.S_IFREG || mode == UnixFSConstants.S_IFLNK ||
                 mode == UnixFSConstants.S_IFIFO || mode == UnixFSConstants.S_IFCHR ||
-                mode == UnixFSConstants.S_IFBLK)
+                mode == UnixFSConstants.S_IFBLK || mode == UnixFSConstants.S_IFSOCK)
             return AbstractFSEntry.FILE_ENTRY;
         else
             return AbstractFSEntry.OTHER_ENTRY;
@@ -92,7 +91,7 @@ public class XfsEntry extends AbstractFSEntry implements FSEntryLastAccessed, FS
      * @see #getLastAccessed()
      * @see #getLastChanged()
      */
-    private long getMilliseconds(long seconds, long nanoseconds) {
+    public static long getMilliseconds(long seconds, long nanoseconds) {
         return (seconds * 1_000) + (nanoseconds / 1_000_000);
     }
 

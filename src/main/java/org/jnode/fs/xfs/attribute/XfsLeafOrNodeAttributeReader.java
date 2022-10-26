@@ -1,17 +1,17 @@
 package org.jnode.fs.xfs.attribute;
 
-import org.jnode.fs.FSAttribute;
-import org.jnode.fs.xfs.XfsFileSystem;
-import org.jnode.fs.xfs.XfsObject;
-import org.jnode.fs.xfs.extent.DataExtent;
-import org.jnode.fs.xfs.inode.INode;
-import org.jnode.util.BigEndian;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import org.jnode.fs.FSAttribute;
+import org.jnode.fs.xfs.XfsFileSystem;
+import org.jnode.fs.xfs.XfsObject;
+import org.jnode.fs.xfs.common.DirectoryOrAttributeBlockInfo;
+import org.jnode.fs.xfs.extent.DataExtent;
+import org.jnode.fs.xfs.inode.INode;
 
 public class XfsLeafOrNodeAttributeReader extends XfsObject {
 
@@ -51,11 +51,10 @@ public class XfsLeafOrNodeAttributeReader extends XfsObject {
             // while contiguous in the same extent definition each block has its own header
             for (int i = 0; i < blockCount; i++) {
                 int bufferOffset = (int) (blockSize * i);
-                int signature = BigEndian.getUInt16(bytes, bufferOffset + 8);
-                if (signature == XfsLeafAttributeBlock.MAGIC || signature == XfsLeafAttributeBlock.MAGIC_V5) {
-                    XfsLeafAttributeBlock attributeBlock = new XfsLeafAttributeBlock(bytes, bufferOffset, fs.isV5());
-                    attributeBlocks.add(attributeBlock);
-                    attributeCount += attributeBlock.getEntryCount();
+                if (DirectoryOrAttributeBlockInfo.isLeafAttribute(bytes, bufferOffset)) {
+                    XfsLeafAttributeBlock leafAttributeBlock = new XfsLeafAttributeBlock(bytes, bufferOffset,fs.isV5());
+                    attributeBlocks.add(leafAttributeBlock);
+                    attributeCount += leafAttributeBlock.getHeader().getEntryCount();
                 }
             }
         }

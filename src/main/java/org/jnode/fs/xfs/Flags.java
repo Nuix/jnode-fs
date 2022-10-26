@@ -26,7 +26,9 @@ public interface Flags {
         long flag;
 
         public boolean isSet(long value) {
-            return (flag & value) == flag;
+            return flag == 0 ?
+                    value == 0 :
+                    (flag & value) == flag;
         }
 
         public static <F> List<F> fromValue(F[] values, long value) {

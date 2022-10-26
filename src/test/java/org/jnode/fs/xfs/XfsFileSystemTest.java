@@ -1,33 +1,40 @@
 package org.jnode.fs.xfs;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.TimeZone;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jnode.driver.block.FileDevice;
 import org.jnode.fs.DataStructureAsserts;
+import org.jnode.fs.FSAttribute;
+import org.jnode.fs.FSDirectory;
+import org.jnode.fs.FSEntry;
 import org.jnode.fs.FileSystemTestUtils;
-import org.jnode.fs.*;
 import org.jnode.fs.service.FileSystemService;
-
+import org.jnode.fs.xfs.inode.Format;
 import org.jnode.fs.xfs.inode.INode;
 import org.jnode.fs.xfs.inode.INodeV3;
-import org.junit.*;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Ignore;
+import org.junit.Test;
 
-import java.io.File;
-import java.io.IOException;
-
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-
-import java.util.*;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
+import static org.jnode.fs.util.FSUtils.*;
 
 public class XfsFileSystemTest {
 
@@ -69,12 +76,11 @@ public class XfsFileSystemTest {
         }
     }
 
-
     @Test
     public void testXfsMetaData() throws Exception {
         // Arrange
         String expectedStructure =
-                        "  /; \n" +
+                "  /; \n" +
                         "    atime : 2021-11-17T06:50:04.416+0000; ctime : 2021-11-17T06:47:39.355+0000; mtime : 2021-11-17T06:48:33.735+0000\n" +
                         "    owner : 0; group : 0; size : 57; mode : 777; \n" +
                         "    folder1; \n" +
@@ -179,28 +185,54 @@ public class XfsFileSystemTest {
     @Test
     public void testShortFormAttribute() throws Exception {
         try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
-            XfsFileSystemType type = new XfsFileSystemType();
-            XfsFileSystem fs = type.create(device, true);
-            INode shortAttributeINode = fs.getINode(11075L);
-            XfsEntry entry = new XfsEntry(shortAttributeINode, "", 0, fs, null);
-            assertThat(shortAttributeINode.getAttributesFormat(), is(1));// Short form attribute format
+            XfsEntry entry = DataTestUtils.getDescendantData(new XfsFileSystemType().create(device, true), "short-form-attr.txt");
+            assertThat(entry.getINode().getAttributesFormat(), is(1));// Short form attribute format
             List<FSAttribute> attributes = entry.getAttributes();
             assertThat(attributes, hasSize(1));
             FSAttribute attribute = attributes.get(0);
             assertThat(attribute.getName(), is("selinux"));
-            String stringValue = new String(attribute.getValue(), StandardCharsets.UTF_8)
-                    .replace("\0", "");
+            String stringValue = toNormalizedString(attribute.getValue());
             assertThat(stringValue, is("unconfined_u:object_r:unlabeled_t:s0"));
+        }
+    }
+
+    @Ignore("test data not in project, it is 17GB, too large to put in code.")
+    @Test
+    public void testBtreeWithHierarchy() throws Exception {
+        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/xfs/v5/centos-xfs.img");
+        try (FileDevice device = new FileDevice(testFile, "r")) {
+            XfsEntry entry = DataTestUtils.getDescendantData(new XfsFileSystemType().create(device, true), "usr", "lib64");
+
+            // It's the Btree node with complex folder / file hierarchy.
+            XfsDirectory directory = new XfsDirectory(entry);
+            assertThat(directory.getEntry().getINode().getFormat(), is(Format.BTREE));
+
+            // It seems that all items in the same folder have the same attribute value of name "selinux".
+            FSEntry file = directory.getEntry("librt.so.1"); // a file
+            assertThat(toNormalizedString(file.getAttributes().get(0).getValue()), is("system_u:object_r:lib_t:s0"));
+
+            FSEntry folder = directory.getEntry("dri"); // a folder
+            assertThat(toNormalizedString(folder.getAttributes().get(0).getValue()), is("system_u:object_r:lib_t:s0"));
+
+            FSEntry file1InFolder = new XfsDirectory((XfsEntry) folder).getEntry("i965_dri.so");
+            assertThat(toNormalizedString(file1InFolder.getAttributes().get(0).getValue()), is("system_u:object_r:textrel_shlib_t:s0"));
+
+            FSEntry file2InFolder = new XfsDirectory((XfsEntry) folder).getEntry("r600_dri.so");
+            assertThat(toNormalizedString(file2InFolder.getAttributes().get(0).getValue()), is("system_u:object_r:textrel_shlib_t:s0"));
+        } finally {
+            testFile.delete();
         }
     }
 
     @Test
     public void testLeafAttributes() throws Exception {
         try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
-            XfsFileSystemType type = new XfsFileSystemType();
-            XfsFileSystem fs = type.create(device, true);
-            INode leafAttributeINode = fs.getINode(11076L);
-            XfsEntry entry = new XfsEntry(leafAttributeINode, "", 0, fs, null);
+            XfsEntry entry = DataTestUtils.getDescendantData(new XfsFileSystemType().create(device, true), "leaf-attr.txt");
+
+            INode leafAttributeINode = entry.getINode();
+
+            // Only v3 has this property.
+            assertThat(getDate(((INodeV3) leafAttributeINode).getCreated()), is("2022-01-28T16:27:16.646+0000"));
 
             // leaf/node form attribute format
             assertThat(leafAttributeINode.getAttributesFormat(), is(2));
@@ -217,10 +249,8 @@ public class XfsFileSystemTest {
     @Test
     public void testNodeAttributes() throws Exception {
         try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
-            XfsFileSystemType type = new XfsFileSystemType();
-            XfsFileSystem fs = type.create(device, true);
-            INode nodeAttributeINode = fs.getINode(11077L);
-            XfsEntry entry = new XfsEntry(nodeAttributeINode, "", 0, fs, null);
+            XfsEntry entry = DataTestUtils.getDescendantData(new XfsFileSystemType().create(device, true), "node-attr.txt");
+            INode nodeAttributeINode = entry.getINode();
             // leaf/node form attribute format
             assertThat(nodeAttributeINode.getAttributesFormat(), is(2));
             // node has more than 1 extent
@@ -235,11 +265,10 @@ public class XfsFileSystemTest {
     @Test
     public void testSparseFiles() throws Exception {
         try (FileDevice device = new FileDevice(extendedAttrTestFile, "r")) {
-            XfsFileSystemType type = new XfsFileSystemType();
-            XfsFileSystem fs = type.create(device, true);
+            XfsFileSystem fs = new XfsFileSystemType().create(device, true);
+            XfsEntry entry = DataTestUtils.getDescendantData(fs, "sparse.dat");
             long blockSize = fs.getSuperblock().getBlockSize();
-            INode sparseFileINode = fs.getINode(11078L);
-            XfsEntry entry = new XfsEntry(sparseFileINode, "sparse.dat", 0, fs, null);
+            INode sparseFileINode = entry.getINode();
             long fileSize = sparseFileINode.getSize();
             for (int offset = 0; offset < fileSize; offset += blockSize) {
                 int bufferSize = (int) Math.min(blockSize, fileSize - offset);
@@ -249,8 +278,7 @@ public class XfsFileSystemTest {
                     // in case of sparse data the buffer should be left untouched
                     assertThat(buffer.position(), is(0));
                 } else {
-                    byte[] array = buffer.array();
-                    String stringData = new String(array, StandardCharsets.UTF_8);
+                    String stringData = toNormalizedString(buffer.array());
                     assertThat(stringData, is("Just a little bit of data right at the end...\n"));
                 }
 
@@ -268,9 +296,7 @@ public class XfsFileSystemTest {
                 if (o instanceof FSAttribute) {
                     FSAttribute attr = (FSAttribute) o;
                     String name = attr.getName();
-                    byte[] value = attr.getValue();
-                    String stringValue = new String(value, StandardCharsets.UTF_8)
-                            .replace("\0", "");
+                    String stringValue = toNormalizedString(attr.getValue());
                     if (name.equals("selinux")) {
                         return stringValue.equals("unconfined_u:object_r:unlabeled_t:s0");
                     }
