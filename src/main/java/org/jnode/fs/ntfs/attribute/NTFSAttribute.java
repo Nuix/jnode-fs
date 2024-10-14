@@ -258,23 +258,9 @@ public abstract class NTFSAttribute extends NTFSStructure {
 
                 case REPARSE_POINT:
                     if (resident) {
-                        return new ReparsePointAttribute(fileRecord, offset);
+                        return new ReparsePointAttributeRes(fileRecord, offset);
                     } else {
-                        // When the length exceeds some limit (less than 200), the attribute will be non-resident.
-
-                        // It is reproduced easily by running the command below
-                        // mklink /j "path200" c:\temp\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\0123456789\01234
-
-                        // TODO:
-                        //  We haven't figured out how to extract it yet.
-                        //  All the doc we found so far are saying the reparse point attribute is stored as a resident.
-                        //  e.g.
-                        //  https://github.com/libyal/libfsntfs/blob/main/documentation/New%20Technologies%20File%20System%20(NTFS).asciidoc#615-the-reparse-point-attribute
-                        //  "The reparse point attribute ($REPARSE_POINT) contains information about a file system-level link. It is stored as a resident MFT attribute."
-                        //  or
-                        //  http://ftp.kolibrios.org/users/Asper/docs/NTFS/ntfsdoc.html#attribute_reparse_point which describes the structure like a resident one.
-                        //  So we just pass NTFSNonResidentAttribute to handle the case that "it is a reparse point but also a non-resident attribute."
-                        //  And unfortunately, neither AttributeListAttributeNonRes nor NTFSNonResidentAttribute could help to get the targetName/printName of the reparse point.
+                        return new ReparsePointAttributeNonRes(fileRecord, offset);
                     }
 
                 default:

@@ -1,82 +1,31 @@
 package org.jnode.fs.ntfs.attribute;
 
-import org.jetbrains.annotations.TestOnly;
 import org.jnode.fs.ntfs.FileRecord;
-import org.jnode.fs.ntfs.NTFSStructure;
 
 /**
- * A NTFS reparse point (symbolic link).
+ * The interface for a reparse point attribute.
  *
  * @author Luke Quinane
  */
-public class ReparsePointAttribute extends NTFSResidentAttribute {
-
+public interface ReparsePointAttribute {
     /**
-     * Constructs the attribute.
+     * Gets the reparse point tag. The type identifies the type of data stored in the reparse point attribute.
      *
-     * @param fileRecord the containing file record.
-     * @param offset     offset of the attribute within the file record.
+     * @return the tag.
      */
-    public ReparsePointAttribute(FileRecord fileRecord, int offset) {
-        super(fileRecord, offset);
-    }
-
-    @TestOnly
-    public ReparsePointAttribute(NTFSStructure ntfsStructure, int offset) {
-        super(ntfsStructure, offset);
-    }
+    int getReparseTag();
 
     /**
-     * Gets the offset to the target name.
-     *
-     * @return the offset.
-     */
-    public int getTargetNameOffset() {
-        return getUInt16(getAttributeOffset() + 0x8);
-    }
-
-    /**
-     * Gets the length of the target name.
+     * Gets the length of the reparse point data.
      *
      * @return the length.
      */
-    public int getTargetNameLength() {
-        return getUInt16(getAttributeOffset() + 0xa);
-    }
+    int getReparseDataLength();
 
     /**
-     * Gets the offset to the print name.
+     * Gets the attribute's file record.
      *
-     * @return the offset.
+     * @return the file record.
      */
-    public int getPrintNameOffset() {
-        return getUInt16(getAttributeOffset() + 0xc);
-    }
-
-    /**
-     * Gets the length of the print name.
-     *
-     * @return the length.
-     */
-    public int getPrintNameLength() {
-        return getUInt16(getAttributeOffset() + 0xe);
-    }
-
-    /**
-     * Gets the target name.
-     *
-     * @return the name.
-     */
-    public String getTargetName() {
-        return getUtf16LEString(getAttributeOffset() + 0x10 + getTargetNameOffset(), getTargetNameLength() / 2);
-    }
-
-    /**
-     * Gets the print name.
-     *
-     * @return the name.
-     */
-    public String getPrintName() {
-        return getUtf16LEString(getAttributeOffset() + 0x10 + getPrintNameOffset(), getPrintNameLength() / 2);
-    }
+    FileRecord getFileRecord();
 }
