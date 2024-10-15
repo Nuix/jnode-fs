@@ -21,6 +21,8 @@
 package org.jnode.fs.ntfs;
 
 import java.io.UnsupportedEncodingException;
+
+import org.jnode.fs.util.FSUtils;
 import org.jnode.util.LittleEndian;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -310,5 +312,17 @@ public class NTFSStructure {
      */
     public byte[] getBuffer() {
         return buffer;
+    }
+
+    /**
+     * Generates a hex dump of the structure's data.
+     *
+     * @return the hex dump.
+     */
+    public String hexDump() {
+        int length = buffer.length - offset;
+        byte[] data = new byte[length];
+        getData(0, data, 0, data.length);
+        return FSUtils.toString(data);
     }
 }

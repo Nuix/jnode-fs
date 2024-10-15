@@ -205,7 +205,7 @@ public abstract class NTFSAttribute extends NTFSStructure {
      * @return the hex dump.
      */
     public String hexDump() {
-        int length = Math.min(getSize(), getBuffer().length - getOffset());
+        int length = Math.min(getSize(), getBuffer().length - getOffset()); // Limit to attribute size if possible
         byte[] data = new byte[length];
         getData(0, data, 0, data.length);
         return FSUtils.toString(data);

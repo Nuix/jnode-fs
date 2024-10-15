@@ -191,13 +191,19 @@ public class MasterFileTable extends FileRecord {
      * @return the file record.
      */
     public FileRecord getRecordUnchecked(long index) throws IOException {
-        log.debug("getRecord(" + index + ")");
+        log.debug("MFT.getRecordUnchecked({})", index);
 
         final NTFSVolume volume = getVolume();
 
         // read the buffer
         final byte[] buffer = readRecord(index);
-        return new FileRecord(volume, index, buffer, 0);
+        FileRecord record = new FileRecord(volume, index, buffer, 0);
+
+        if (log.isDebugEnabled()) {
+            log.debug("{}", record.hexDump());
+        }
+
+        return record;
     }
 
     /**
@@ -213,7 +219,7 @@ public class MasterFileTable extends FileRecord {
         final long offset = bytesPerFileRecord * index;
 
         if (offset + bytesPerFileRecord > getMftLength()) {
-            throw new IOException("Attempt to read past the end of the MFT, offset: " + offset);
+            throw new IOException("Attempt to read past the end of the MFT, offset: " + offset + ", for MFT index: " + index);
         }
 
         FileRecord fileRecord = getRecordUnchecked(index);
