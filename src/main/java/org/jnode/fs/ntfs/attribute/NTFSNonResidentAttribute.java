@@ -146,12 +146,12 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
     public int readVCN(long vcn, byte[] dst, int dstOffset, int nrClusters) throws IOException {
         final int flags = getFlags();
         if ((flags & 0x4000) != 0) {
-            throw new IOException("Reading encrypted files is not supported");
+            throw new IOException("Reading encrypted files is not supported, record:" + getFileRecord());
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("readVCN: wants start " + vcn + " length " + nrClusters +
-                ", we have start " + getStartVCN() + " length " + dataRunDecoder.getNumberOfVCNs());
+            log.debug("{}:readVCN: wants start {} length {}, we have start {} length {}",
+                    getFileRecord().getReferenceNumber(), vcn, nrClusters, getStartVCN(), dataRunDecoder.getNumberOfVCNs());
         }
 
         final NTFSVolume volume = getFileRecord().getVolume();
@@ -165,7 +165,7 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("readVCN: read " + readClusters);
+            log.debug("{}:readVCN: read {}", getFileRecord().getReferenceNumber(), readClusters);
         }
 
         return readClusters;
@@ -173,8 +173,9 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
 
     @Override
     public String toString() {
-        return String.format("[attribute (non-res) type=x%x name'%s' size=%d runs=%d]", getAttributeType().getValue(),
-            getAttributeName(), getAttributeActualSize(), getDataRuns().size());
+        return String.format("[%d:attribute (non-res) type=x%x name'%s' size=%d runs=%d]",
+                getFileRecord().getReferenceNumber(), getAttributeType().getValue(),
+                getAttributeName(), getAttributeActualSize(), getDataRuns().size());
     }
 
     @Override

@@ -2,7 +2,10 @@ package org.jnode.fs.ntfs.datarun;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import lombok.Getter;
 import org.jnode.fs.ntfs.NTFSStructure;
+import org.jnode.fs.util.FSUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,11 +37,13 @@ public class DataRunDecoder {
     /**
      * The decoded data runs.
      */
-    private final List<DataRunInterface> dataRuns = new ArrayList<DataRunInterface>();
+    @Getter
+    private final List<DataRunInterface> dataRuns = new ArrayList<>();
 
     /**
      * The number of virtual clusters decoded.
      */
+    @Getter
     private int numberOfVCNs;
 
     /**
@@ -93,7 +98,7 @@ public class DataRunDecoder {
             final DataRun dataRun = new DataRun(parent, offset, vcn, previousLCN);
 
             if (log.isDebugEnabled()) {
-                log.debug("Data run at offset: " + offset + " " + dataRun);
+                log.debug("Data run at offset: {} {}", offset, dataRun);
             }
 
             if (compressed) {
@@ -110,7 +115,7 @@ public class DataRunDecoder {
                         long length = dataRun.getLength() - (compressionUnit - lastCompressedSize);
                         dataRuns.add(new DataRun(0, length, true, 0, vcn));
 
-                        this.numberOfVCNs += length;
+                        this.numberOfVCNs += FSUtils.checkedCast(length);
                         vcn += length;
                         lastCompressedSize = 0;
                     }
@@ -129,7 +134,7 @@ public class DataRunDecoder {
                         DataRun uncompressed = new DataRun(dataRun.getCluster(), uncompressedLength, false, 0, vcn);
                         dataRuns.add(uncompressed);
                         vcn += uncompressedLength;
-                        this.numberOfVCNs += uncompressedLength;
+                        this.numberOfVCNs += FSUtils.checkedCast(uncompressedLength);
 
                         // Next add in the compressed portion
                         DataRun compressedRun =
@@ -144,7 +149,7 @@ public class DataRunDecoder {
 
                     } else {
                         dataRuns.add(dataRun);
-                        this.numberOfVCNs += dataRun.getLength();
+                        this.numberOfVCNs += FSUtils.checkedCast(dataRun.getLength());
                         vcn += dataRun.getLength();
                     }
 
@@ -169,7 +174,7 @@ public class DataRunDecoder {
             } else {
                 // map VCN -> datarun
                 dataRuns.add(dataRun);
-                this.numberOfVCNs += dataRun.getLength();
+                this.numberOfVCNs += FSUtils.checkedCast(dataRun.getLength());
                 vcn += dataRun.getLength();
                 lastCompressedSize = 0;
                 expectingSparseRunNext = false;
@@ -194,27 +199,8 @@ public class DataRunDecoder {
         final long allocatedVCNs = (attributeAllocatedSize - 1) / clusterSize + 1;
         if (this.numberOfVCNs != allocatedVCNs) {
             // Probably not a problem, often multiple attributes make up one allocation.
-            log.debug("VCN mismatch between data runs and allocated size, possibly a composite attribute. " +
-                "data run VCNs = " + this.numberOfVCNs + ", allocated size = " + allocatedVCNs +
-                ", data run count = " + dataRuns.size());
+            log.debug("VCN mismatch between data runs and allocated size, possibly a composite attribute. data run " +
+                    "VCNs = {}, allocated size = {}, data run count = {}", this.numberOfVCNs, allocatedVCNs, dataRuns.size());
         }
-    }
-
-    /**
-     * Gets the decoded data runs.
-     *
-     * @return Returns the data runs.
-     */
-    public List<DataRunInterface> getDataRuns() {
-        return dataRuns;
-    }
-
-    /**
-     * Gets the number of virtual clusters decoded.
-     *
-     * @return the number of virtual clusters.
-     */
-    public int getNumberOfVCNs() {
-        return numberOfVCNs;
     }
 }
