@@ -555,26 +555,22 @@ public class FileRecord extends NTFSRecord {
         Iterator<NTFSAttribute> attributes = findAttributesByTypeAndName(attrTypeID, name);
 
         if (!attributes.hasNext()) {
-            if (isInUse()) {
-                throw new IllegalStateException("Failed to find an attribute with type: " + attrTypeID + " and name: '" +
-                                                name + "'");
-            } else {
-                return 0;
-            }
-        } else {
-            NTFSAttribute attribute = attributes.next();
+            // If the file is deleted, or a partial record from a volume shadow copy, then it may not have all
+            // expected attributes
+            return 0;
+        }
 
-            if (attribute.isResident()) {
-                // If the attribute is resident it should be the only attribute of that type present, so just return
-                // the length
-                return ((NTFSResidentAttribute) attribute).getAttributeLength();
-            } else {
-                // The total length seems to be stored in the first attribute of a certain type. E.g. if there are two
-                // DATA attributes each with data runs, the first one has the total length, and the intermediate ones
-                // seem to contain the length of that particular attribute. So here just return the length of the first
-                // attribute
-                return ((NTFSNonResidentAttribute) attribute).getAttributeActualSize();
-            }
+        NTFSAttribute attribute = attributes.next();
+        if (attribute.isResident()) {
+            // If the attribute is resident it should be the only attribute of that type present, so just return
+            // the length
+            return ((NTFSResidentAttribute) attribute).getAttributeLength();
+        } else {
+            // The total length seems to be stored in the first attribute of a certain type. E.g. if there are two
+            // DATA attributes each with data runs, the first one has the total length, and the intermediate ones
+            // seem to contain the length of that particular attribute. So here just return the length of the first
+            // attribute
+            return ((NTFSNonResidentAttribute) attribute).getAttributeActualSize();
         }
     }
 
