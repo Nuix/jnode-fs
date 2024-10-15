@@ -190,6 +190,6 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
             builder.append("Error: " + e);
         }
 
-        return String.format("%s\nData runs:\n%s\nData: %s", toString(), builder.toString(), hexDump());
+        return String.format("%s\nData runs:\n%s\nData: %s", this, builder, hexDump());
     }
 }

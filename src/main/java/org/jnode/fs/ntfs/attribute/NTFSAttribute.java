@@ -20,6 +20,7 @@
  
 package org.jnode.fs.ntfs.attribute;
 
+import lombok.Getter;
 import org.jetbrains.annotations.TestOnly;
 import org.jnode.fs.ntfs.FileNameAttribute;
 import org.jnode.fs.ntfs.FileRecord;
@@ -98,8 +99,16 @@ public abstract class NTFSAttribute extends NTFSStructure {
 
     private final Types type;
 
+    /**
+     * Attribute flags: 0x0001 is compressed. 0x4000 is encrypted. 0x8000 is sparse.
+     */
+    @Getter
     private final int flags;
 
+    /**
+     * The file record holding this attribute
+     */
+    @Getter
     private final FileRecord fileRecord;
 
     /**
@@ -125,14 +134,6 @@ public abstract class NTFSAttribute extends NTFSStructure {
      */
     public Types getAttributeType() {
         return type;
-    }
-
-    /*
-     * Flag |Description ------------------- 0x0001 |Compressed 0x4000
-     * |Encrypted 0x8000 |Sparse
-     */
-    public int getFlags() {
-        return flags;
     }
 
     /**
@@ -183,13 +184,6 @@ public abstract class NTFSAttribute extends NTFSStructure {
     }
 
     /**
-     * @return Returns the fileRecord.
-     */
-    public FileRecord getFileRecord() {
-        return this.fileRecord;
-    }
-
-    /**
      * @return Returns the resident.
      */
     public boolean isResident() {
@@ -211,7 +205,7 @@ public abstract class NTFSAttribute extends NTFSStructure {
      * @return the hex dump.
      */
     public String hexDump() {
-        int length = getBuffer().length - getOffset();
+        int length = Math.min(getSize(), getBuffer().length - getOffset());
         byte[] data = new byte[length];
         getData(0, data, 0, data.length);
         return FSUtils.toString(data);
