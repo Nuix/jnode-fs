@@ -157,11 +157,16 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
         final NTFSVolume volume = getFileRecord().getVolume();
         final int clusterSize = volume.getClusterSize();
         int readClusters = 0;
-        for (DataRunInterface dataRun : getDataRuns()) {
-            if (readClusters >= nrClusters) {
-                break;
+        try {
+            for (DataRunInterface dataRun : getDataRuns()) {
+                if (readClusters >= nrClusters) {
+                    break;
+                }
+                readClusters += dataRun.readClusters(vcn, dst, dstOffset, nrClusters, clusterSize, volume);
             }
-            readClusters += dataRun.readClusters(vcn, dst, dstOffset, nrClusters, clusterSize, volume);
+        } catch (Exception e) {
+            // Wrap the read exception to add the attribute & file record number
+            throw new IOException("Error reading attribute: " + this + " at VCN:" + vcn + ". readClusters=" + readClusters, e);
         }
 
         if (log.isDebugEnabled()) {

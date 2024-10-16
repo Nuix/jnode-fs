@@ -97,13 +97,13 @@ public final class CompressedDataRun implements DataRunInterface {
         final long myLastVcn = getLastVcn();
         final long reqLastVcn = vcn + nrClusters - 1;
 
-        if (log.isDebugEnabled()) {
-            log.debug("me:" + myFirstVcn + "-" + myLastVcn + ", req:" + vcn + "-" + reqLastVcn);
-        }
-
         if ((vcn > myLastVcn) || (myFirstVcn > reqLastVcn)) {
             // Not my region
             return 0;
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("me:{}-{}, req:{}-{}", myFirstVcn, myLastVcn, vcn, reqLastVcn);
         }
 
         // Now we know it's in our data run, here's the actual fragment to read.
