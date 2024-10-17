@@ -146,26 +146,31 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
     public int readVCN(long vcn, byte[] dst, int dstOffset, int nrClusters) throws IOException {
         final int flags = getFlags();
         if ((flags & 0x4000) != 0) {
-            throw new IOException("Reading encrypted files is not supported");
+            throw new IOException("Reading encrypted files is not supported, record:" + getFileRecord());
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("readVCN: wants start " + vcn + " length " + nrClusters +
-                ", we have start " + getStartVCN() + " length " + dataRunDecoder.getNumberOfVCNs());
+            log.debug("{}:readVCN: wants start {} length {}, we have start {} length {}",
+                    getFileRecord().getReferenceNumber(), vcn, nrClusters, getStartVCN(), dataRunDecoder.getNumberOfVCNs());
         }
 
         final NTFSVolume volume = getFileRecord().getVolume();
         final int clusterSize = volume.getClusterSize();
         int readClusters = 0;
-        for (DataRunInterface dataRun : getDataRuns()) {
-            if (readClusters >= nrClusters) {
-                break;
+        try {
+            for (DataRunInterface dataRun : getDataRuns()) {
+                if (readClusters >= nrClusters) {
+                    break;
+                }
+                readClusters += dataRun.readClusters(vcn, dst, dstOffset, nrClusters, clusterSize, volume);
             }
-            readClusters += dataRun.readClusters(vcn, dst, dstOffset, nrClusters, clusterSize, volume);
+        } catch (Exception e) {
+            // Wrap the read exception to add the attribute & file record number
+            throw new IOException("Error reading attribute: " + this + " at VCN:" + vcn + ". readClusters=" + readClusters, e);
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("readVCN: read " + readClusters);
+            log.debug("{}:readVCN: read {}", getFileRecord().getReferenceNumber(), readClusters);
         }
 
         return readClusters;
@@ -173,8 +178,9 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
 
     @Override
     public String toString() {
-        return String.format("[attribute (non-res) type=x%x name'%s' size=%d runs=%d]", getAttributeType().getValue(),
-            getAttributeName(), getAttributeActualSize(), getDataRuns().size());
+        return String.format("[%d:attribute (non-res) type=x%x name'%s' size=%d runs=%d compressed=%b]",
+                getFileRecord().getReferenceNumber(), getAttributeType().getValue(),
+                getAttributeName(), getAttributeActualSize(), getDataRuns().size(), isCompressedAttribute());
     }
 
     @Override
@@ -190,6 +196,6 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
             builder.append("Error: " + e);
         }
 
-        return String.format("%s\nData runs:\n%s\nData: %s", toString(), builder.toString(), hexDump());
+        return String.format("%s\nData runs:\n%s\nData:\n%s", this, builder, hexDump());
     }
 }

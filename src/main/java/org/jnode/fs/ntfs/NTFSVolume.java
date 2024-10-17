@@ -22,6 +22,8 @@ package org.jnode.fs.ntfs;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+
+import lombok.Getter;
 import org.jnode.driver.block.BlockDeviceAPI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,11 +39,18 @@ public class NTFSVolume {
 
     public static final byte DOS_8_3 = 0x02;
 
+    /**
+     * The current name space.
+     */
+    @Getter
     private byte currentNameSpace = LONG_FILE_NAMES;
 
     private final BlockDeviceAPI api;
 
-    // local chache for faster access
+    /**
+     * The size of a cluster.
+     */
+    @Getter
     private final int clusterSize;
 
     private final BootRecord bootRecord;
@@ -80,7 +89,7 @@ public class NTFSVolume {
         final int clusterSize = getClusterSize();
         final long clusterOffset = cluster * clusterSize;
         if (log.isDebugEnabled()) {
-            log.debug("readCluster(" + cluster + ") " + (readClusterCount++));
+            log.debug("readCluster({}) {}", cluster, readClusterCount++);
         }
         api.read(clusterOffset, ByteBuffer.wrap(dst, dstOffset, clusterSize));
     }
@@ -99,20 +108,11 @@ public class NTFSVolume {
      */
     public void readClusters(long firstCluster, byte[] dst, int dstOffset, int nrClusters) throws IOException {
         if (log.isDebugEnabled()) {
-            log.debug("readClusters(" + firstCluster + ", " + nrClusters + ") " + (readClustersCount++));
+            log.debug("readClusters({}, {}) {}", firstCluster, nrClusters, readClustersCount++);
         }
         final int clusterSize = getClusterSize();
         final long clusterOffset = firstCluster * clusterSize;
         api.read(clusterOffset, ByteBuffer.wrap(dst, dstOffset, nrClusters * clusterSize));
-    }
-
-    /**
-     * Gets the size of a cluster.
-     *
-     * @return the size
-     */
-    public int getClusterSize() {
-        return clusterSize;
     }
 
     /**
@@ -157,12 +157,5 @@ public class NTFSVolume {
             log.info("getRootDirectory: " + rootDirectory.getFileName(rootDirectory.getReferenceNumber()));
         }
         return rootDirectory;
-    }
-
-    /**
-     * @return Returns the currentNameSpace.
-     */
-    public byte getCurrentNameSpace() {
-        return currentNameSpace;
     }
 }

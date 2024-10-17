@@ -93,6 +93,7 @@ public final class BootRecord extends NTFSStructure {
         this.fileRecordSize = calcByteSize(clustersPerMFTRecord);
         this.indexRecordSize = calcByteSize(clustersPerIndexRecord);
 
+        log.debug("ClusterSize     = {}", clusterSize);
         log.debug("FileRecordSize  = {}", fileRecordSize);
         log.debug("IndexRecordSize = {}", indexRecordSize);
         log.debug("TotalSectors    = {}", totalSectors);

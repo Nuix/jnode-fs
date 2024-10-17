@@ -1,7 +1,8 @@
 package org.jnode.fs.ntfs;
 
-import org.jnode.fs.ntfs.attribute.ReparsePointAttribute;
+import org.jnode.fs.ntfs.attribute.ReparsePointAttributeRes;
 import org.jnode.fs.ntfs.attribute.NTFSAttribute;
+import org.jnode.fs.ntfs.attribute.ReparsePointTags;
 import org.junit.Test;
 
 import static org.hamcrest.MatcherAssert.*;
@@ -29,9 +30,12 @@ public class NtfsReparsePointTest {
                         " 0 49 0 50 0 51 0 52 0 53 0 54 0 55 0 56 0 57 0 92 0 48 0 49 0 50 0 51 0 52 0 53 0 54 0 55 0 56" +
                         " 0 57 0 92 0 48 0 49 0 50 0 51 0 52 0 53 0 54 0 55 0 56 0 57 0 92 0 48 0 49 0 50 0 51 0 0 0 0 0 0 0");
 
-        ReparsePointAttribute reparsePointAttribute = new ReparsePointAttribute(new NTFSStructure(data, 0), 0);
+        ReparsePointAttributeRes reparsePointAttributeRes = new ReparsePointAttributeRes(new NTFSStructure(data, 0), 0);
 
-        assertThat(reparsePointAttribute.getPrintName(), is ("c:\\temp\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123"));
-        assertThat(reparsePointAttribute.getTargetName(), is ("\\??\\c:\\temp\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123"));
+        assertThat(reparsePointAttributeRes.getReparseTag(), is(equalTo(ReparsePointTags.IO_REPARSE_TAG_MOUNT_POINT)));
+        assertThat(reparsePointAttributeRes.getReparseDataLength(), is(equalTo(420)));
+
+        // print name: "c:\\temp\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123"));
+        // target name: "\\??\\c:\\temp\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123456789\\0123"));
     }
 }

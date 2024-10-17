@@ -238,13 +238,13 @@ public final class DataRun implements DataRunInterface {
 
         final long reqLastVcn = vcn + nrClusters - 1;
 
-        if (log.isDebugEnabled()) {
-            log.debug("me:" + myFirstVcn + "-" + myLastVcn + ", req:" + vcn + "-" + reqLastVcn);
-        }
-
         if ((vcn > myLastVcn) || (myFirstVcn > reqLastVcn)) {
             // Not my region
             return 0;
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("me:{}-{}, req:{}-{}", myFirstVcn, myLastVcn, vcn, reqLastVcn);
         }
 
         final long actCluster; // Starting cluster
@@ -264,8 +264,8 @@ public final class DataRun implements DataRunInterface {
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("cluster=" + cluster + ", length=" + length + ", dstOffset=" + dstOffset);
-            log.debug("cnt=" + count + ", actclu=" + actCluster + ", actdstoff=" + actDstOffset);
+            log.debug("cluster={}, length={}, dstOffset={}, cnt={}, actclu={}, actdstoff={}", cluster, length,
+                    dstOffset, count, actCluster, actDstOffset);
         }
 
         // Zero the area
