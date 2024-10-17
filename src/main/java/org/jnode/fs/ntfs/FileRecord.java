@@ -437,7 +437,7 @@ public class FileRecord extends NTFSRecord {
                 }
 
                 if (log.isDebugEnabled()) {
-                    log.debug("Final list of attributes for {}: {}", referenceNumber, attributeList.stream().map(Objects::toString).collect(Collectors.joining("\n")));
+                    log.debug("Final list of attributes for {}:\n{}", referenceNumber, attributeList.stream().map(Objects::toString).collect(Collectors.joining("\n")));
                 }
             } catch (Exception e) {
                 log.error("Error getting attributes for file record: {}, returning stored attributes", referenceNumber, e);
@@ -509,9 +509,6 @@ public class FileRecord extends NTFSRecord {
                 if (attr.getAttributeType() == attrTypeID) {
                     String attrName = attr.getAttributeName();
                     if (Objects.equals(name, attrName)) {
-                        if (log.isDebugEnabled()) {
-                            log.debug("{}:findAttributesByTypeAndName(0x{},{}) found", referenceNumber, NumberUtils.hex(attrTypeID.getValue(), 4), name);
-                        }
                         return true;
                     }
                 }
@@ -535,6 +532,7 @@ public class FileRecord extends NTFSRecord {
         if (!attributes.hasNext()) {
             // If the file is deleted, or a partial record from a volume shadow copy, then it may not have all
             // expected attributes
+            log.debug("{}:No attributes found for attribute type: {} ({}), returning 0 as size", referenceNumber, attrTypeID, name);
             return 0;
         }
 
