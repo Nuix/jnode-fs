@@ -22,11 +22,11 @@ public class ManetForensicTest {
     public void testDecompression_original() throws IOException {
         // Arrange
         byte[] compressed = FileSystemTestUtils.readFileToByteArray(
-                "/Users/tli01/work/nuix/jnode-fs/src/test/resources/org/jnode/fs/ntfs/block1.compressed.bin");
+                "org/jnode/fs/ntfs/block1.compressed.bin");
         byte[] expectedUncompressed = FileSystemTestUtils.readFileToByteArray(
-                "/Users/tli01/work/nuix/jnode-fs/src/test/resources/org/jnode/fs/ntfs/block1.uncompressed.bin");
+                "org/jnode/fs/ntfs/block1.uncompressed.bin");
 
-        byte[] uncompressed = new byte[1000000];
+        byte[] uncompressed = new byte[expectedUncompressed.length];
 // Act
         CompressedDataRunOriginal.unCompressUnit(compressed, uncompressed);
 
@@ -45,11 +45,11 @@ public class ManetForensicTest {
     public void testDecompression_luke() throws IOException {
         // Arrange
         byte[] compressed = FileSystemTestUtils.readFileToByteArray(
-                "/Users/tli01/work/nuix/jnode-fs/src/test/resources/org/jnode/fs/ntfs/block1.compressed.bin");
+                "org/jnode/fs/ntfs/block1.compressed.bin");
         byte[] expectedUncompressed = FileSystemTestUtils.readFileToByteArray(
-                "/Users/tli01/work/nuix/jnode-fs/src/test/resources/org/jnode/fs/ntfs/block1.uncompressed.bin");
+                "org/jnode/fs/ntfs/block1.uncompressed.bin");
 
-        byte[] uncompressed = new byte[1000000];
+        byte[] uncompressed = new byte[expectedUncompressed.length];
 // Act
         CompressedDataRun2.unCompressUnit(compressed, uncompressed);
 
@@ -64,24 +64,24 @@ public class ManetForensicTest {
 
     // the latest jnode code, the data is https://github.com/MagnetForensics/rust-lzxpress/tree/main/tests
     // It doesn't work. Don't run it, there is an infinite loop..
-//    @Test
-//    public void testDecompression() throws IOException {
-//        // Arrange
-//        byte[] compressed = FileSystemTestUtils.readFileToByteArray(
-//                "/Users/tli01/work/nuix/jnode-fs/src/test/resources/org/jnode/fs/ntfs/block1.compressed.bin");
-//        byte[] expectedUncompressed = FileSystemTestUtils.readFileToByteArray(
-//                "/Users/tli01/work/nuix/jnode-fs/src/test/resources/org/jnode/fs/ntfs/block1.uncompressed.bin");
-//
-//        byte[] uncompressed = new byte[1000000];
-//// Act
-//        CompressedDataRun.unCompressUnit(compressed, uncompressed);
-//
-//        for (int i  = 0; i < expectedUncompressed.length; i++) {
-//            assertThat((uncompressed[i] == expectedUncompressed[i]), is(true));
-//        }
-//
-//        // Assert
-//        String uncompressedContent = new String(uncompressed, StandardCharsets.US_ASCII);
-//        assertThat(uncompressedContent, containsString("PublicKey=002400000480000094000000060200000024000052534131000400000100010007d1fa57c4aed9f0a32e84aa0faefd0de9e8fd6aec8f87fb03766c834c99921eb23be79ad9d5dcc1dd9ad236132102900b723cf980957fc4e177108fc607774f29e8320e92ea05ece4e821c0a5efe8f1645c4c0c93c1ab99285d622caa652c1dfad63d745d6f2de5f17e5eaf0fc4963d261c8a12436518206dc093344d5ad293")); // Near the end of the chunk
-//    }
+    @Test
+    public void testDecompression() throws IOException {
+        // Arrange
+        byte[] compressed = FileSystemTestUtils.readFileToByteArray(
+                "org/jnode/fs/ntfs/block1.compressed.bin");
+        byte[] expectedUncompressed = FileSystemTestUtils.readFileToByteArray(
+                "org/jnode/fs/ntfs/block1.uncompressed.bin");
+
+        byte[] uncompressed = new byte[expectedUncompressed.length];
+// Act
+        CompressedDataRun.unCompressUnit(compressed, uncompressed);
+
+        for (int i  = 0; i < expectedUncompressed.length; i++) {
+            assertThat((uncompressed[i] == expectedUncompressed[i]), is(true));
+        }
+
+        // Assert
+        String uncompressedContent = new String(uncompressed, StandardCharsets.US_ASCII);
+        assertThat(uncompressedContent, containsString("PublicKey=002400000480000094000000060200000024000052534131000400000100010007d1fa57c4aed9f0a32e84aa0faefd0de9e8fd6aec8f87fb03766c834c99921eb23be79ad9d5dcc1dd9ad236132102900b723cf980957fc4e177108fc607774f29e8320e92ea05ece4e821c0a5efe8f1645c4c0c93c1ab99285d622caa652c1dfad63d745d6f2de5f17e5eaf0fc4963d261c8a12436518206dc093344d5ad293")); // Near the end of the chunk
+    }
 }

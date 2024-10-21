@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import org.jnode.util.LittleEndian;
 
 //The code translated from https://github.com/you0708/lznt1/blob/master/lznt1.py.
 public class CompressedDataRunPyLznt1 {
@@ -14,7 +15,8 @@ public class CompressedDataRunPyLznt1 {
 
         while (index < buf.length) {
             // Read the header
-            short header = ByteBuffer.wrap(buf, index, 2).order(ByteOrder.LITTLE_ENDIAN).getShort();
+            // DO NOT use short here, as it is an unsigned int.
+            int header = LittleEndian.getUInt16(buf, index);
             index += 2;
 
             int length = (header & 0xFFF) + 1;
@@ -36,25 +38,27 @@ public class CompressedDataRunPyLznt1 {
         return out.toByteArray();
     }
 
-    private static byte[] decompressChunk(byte[] chunk) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        int index = 0;
+    private static byte[] decompressChunk(byte[] compressed) {
+        byte[] uncompressed = new byte[0x1000];
 
-        while (index < chunk.length) {
-            int flags = chunk[index] & 0xFF; // Get the flags byte
+        int index = 0;
+        int uIndex = 0;
+
+        while (index < compressed.length) {
+            int flags = compressed[index] & 0xFF; // Get the flags byte
             index++;
 
             for (int i = 0; i < 8; i++) {
                 if ((flags >> i & 1) == 0) {
                     // Copy single byte
-                    out.write(chunk[index] & 0xFF);
-                    index++;
+                    uncompressed[uIndex++] = compressed[index++];
                 } else {
                     // Decompress using offset and length
-                    short flag = ByteBuffer.wrap(chunk, index, 2).order(ByteOrder.LITTLE_ENDIAN).getShort();
+                    // DO NOT use short here, as it is an unsigned int.
+                    int flag = LittleEndian.getUInt16(compressed, index);
                     index += 2;
 
-                    int pos = out.size() - 1;
+                    int pos = uIndex - 1;
                     int lMask = 0xFFF;
                     int oShift = 12;
 
@@ -67,23 +71,21 @@ public class CompressedDataRunPyLznt1 {
                     int length = (flag & lMask) + 3;
                     int offset = (flag >> oShift) + 1;
 
-                    if (length >= offset) {
-                        byte[] tmp = new byte[0xFFF];
-                        System.arraycopy(out.toByteArray(), out.size() - offset, tmp, 0, Math.min(offset, tmp.length));
-                        out.write(tmp, 0, length);
-                    } else {
-                        for (int j = 0; j < length; j++) {
-                            out.write(out.toByteArray()[out.size() - offset + j] & 0xFF);
-                        }
+                    for (int j = 0; j < length; j++) {
+                        uncompressed[uIndex] = uncompressed[uIndex - offset];
+                        uIndex++;
                     }
                 }
 
-                if (index >= chunk.length) {
+                if (index >= compressed.length) {
                     break;
                 }
             }
         }
 
-        return out.toByteArray();
+        byte[] result = new byte[uIndex];
+        System.arraycopy(uncompressed, 0, result, 0, uIndex);
+
+        return result;
     }
 }

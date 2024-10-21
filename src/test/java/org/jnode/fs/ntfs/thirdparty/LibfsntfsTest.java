@@ -16,7 +16,7 @@ import org.junit.Test;
 
 // Test with data got from https://github.com/libyal/libfsntfs/blob/82181db7c9f272f98257cf3576243d9ccbbe8823/tests/fsntfs_test_compression.c
 public class LibfsntfsTest {
-    private  static String endOfNonZeroContent =
+    private static final String endOfNonZeroContent =
             "If the Library as you received it specifies that a proxy can decide\n" +
                     "whether future versions of the GNU Lesser General Public License shall\n" +
                     "apply, that proxy's public statement of acceptance of any version is\n" +
@@ -38,10 +38,9 @@ public class LibfsntfsTest {
         // Act
         CompressedDataRunOriginal.unCompressUnit(compressed, uncompressed);
 
-        for (int i  = 0; i < expectedUncompressed.length; i++) {
-            if (uncompressed[i] != expectedUncompressed[i])
-            {
-                int a = 0;
+        for (int i = 0; i < expectedUncompressed.length; i++) {
+            if (uncompressed[i] != expectedUncompressed[i]) {
+                int a = 0; // for debugging.
             }
             assertThat((uncompressed[i] == expectedUncompressed[i]), is(true));
         }
@@ -66,12 +65,10 @@ public class LibfsntfsTest {
         // Act
         CompressedDataRun2.unCompressUnit(compressed, uncompressed);
 
-        for (int i  = 0; i < expectedUncompressed.length; i++) {
-            if (uncompressed[i] != expectedUncompressed[i])
-            {
-                int a = 0;
+        for (int i = 0; i < expectedUncompressed.length; i++) {
+            if (uncompressed[i] != expectedUncompressed[i]) {
+                int a = 0; // for debugging. failed at index 4092
             }
-            System.out.println(i);
             assertThat((uncompressed[i] == expectedUncompressed[i]), is(true));
         }
 

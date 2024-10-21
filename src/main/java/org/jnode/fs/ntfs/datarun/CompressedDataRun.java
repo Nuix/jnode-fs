@@ -8,16 +8,16 @@
  * by the Free Software Foundation; either version 2.1 of the License, or
  * (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful, but 
+ * This library is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public 
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; If not, write to the Free Software Foundation, Inc., 
+ * along with this library; If not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
- 
+
 package org.jnode.fs.ntfs.datarun;
 
 import java.io.IOException;
@@ -104,7 +104,7 @@ public final class CompressedDataRun implements DataRunInterface {
      * @throws IOException if an error occurs reading.
      */
     public int readClusters(long vcn, byte[] dst, int dstOffset, int nrClusters, int clusterSize, NTFSVolume volume)
-        throws IOException {
+            throws IOException {
 
         // Logic to determine whether we own the VCN which has been requested.
         // XXX: Lifted from DataRun.  Consider moving to some good common location.
@@ -140,7 +140,7 @@ public final class CompressedDataRun implements DataRunInterface {
 
             // Now we know the data is compressed.  Read in the compressed block...
             final int read = compressedRun.readClusters(readVcn, tempCompressed, tempCompressedOffset,
-                compClusters, clusterSize, volume);
+                    compClusters, clusterSize, volume);
             if (read != compClusters) {
                 throw new IOException("Needed " + compClusters + " clusters but could " + "only read " + read);
             }
@@ -161,14 +161,14 @@ public final class CompressedDataRun implements DataRunInterface {
 
         if (copyDest + copyLength > dst.length) {
             throw new ArrayIndexOutOfBoundsException(
-                String
-                    .format("Copy dest %d length %d is too big for destination %d", copyDest, copyLength, dst.length));
+                    String
+                            .format("Copy dest %d length %d is too big for destination %d", copyDest, copyLength, dst.length));
         }
 
         if (copySource + copyLength > tempUncompressed.length) {
             throw new ArrayIndexOutOfBoundsException(
-                String.format("Copy source %d length %d is too big for source %d", copySource, copyLength,
-                    tempUncompressed.length));
+                    String.format("Copy source %d length %d is too big for source %d", copySource, copyLength,
+                            tempUncompressed.length));
         }
 
         System.arraycopy(tempUncompressed, copySource, dst, copyDest, copyLength);
@@ -193,7 +193,8 @@ public final class CompressedDataRun implements DataRunInterface {
         final OffsetByteArray uncompressedData = new OffsetByteArray(uncompressed);
 
         /* Loop through decompressing chunks. */
-        while (uncompressedData.offset < uncompressed.length) {
+        while (uncompressedData.offset < uncompressed.length &&
+                compressedData.offset < compressed.length) {
             // the length to write with zero in error case.
             // calculate it before uncompressBlock() since uncompressBlock() may change them.
             int lengthToWriteZeroInErrorCase = uncompressed.length - uncompressedData.offset;
@@ -327,6 +328,7 @@ public final class CompressedDataRun implements DataRunInterface {
                     for (; blen > 0; blen--, uPos++) {
                         uncompressed.put(uPos, uncompressed.get(uPos - boff));
                     }
+                    uPos += blen; // don't forget to update the index in the uncompressed array.
                 }
 
                 ctag >>>= 1; // >> or >>> are both OK here as we only check it 8 times (all bits in the byte will be and only be checked once)
