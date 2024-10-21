@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 /**
  * @author Daniel Noll (daniel@noll.id.au)
  */
-public final class CompressedDataRun implements DataRunInterface {
+public final class CompressedDataRunOriginal implements DataRunInterface {
     /**
      * Size of a compressed block in NTFS.  This is always the same even if the cluster size
      * is not 4k.
@@ -45,20 +45,6 @@ public final class CompressedDataRun implements DataRunInterface {
      * Logger.
      */
     private static final Logger log = LoggerFactory.getLogger(CompressedDataRun.class);
-
-    /**
-     * @see <a href="https://github.com/torvalds/linux/blob/master/fs/ntfs3/lznt.c#L114">The max of the offset</a>
-     */
-    private static final int[] sMaxOff = {
-            0x10, 0x20, 0x40, 0x80, 0x100, 0x200, 0x400, 0x800, 0x1000,
-    };
-
-    /**
-     * Invalid argument.
-     * It used in <a href="https://github.com/torvalds/linux/blob/master/fs/ntfs3/lznt.c">LZNT C code</a>, but we didn't find the definition.
-     * It's similar to <a href="https://github.com/torvalds/linux/blob/c964ced7726294d40913f2127c3f185a92cb4a41/arch/powerpc/boot/stdio.h#L8>Invalid argument</a>
-     */
-    private static final int EINVAL = 22;
 
     /**
      * The underlying data runs containing the compressed data.
@@ -77,7 +63,7 @@ public final class CompressedDataRun implements DataRunInterface {
      * @param compressedRun       the compressed data run.
      * @param compressionUnitSize the number of clusters which make up a compression unit.
      */
-    public CompressedDataRun(DataRun compressedRun, int compressionUnitSize) {
+    public CompressedDataRunOriginal(DataRun compressedRun, int compressionUnitSize) {
         this.compressedRuns.add(compressedRun);
         this.compressionUnitSize = compressionUnitSize;
     }
@@ -104,7 +90,7 @@ public final class CompressedDataRun implements DataRunInterface {
      * @throws IOException if an error occurs reading.
      */
     public int readClusters(long vcn, byte[] dst, int dstOffset, int nrClusters, int clusterSize, NTFSVolume volume)
-        throws IOException {
+            throws IOException {
 
         // Logic to determine whether we own the VCN which has been requested.
         // XXX: Lifted from DataRun.  Consider moving to some good common location.
@@ -140,7 +126,7 @@ public final class CompressedDataRun implements DataRunInterface {
 
             // Now we know the data is compressed.  Read in the compressed block...
             final int read = compressedRun.readClusters(readVcn, tempCompressed, tempCompressedOffset,
-                compClusters, clusterSize, volume);
+                    compClusters, clusterSize, volume);
             if (read != compClusters) {
                 throw new IOException("Needed " + compClusters + " clusters but could " + "only read " + read);
             }
@@ -161,14 +147,14 @@ public final class CompressedDataRun implements DataRunInterface {
 
         if (copyDest + copyLength > dst.length) {
             throw new ArrayIndexOutOfBoundsException(
-                String
-                    .format("Copy dest %d length %d is too big for destination %d", copyDest, copyLength, dst.length));
+                    String
+                            .format("Copy dest %d length %d is too big for destination %d", copyDest, copyLength, dst.length));
         }
 
         if (copySource + copyLength > tempUncompressed.length) {
             throw new ArrayIndexOutOfBoundsException(
-                String.format("Copy source %d length %d is too big for source %d", copySource, copyLength,
-                    tempUncompressed.length));
+                    String.format("Copy source %d length %d is too big for source %d", copySource, copyLength,
+                            tempUncompressed.length));
         }
 
         System.arraycopy(tempUncompressed, copySource, dst, copyDest, copyLength);
@@ -192,11 +178,7 @@ public final class CompressedDataRun implements DataRunInterface {
         final OffsetByteArray compressedData = new OffsetByteArray(compressed);
         final OffsetByteArray uncompressedData = new OffsetByteArray(uncompressed);
 
-        /* Loop through decompressing chunks. */
-        while (uncompressedData.offset < uncompressed.length) {
-            // the length to write with zero in error case.
-            // calculate it before uncompressBlock() since uncompressBlock() may change them.
-            int lengthToWriteZeroInErrorCase = uncompressed.length - uncompressedData.offset;
+        for (int i = 0; i * BLOCK_SIZE < uncompressed.length; i++) {
             final int consumed = uncompressBlock(compressedData, uncompressedData);
 
             // Apple's code had this as an error but to me it looks like this simply
@@ -204,9 +186,12 @@ public final class CompressedDataRun implements DataRunInterface {
             if (consumed == 0) {
                 // At the current point in time this is already zero but if the code
                 // changes in the future to reuse the temp buffer, this is a good idea.
-                uncompressedData.zero(0, lengthToWriteZeroInErrorCase);
+                uncompressedData.zero(0, uncompressed.length - uncompressedData.offset);
                 break;
             }
+
+            compressedData.offset += consumed;
+            uncompressedData.offset += BLOCK_SIZE;
         }
     }
 
@@ -219,9 +204,12 @@ public final class CompressedDataRun implements DataRunInterface {
      */
     private static int uncompressBlock(final OffsetByteArray compressed,
                                        final OffsetByteArray uncompressed) {
-        /* Read chunk header. */
-        final int rawLen = compressed.getShort(0);
-        final int len = rawLen & (BLOCK_SIZE - 1);
+
+        int pos = 0, cpos = 0;
+
+        final int rawLen = compressed.getShort(cpos);
+        cpos += 2;
+        final int len = rawLen & 0xFFF;
         if (log.isDebugEnabled()) {
             log.debug("ntfs_uncompblock: block length: " + len + " + 3, 0x" +
                     Integer.toHexString(len) + ",0x" + Integer.toHexString(rawLen));
@@ -233,19 +221,7 @@ public final class CompressedDataRun implements DataRunInterface {
             return 0;
         }
 
-        // I didn't get why 3 is needed here, same to https://github.com/torvalds/linux/blob/master/fs/ntfs3/lznt.c#L380
-        int cmprUse = 3 + len;
-
-        /* First make sure the chunk contains compressed data. */
-        if ((rawLen & 0x8000) != 0) {
-            int uncompressedWrittenLength = decompressChunk(uncompressed, BLOCK_SIZE, compressed, cmprUse);
-            if (uncompressedWrittenLength < 0) {
-                // there is an error in the current chunk, skip it and go to the next one.
-                compressed.offset += cmprUse;
-                uncompressed.offset += BLOCK_SIZE;
-            }
-        } else {
-            /* This chunk does not contain compressed data. */
+        if ((rawLen & 0x8000) == 0) {
             // Uncompressed chunks store length as 0xFFF always.
             if ((len + 1) != BLOCK_SIZE) {
                 log.debug("ntfs_uncompblock: len: " + len + " instead of 0xfff");
@@ -254,90 +230,38 @@ public final class CompressedDataRun implements DataRunInterface {
             // Copies the entire compression block as-is, need to skip the compression flag,
             // no idea why they even stored it given that it isn't used.
             // Darwin's version I was referring to doesn't skip this, which seems be a bug.
-            try {
-                uncompressed.copyFrom(compressed, 2, 0, len + 1);
-            } catch (Exception e) {
-                return cmprUse;
-            }
-
+            uncompressed.copyFrom(compressed, cpos, 0, len + 1);
             uncompressed.zero(len + 1, BLOCK_SIZE - 1 - len);
-            compressed.offset += len + 1;
-            uncompressed.offset += BLOCK_SIZE;
+            cpos++;
+            return len + 3;
         }
 
-        return cmprUse;
-    }
+        while (cpos < len + 3 && pos < BLOCK_SIZE) {
+            byte ctag = compressed.get(cpos++);
+            for (int i = 0; i < 8 && pos < BLOCK_SIZE; i++) {
+                if ((ctag & 1) != 0) {
+                    int j, lmask, dshift;
+                    for (j = pos - 1, lmask = 0xFFF, dshift = 12;
+                         j >= 0x10; j >>= 1) {
+                        dshift--;
+                        lmask >>= 1;
+                    }
+                    final int tmp = compressed.getShort(cpos);
+                    cpos += 2;
+                    final int boff = -1 - (tmp >> dshift);
+                    final int blen = Math.min(3 + (tmp & lmask), BLOCK_SIZE - pos);
 
-    private static int decompressChunk(OffsetByteArray uncompressed, int uncEnd, OffsetByteArray compressed, int cmprEnd) {
-        // the index to calculate how many bits are used for offset and how many bits are used for length
-        int index = 0;
-
-        // the current position in the uncompressed. (the offset based on the existing compressed.offset). It is the "up" in c code.
-        int uPos = 0;
-
-        // the current position in the compressed. (the offset based on the existing uncompressed.offset). It is the "cmpr" in c code.
-        // initialised as 2 as the rawLen (the chunk header) has been read before this method is invoked.
-        int cPos = 2;
-
-        int blockIndex = 0; // temp value for testing only.
-
-        while (uPos < uncEnd && cPos < cmprEnd) {
-            /* Advance flag bit value. */
-            byte ctag = compressed.get(cPos++);
-
-            for (int i = 0; i < 8 && cPos < cmprEnd; i++) {
-                // return err if more than LZNT_CHUNK_SIZE bytes are written
-                if (uPos > BLOCK_SIZE)
-                    return -EINVAL;
-
-                /* Correct index */
-                while (sMaxOff[index] < uPos) {
-                    index += 1;
-                }
-
-                /* Check the current flag for zero. */
-                if ((ctag & 1) == 0) {
-                    /* Just copy byte. */
-                    uncompressed.put(uPos++, compressed.get(cPos++));
+                    // Note that boff is negative.
+                    uncompressed.copyFrom(uncompressed, pos + boff, pos, blen);
+                    pos += blen;
                 } else {
-                    /* Check for boundary. */
-                    if (cPos + 1 >= cmprEnd) {
-                        log.error("Failed to decompress data, the compressed data position {} exceeds the boundary {}", cPos, cmprEnd);
-                        return -EINVAL;
-                    }
-
-                    /* Read a short from little endian stream. */
-                    final int pair = compressed.getShort(cPos);
-                    cPos += 2;
-
-                    /* Translate packed information into offset and length. */
-                    final int boff = 1 + (pair >> (12 - index));
-                    int blen = 3 + (pair & ((1 << (12 - index)) - 1));
-
-                    /* Check offset for boundary. */
-                    if (boff > uPos) {
-                        log.error("Failed to decompress data, the uncompressed data offset {} exceeds the current position {}", boff, uPos);
-                        return -EINVAL;
-                    }
-
-                    /* Truncate the length if necessary. */
-                    blen = Math.min(blen, BLOCK_SIZE - uPos);
-
-                    /* Now we copy bytes. This is the heart of LZ algorithm. */
-                    for (; blen > 0; blen--, uPos++) {
-                        uncompressed.put(uPos, uncompressed.get(uPos - boff));
-                    }
+                    uncompressed.put(pos++, compressed.get(cpos++));
                 }
-
-                ctag >>>= 1; // >> or >>> are both OK here as we only check it 8 times (all bits in the byte will be and only be checked once)
+                ctag >>= 1;
             }
-
-            blockIndex++;
         }
 
-        compressed.offset += cmprEnd;
-        uncompressed.offset += uncEnd;
-        return uPos;
+        return len + 3;
     }
 
     @Override
@@ -381,8 +305,7 @@ public final class CompressedDataRun implements DataRunInterface {
      * Convenience class wrapping an array with its offset.  An alternative to pointer
      * arithmetic without going to the level of using an NIO buffer.
      */
-    @Getter
-    static class OffsetByteArray {
+    private static class OffsetByteArray {
 
         /**
          * The contained array.
@@ -449,32 +372,21 @@ public final class CompressedDataRun implements DataRunInterface {
             byte[] srcArray = src.array;
             byte[] destArray = array;
 
+            // If the arrays are the same and the slices overlap we can't use the optimisation
+            // because System.arraycopy effectively copies to a temp area. :-(
+            if (srcArray == destArray &&
+                    (realSrcOffset < realDestOffset && realSrcOffset + length > realDestOffset ||
+                            realDestOffset < realSrcOffset && realDestOffset + length > realSrcOffset)) {
 
-            for (int i = 0; i < length; i++) {
-                destArray[realDestOffset + i] = srcArray[realSrcOffset + i];
+                // Don't change to System.arraycopy (see above)
+                for (int i = 0; i < length; i++) {
+                    destArray[realDestOffset + i] = srcArray[realSrcOffset + i];
+                }
+
+                return;
             }
 
-//            // If the arrays are the same and the slices overlap we can't use the optimisation
-//            // because System.arraycopy effectively copies to a temp area. :-(
-//            if (srcArray == destArray &&
-//                    (realSrcOffset < realDestOffset && realSrcOffset + length > realDestOffset ||
-//                            realDestOffset < realSrcOffset && realDestOffset + length > realSrcOffset)) {
-//
-//                // Don't change to System.arraycopy (see above)
-//                for (int i = 0; i < length; i++) {
-//                    destArray[realDestOffset + i] = srcArray[realSrcOffset + i];
-//                }
-//
-//                return;
-//            }
-//
-//            try {
-//                System.arraycopy(srcArray, realSrcOffset, destArray, realDestOffset, length);
-//            }
-//            catch (Exception e) {
-//                //log.error("Failed to decompress", e);
-//                return;
-//            }
+            System.arraycopy(srcArray, realSrcOffset, destArray, realDestOffset, length);
         }
 
         /**

@@ -101,4 +101,39 @@ public class FileSystemTestUtils
 
         return bytes;
     }
+
+    /**
+     * Converts a string of signed ints to a byte array.
+     *
+     * @param ints the int array.
+     * @return the byte array.
+     */
+    public static byte[] intArrayToByteArray(int[] ints) {
+        byte[] bytes = new byte[ints.length];
+
+        for (int i = 0; i < ints.length; i++) {
+            bytes[i] = (byte)ints[i];
+        }
+
+        return bytes;
+    }
+
+    public static byte[] readFileToByteArray(String filePath) {
+        File file = new File(filePath);
+        byte[] data = new byte[(int) file.length()]; // Create byte array of the file size
+
+        try (FileInputStream fis = new FileInputStream(file)) {
+            // Read the file into the byte array
+            int bytesRead = fis.read(data);
+            if (bytesRead != data.length) {
+                System.err.println("Warning: Not all bytes read from the file.");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null; // Return null in case of an error
+        }
+
+
+        return data;
+    }
 }

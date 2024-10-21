@@ -1,15 +1,14 @@
 package org.jnode.fs.ntfs;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-
+import org.jnode.fs.FileSystemTestUtils;
 import org.jnode.fs.ntfs.datarun.CompressedDataRun;
 import org.junit.Test;
-
-import static org.hamcrest.MatcherAssert.*;
-import static org.hamcrest.Matchers.*;
-import static org.jnode.fs.FileSystemTestUtils.*;
-
 /**
  * Tests for {@link org.jnode.fs.ntfs.datarun.CompressedDataRun}.
  */
@@ -468,7 +467,7 @@ public class NTFSCompressedDataRunTest {
             "6F 6B 65 01 E4 0F 00 00 10 72 F5 8B 82 F9 FF FF\n" +
             "A9 EB F6 8B 82 F9 FF FF F1 E8 F6 8B 82 F9 FF FF\n" +
             "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00";
-        byte[] compressed = toByteArray(chunk);
+        byte[] compressed = FileSystemTestUtils.toByteArray(chunk);
         byte[] uncompressed = new byte[0x20000];
 
         // Act
