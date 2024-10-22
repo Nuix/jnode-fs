@@ -8,16 +8,16 @@
  * by the Free Software Foundation; either version 2.1 of the License, or
  * (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful, but 
+ * This library is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public 
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; If not, write to the Free Software Foundation, Inc., 
+ * along with this library; If not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
- 
+
 package org.jnode.fs.ntfs.datarun;
 
 import java.io.IOException;
@@ -89,7 +89,7 @@ public final class CompressedDataRun implements DataRunInterface {
      * @throws IOException if an error occurs reading.
      */
     public int readClusters(long vcn, byte[] dst, int dstOffset, int nrClusters, int clusterSize, NTFSVolume volume)
-        throws IOException {
+            throws IOException {
 
         // Logic to determine whether we own the VCN which has been requested.
         // XXX: Lifted from DataRun.  Consider moving to some good common location.
@@ -125,7 +125,7 @@ public final class CompressedDataRun implements DataRunInterface {
 
             // Now we know the data is compressed.  Read in the compressed block...
             final int read = compressedRun.readClusters(readVcn, tempCompressed, tempCompressedOffset,
-                compClusters, clusterSize, volume);
+                    compClusters, clusterSize, volume);
             if (read != compClusters) {
                 throw new IOException("Needed " + compClusters + " clusters but could " + "only read " + read);
             }
@@ -146,14 +146,14 @@ public final class CompressedDataRun implements DataRunInterface {
 
         if (copyDest + copyLength > dst.length) {
             throw new ArrayIndexOutOfBoundsException(
-                String
-                    .format("Copy dest %d length %d is too big for destination %d", copyDest, copyLength, dst.length));
+                    String
+                            .format("Copy dest %d length %d is too big for destination %d", copyDest, copyLength, dst.length));
         }
 
         if (copySource + copyLength > tempUncompressed.length) {
             throw new ArrayIndexOutOfBoundsException(
-                String.format("Copy source %d length %d is too big for source %d", copySource, copyLength,
-                    tempUncompressed.length));
+                    String.format("Copy source %d length %d is too big for source %d", copySource, copyLength,
+                            tempUncompressed.length));
         }
 
         System.arraycopy(tempUncompressed, copySource, dst, copyDest, copyLength);
@@ -178,7 +178,7 @@ public final class CompressedDataRun implements DataRunInterface {
         final OffsetByteArray uncompressedData = new OffsetByteArray(uncompressed);
 
         for (int i = 0; i * BLOCK_SIZE < uncompressed.length; i++) {
-            final int consumed = uncompressBlock(compressedData, uncompressedData);
+            final int consumed = decompressBlock(compressedData, uncompressedData);
 
             // Apple's code had this as an error but to me it looks like this simply
             // terminates the sequence of compressed blocks.
@@ -195,23 +195,51 @@ public final class CompressedDataRun implements DataRunInterface {
     }
 
     /**
-     * Uncompresses a single block.
+     * Decompresses a single block.
      *
      * @param compressed   the compressed buffer (in.)
      * @param uncompressed the uncompressed buffer (out.)
      * @return the number of bytes consumed from the compressed buffer.
+     * @see <a href="https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-xca/cba0fa15-bd62-4eda-8838-8fc7ab406df1">LZNT1 Algorithm Details</a>
      */
-    private static int uncompressBlock(final OffsetByteArray compressed,
+    private static int decompressBlock(final OffsetByteArray compressed,
                                        final OffsetByteArray uncompressed) {
 
-        int pos = 0, cpos = 0;
+        // nothing to read from the compressed array.
+        if (compressed.offset >= compressed.array.length) {
+            return 0;
+        }
 
+        // the current index in the uncompressed array. (based on the uncompressed.offset)
+        int pos = 0;
+
+        // the current index in the compressed array. (based on the uncompressed.offset)
+        int cpos = 0;
+
+        // A compressed buffer consists of a series of one or more compressed output chunks. Each chunk begins with a 16-bit header.
+        // If both bytes of the header are 0, the header is an End_of_buffer terminal that denotes the end of the compressed data stream.
+        // Otherwise, the header MUST be formatted as follows:
+        //  Bit 15 indicates whether the chunk contains compressed data.
+        //  Bits [14:12] contain a signature indicating the format of the subsequent data.
+        //  Bits [11:0] contain the size of the compressed chunk, minus three bytes.
         final int rawLen = compressed.getShort(cpos);
         cpos += 2;
+
+        // Bits 14 down to 12 contain a signature value. This value MUST always be 3 (unless the header denotes the end of the compressed buffer).
+        final int signature = rawLen & 0x7000;
+        if (rawLen != 0 && signature != 0x3000 && log.isDebugEnabled()) {
+            log.debug("ntfs_uncompblock: signature {} is not 3", signature);
+        }
+
+        // Bits 11 down to 0 contain the size of the compressed chunk minus three bytes. This size otherwise
+        // includes the size of any metadata in the chunk, including the chunk header. If the chunk is
+        // uncompressed, the total amount of uncompressed data therein can be computed by adding 1 to this
+        // value (adding 3 bytes to get the total chunk size, then subtracting 2 bytes to account for the chunk
+        // header).
         final int len = rawLen & 0xFFF;
         if (log.isDebugEnabled()) {
             log.debug("ntfs_uncompblock: block length: " + len + " + 3, 0x" +
-                Integer.toHexString(len) + ",0x" + Integer.toHexString(rawLen));
+                    Integer.toHexString(len) + ",0x" + Integer.toHexString(rawLen));
         }
 
         if (rawLen == 0) {
@@ -220,24 +248,42 @@ public final class CompressedDataRun implements DataRunInterface {
             return 0;
         }
 
+        // Bit 15 indicates whether the chunk contains compressed data. If this bit is zero, the chunk header is followed by uncompressed literal data.
+        // If this bit is set, the next byte of the chunk is the beginning of a Flag_group nonterminal that describes some compressed data.
         if ((rawLen & 0x8000) == 0) {
             // Uncompressed chunks store length as 0xFFF always.
             if ((len + 1) != BLOCK_SIZE) {
                 log.debug("ntfs_uncompblock: len: " + len + " instead of 0xfff");
             }
 
-            // Copies the entire compression block as-is, need to skip the compression flag,
-            // no idea why they even stored it given that it isn't used.
-            // Darwin's version I was referring to doesn't skip this, which seems be a bug.
-            uncompressed.copyFrom(compressed, cpos, 0, len + 1);
-            uncompressed.zero(len + 1, BLOCK_SIZE - 1 - len);
-            cpos++;
+            for (int k = 0; k < len + 1; k++) {
+                if (uncompressed.offset + pos >= uncompressed.array.length ||
+                        compressed.offset + cpos >= compressed.array.length) {
+                    break;
+                }
+                uncompressed.put(pos++, compressed.get(cpos++));
+            }
+
+            // no need to put zero in the rest in uncompressed array.
             return len + 3;
         }
 
-        while (cpos < len + 3 && pos < BLOCK_SIZE) {
+        int rightmostInUncompressed = Math.min(uncompressed.array.length, BLOCK_SIZE);
+
+        // Now this chunk contains compressed data, decompress it.
+        while (cpos < len + 3 && pos < rightmostInUncompressed) {
+            // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-xca/1fd21d29-f42f-4fc4-b677-9de7cc386be8
+            // If a chunk is compressed, its chunk header is immediately followed by the first byte of a Flag_group nonterminal.
+            //
+            // A flag group consists of a flag byte followed by zero or more data elements.
+            // Each data element is either a single literal byte or a two-byte compressed word.
+            // The individual bits of a flag byte, taken from low-order bits to high-order bits, specify the formats of the subsequent data elements
+            // (such that bit 0 corresponds to the first data element, bit 1 to the second, and so on).
+            // If the bit corresponding to a data element is set, the element is a two-byte compressed word; otherwise, it is a one-byte literal.
             byte ctag = compressed.get(cpos++);
-            for (int i = 0; i < 8 && pos < BLOCK_SIZE; i++) {
+
+            final int bitsInByte = 8;
+            for (int i = 0; i < bitsInByte && pos < rightmostInUncompressed; i++) {
                 if ((ctag & 1) != 0) {
                     int j, lmask, dshift;
                     for (j = pos - 1, lmask = 0xFFF, dshift = 12;
@@ -245,18 +291,53 @@ public final class CompressedDataRun implements DataRunInterface {
                         dshift--;
                         lmask >>= 1;
                     }
+
+                    // If the bit corresponding to a data element is set, the element is a two-byte compressed word.
                     final int tmp = compressed.getShort(cpos);
                     cpos += 2;
-                    final int boff = -1 - (tmp >> dshift);
-                    final int blen = Math.min(3 + (tmp & lmask), BLOCK_SIZE - pos);
 
-                    // Note that boff is negative.
-                    uncompressed.copyFrom(uncompressed, pos + boff, pos, blen);
-                    pos += blen;
+                    // While using the compressed buffers,
+                    // the stored displacement must be incremented by 1 and
+                    // the stored length must be incremented by 3,
+                    // to get the actual displacement and length.
+                    final int boff = (tmp >> dshift) + 1;
+                    int blen = (tmp & lmask) + 3;
+
+                    // Some of the bits in a flag byte might not be used.
+                    // To process compressed buffers,
+                    // the size of the compressed chunk that is stored in the chunk header MUST be used
+                    // to determine the position of the last valid byte in the chunk.
+                    // The size value MUST ignore flag bits that correspond to bytes outside the chunk.
+                    blen = Math.min(blen, rightmostInUncompressed - pos);
+
+                    // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-xca/b1ba6d34-499c-4017-ab0c-fe2daee93efc
+                    // Lempel-Ziv compression does not require that the entirety of the data to which
+                    // a compressed word refers actually be in the uncompressed buffer when the word is processed.
+                    // In other words, it is not required that (U – displacement + length < U).
+                    // Therefore, when processing a compressed word, data MUST be copied from the start of the uncompressed target region to the end—that is,
+                    // the byte at (U – displacement) MUST be copied first, then (U – displacement + 1), and so on,
+                    // because the compressed word might refer to data that will be written during decompression.
+
+                    // Also, the Linux code is https://github.com/torvalds/linux/blob/master/fs/ntfs3/lznt.c#L275-L277 as a reference.
+
+                    // DO NOT use arrayCopy in any case.
+                    for (int k = 0; k < blen; k++) {
+                        uncompressed.put(pos, uncompressed.get(pos - boff));
+                        pos++;
+                    }
                 } else {
+                    // If the bit corresponding to a data element is NOT set, the element is a one-byte literal.
                     uncompressed.put(pos++, compressed.get(cpos++));
                 }
                 ctag >>= 1;
+
+                // To process compressed buffers,
+                // the size of the compressed chunk that is stored in the chunk header MUST be used
+                // to determine the position of the last valid byte in the chunk.
+                // The size value MUST ignore flag bits that correspond to bytes outside the chunk.
+                if (cpos >= len + 3 || pos >= rightmostInUncompressed) {
+                    break;
+                }
             }
         }
 
@@ -374,8 +455,8 @@ public final class CompressedDataRun implements DataRunInterface {
             // If the arrays are the same and the slices overlap we can't use the optimisation
             // because System.arraycopy effectively copies to a temp area. :-(
             if (srcArray == destArray &&
-                (realSrcOffset < realDestOffset && realSrcOffset + length > realDestOffset ||
-                    realDestOffset < realSrcOffset && realDestOffset + length > realSrcOffset)) {
+                    (realSrcOffset < realDestOffset && realSrcOffset + length > realDestOffset ||
+                            realDestOffset < realSrcOffset && realDestOffset + length > realSrcOffset)) {
 
                 // Don't change to System.arraycopy (see above)
                 for (int i = 0; i < length; i++) {
@@ -395,7 +476,10 @@ public final class CompressedDataRun implements DataRunInterface {
          * @param length the number of sequential bytes to zero out.
          */
         private void zero(int offset, int length) {
-            Arrays.fill(array, this.offset + offset, this.offset + offset + length, (byte) 0);
+            Arrays.fill(array,
+                    Math.min(this.array.length - 1, this.offset + offset), // avoid out of boundary.
+                    Math.min(this.array.length - 1, this.offset + offset + length), // avoid out of boundary.
+                    (byte) 0);
         }
     }
 
