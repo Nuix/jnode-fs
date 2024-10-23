@@ -59,6 +59,34 @@ public class NTFSCompressedDataRunTriage4924Test {
                         "745d6f2de5f17e5eaf0fc4963d261c8a12436518206dc093344d5ad293")); // Near the end of the chunk
     }
 
+    @Test
+    public void testDecompression_E01_offsetBeforeStart() throws IOException {
+        // Arrange
+        byte[] compressed = FileSystemTestUtils.readFileToByteArray("org/jnode/fs/ntfs/offset-before-start.compressed.bin");
+
+        byte[] uncompressed = new byte[0x20000];
+
+        // Act
+        // there is an error, but we ignore it for now to get more meaningful data out.
+        CompressedDataRun.unCompressUnit(compressed, uncompressed);
+
+        // Assert
+        byte[] expectedByteArray = {
+                40, 126, 9, 0, 6, 114, 32, -79, 0, 112, 25, -115, 28,
+                0, 0, 1, 37, 22, 17, 8, 111, 56, 19, 0, 6, 114, -15,
+                31, 0, 112, 111, 49, 1, 0, 10, -94, 37, 23, 17, 8,
+                111, 53, 19, 0, 6, 17, 8, 111, 56, 19, 0, 6, 111,
+                -95, 0, 0, 10, 126, 112, 0, 0, 10, 111, -26, 2, 0,
+                10, -94, 37, 24, 9, 123, 4, 8, 0, 4, 111, 53, 19,
+                0, 6, 9, 123, 4, 8, 0, 4, 111, 56, 19, 0, 6, 111,
+                -95, 0, 0, 10, 126, 112, 0
+        };
+
+        for (int i = 0 ; i < expectedByteArray.length; i++) {
+            assertThat(uncompressed[0x2000 + i] == expectedByteArray[i], is(true));
+        }
+    }
+
     /**
      * Tests with test data generated using <a href="https://github.com/you0708/lznt1">libfsntfs test data</a>
      *

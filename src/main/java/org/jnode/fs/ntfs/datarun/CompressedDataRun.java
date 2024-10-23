@@ -259,12 +259,15 @@ public final class CompressedDataRun implements DataRunInterface {
             for (int k = 0; k < len + 1; k++) {
                 if (uncompressed.offset + pos >= uncompressed.array.length ||
                         compressed.offset + cpos >= compressed.array.length) {
+                    // TODO, should do the check before the for loop to get a better performance.
+                    //  and, need to investigate why it may run out of boundary.
                     break;
                 }
                 uncompressed.put(pos++, compressed.get(cpos++));
             }
 
-            // no need to put zero in the rest in uncompressed array.
+            uncompressed.zero(len + 1, BLOCK_SIZE - 1 - len);
+
             return len + 3;
         }
 
@@ -309,6 +312,17 @@ public final class CompressedDataRun implements DataRunInterface {
                     // to determine the position of the last valid byte in the chunk.
                     // The size value MUST ignore flag bits that correspond to bytes outside the chunk.
                     blen = Math.min(blen, rightmostInUncompressed - pos);
+
+                    // TODO,
+                    //  no idea why the offset may be even larger than the (uncompressed.array.offset + pos),
+                    //  -- it apparently makes it no place to start to read the data.
+                    //  we didn't find any documentation explaining this case..
+                    //  just return as an error for now.
+                    if (boff > uncompressed.offset + pos) {
+                        log.error("Failed to decompress data, the offset (to start to back to read) {} exceeds the sum of " +
+                                "the current position {} and the uncompressed.offset {}", boff, pos,  uncompressed.offset);
+                        return len + 3;
+                    }
 
                     // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-xca/b1ba6d34-499c-4017-ab0c-fe2daee93efc
                     // Lempel-Ziv compression does not require that the entirety of the data to which
