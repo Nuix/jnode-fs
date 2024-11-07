@@ -8,16 +8,16 @@
  * by the Free Software Foundation; either version 2.1 of the License, or
  * (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful, but 
+ * This library is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public 
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; If not, write to the Free Software Foundation, Inc., 
+ * along with this library; If not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
- 
+
 package org.jnode.fs.ntfs.attribute;
 
 import java.io.IOException;
@@ -31,10 +31,10 @@ import org.jnode.fs.ntfs.datarun.DataRunInterface;
  * An NTFS file attribute that has its data stored outside the attribute.
  * The attribute itself contains a runlist refering to the actual data.
  *
- * @see <a href="https://github.com/tuxera/ntfs-3g/blob/a4a837025b6ac2b0c44c93e34e22535fe9e95b27/include/ntfs-3g/layout.h#L763">Non-resident attributes</a>
  * @author Chira
  * @author Ewout Prangsma (epr@users.sourceforge.net)
  * @author Daniel Noll (daniel@noll.id.au) (compression support)
+ * @see <a href="https://github.com/tuxera/ntfs-3g/blob/a4a837025b6ac2b0c44c93e34e22535fe9e95b27/include/ntfs-3g/layout.h#L763">Non-resident attributes</a>
  */
 public class NTFSNonResidentAttribute extends NTFSAttribute {
 
@@ -47,7 +47,7 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
      * Creates a new non-resident attribute and reads in the associated data runs.
      *
      * @param fileRecord the file record that owns this attribute.
-     * @param offset the offset to read from.
+     * @param offset     the offset to read from.
      */
     public NTFSNonResidentAttribute(FileRecord fileRecord, int offset) {
         super(fileRecord, offset);
@@ -153,7 +153,7 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
      * Read a number of clusters starting from a given virtual cluster number
      * (vcn).
      *
-     * @param vcn the virtual cluster to read.
+     * @param vcn        the virtual cluster to read.
      * @param nrClusters the number of clusters to read.
      * @return The number of clusters read.
      * @throws IOException
@@ -173,15 +173,11 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
         final int clusterSize = volume.getClusterSize();
         int readClusters = 0;
         try {
-//            log.info("There are {} data runs.", getDataRuns().size());
-            int i = 0;
             for (DataRunInterface dataRun : getDataRuns()) {
                 if (readClusters >= nrClusters) {
                     break;
                 }
-//                log.info("Start to read data run {}", i);
                 readClusters += dataRun.readClusters(vcn, dst, dstOffset, nrClusters, clusterSize, volume);
-                i++;
             }
         } catch (Exception e) {
             // Wrap the read exception to add the attribute & file record number
