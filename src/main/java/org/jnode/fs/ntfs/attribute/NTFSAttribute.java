@@ -31,6 +31,8 @@ import org.jnode.fs.ntfs.index.IndexRootAttribute;
 import org.jnode.fs.util.FSUtils;
 
 /**
+ *
+ * @see <a href="https://github.com/tuxera/ntfs-3g/blob/a4a837025b6ac2b0c44c93e34e22535fe9e95b27/include/ntfs-3g/layout.h#L721>ATTR_RECORD</a>
  * @author Chira
  * @author Ewout Prangsma (epr@users.sourceforge.net)
  */

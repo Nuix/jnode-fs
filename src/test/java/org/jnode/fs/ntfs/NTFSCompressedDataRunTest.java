@@ -472,7 +472,7 @@ public class NTFSCompressedDataRunTest {
         byte[] uncompressed = new byte[0x20000];
 
         // Act
-        CompressedDataRun.unCompressUnit(compressed, uncompressed);
+        new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
 
         // Assert
         String uncompressedContent = new String(uncompressed, StandardCharsets.US_ASCII);

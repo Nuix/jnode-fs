@@ -28,17 +28,16 @@ public class NTFSCompressedDataRunTriage4924Test {
         System.arraycopy(data, 787, compressed, 0, data.length - 787);
         byte[] uncompressed = new byte[0x20000];
 
-        // Act
-        try {
-            //the offset goes to a position before the first bit of the chunk (so it goes to the chunk before the current one)
-            CompressedDataRun.unCompressUnit(compressed, uncompressed);
-        } catch (Exception e) {
-            assertThat(e instanceof ArrayIndexOutOfBoundsException, is(true));
-            return;
-        }
+        //the offset goes to a position before the first bit of the chunk (so it goes to the chunk before the current one)
+        new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
 
-        // should not go here
-        assertThat(true, is(false));
+        // Assert
+        String uncompressedContent = new String(uncompressed, StandardCharsets.US_ASCII);
+        // still get something.
+        assertThat(uncompressedContent.contains(
+                "PublicKey=002400000480000094000000060200000024000052534131000400000100010007d1fa57c4aed9f0a32e84aa0faefd0de9e8fd6aec8f87fb03766c834c99921eb2" +
+                        "3be79ad9d5dcc1dd9ad236132102900b723cf980957fc4e177108fc607774f29e8320e92ea05ece4e821c0a5efe8f1645c4c0c93c1ab99285d622caa652c1dfad63d" +
+                        "745d6f2de5f17e5eaf0fc4963d261c8a12436518206dc093344d5ad293"), is(true));
     }
 
     @Test
@@ -46,10 +45,10 @@ public class NTFSCompressedDataRunTriage4924Test {
         // Arrange
         byte[] compressed = FileSystemTestUtils.readFileToByteArray("org/jnode/fs/ntfs/triage-4924-E01.compressed.bin");
 
-        byte[] uncompressed = new byte[0x20000];
+        byte[] uncompressed = new byte[0x200000];
 
         // Act
-        CompressedDataRun.unCompressUnit(compressed, uncompressed);
+        new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
 
         // Assert
         String uncompressedContent = new String(uncompressed, StandardCharsets.US_ASCII);
@@ -68,27 +67,18 @@ public class NTFSCompressedDataRunTriage4924Test {
 
         // Act
         // there is an error, but we ignore it for now to get more meaningful data out.
-        CompressedDataRun.unCompressUnit(compressed, uncompressed);
+        new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
 
         // Assert
-        byte[] expectedByteArray = {
-                40, 126, 9, 0, 6, 114, 32, -79, 0, 112, 25, -115, 28,
-                0, 0, 1, 37, 22, 17, 8, 111, 56, 19, 0, 6, 114, -15,
-                31, 0, 112, 111, 49, 1, 0, 10, -94, 37, 23, 17, 8,
-                111, 53, 19, 0, 6, 17, 8, 111, 56, 19, 0, 6, 111,
-                -95, 0, 0, 10, 126, 112, 0, 0, 10, 111, -26, 2, 0,
-                10, -94, 37, 24, 9, 123, 4, 8, 0, 4, 111, 53, 19,
-                0, 6, 9, 123, 4, 8, 0, 4, 111, 56, 19, 0, 6, 111,
-                -95, 0, 0, 10, 126, 112, 0
-        };
+        byte[] expectedByteArray = FileSystemTestUtils.readFileToByteArray("org/jnode/fs/ntfs/offset-before-start.decompressed.bin");
 
-        for (int i = 0 ; i < expectedByteArray.length; i++) {
+        for (int i = 0; i < expectedByteArray.length; i++) {
             assertThat(uncompressed[0x2000 + i] == expectedByteArray[i], is(true));
         }
     }
 
     /**
-     * Tests with test data generated using <a href="https://github.com/you0708/lznt1">libfsntfs test data</a>
+     * Tests with test data generated using <a href="https://github.com/libyal/libfsntfs/blob/82181db7c9f272f98257cf3576243d9ccbbe8823/tests/fsntfs_test_compression.c">libfsntfs test data</a>
      *
      * @throws IOException if any error occurs.
      */
@@ -103,10 +93,13 @@ public class NTFSCompressedDataRunTriage4924Test {
         }
 
         // Act
-        CompressedDataRun.unCompressUnit(compressed, uncompressed);
+        new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
 
         // verify it bit by bit.
         for (int i = 0; i < expectedUncompressed.length; i++) {
+            if ((uncompressed[i] != expectedUncompressed[i])) {
+                int a = 0;
+            }
             assertThat((uncompressed[i] == expectedUncompressed[i]), is(true));
         }
 
@@ -136,7 +129,7 @@ public class NTFSCompressedDataRunTriage4924Test {
         byte[] uncompressed = new byte[expectedUncompressed.length];
 
         // Act
-        CompressedDataRun.unCompressUnit(compressed, uncompressed);
+        new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
 
         for (int i = 0; i < expectedUncompressed.length; i++) {
             if (uncompressed[i] != expectedUncompressed[i]) {
@@ -182,7 +175,7 @@ public class NTFSCompressedDataRunTriage4924Test {
 
         byte[] uncompressed = new byte[expectedUncompressed.length];
         //Act
-        CompressedDataRun.unCompressUnit(compressed, uncompressed);
+        new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
 
         for (int i = 0; i < uncompressed.length; i++) {
             assertThat((uncompressed[i] == expectedUncompressed[i]), is(true));

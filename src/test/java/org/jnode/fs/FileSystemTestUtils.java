@@ -2,6 +2,7 @@ package org.jnode.fs;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.zip.GZIPInputStream;
 import javax.annotation.Nonnull;
 import org.jnode.fs.service.FileSystemService;
@@ -111,19 +112,21 @@ public class FileSystemTestUtils {
     @Nonnull
     public static byte[] readFileToByteArray(String filePath) throws IOException {
         filePath = getTestFile(filePath).getAbsolutePath();
-        File file = new File(filePath);
-        byte[] data = new byte[(int) file.length()]; // Create byte array of the file size
+        return Files.readAllBytes(Paths.get(filePath));
 
-        try (FileInputStream fis = new FileInputStream(file)) {
-            // Read the file into the byte array
-            int bytesRead = fis.read(data);
-            if (bytesRead != data.length) {
-                System.err.println("Warning: Not all bytes read from the file.");
-            }
-        } catch (IOException e) {
-            return new byte[0];
-        }
-
-        return data;
+//        File file = new File(filePath);
+//        byte[] data = new byte[(int) file.length()]; // Create byte array of the file size
+//
+//        try (FileInputStream fis = new FileInputStream(file)) {
+//            // Read the file into the byte array
+//            int bytesRead = fis.read(data);
+//            if (bytesRead != data.length) {
+//                System.err.println("Warning: Not all bytes read from the file.");
+//            }
+//        } catch (IOException e) {
+//            return new byte[0];
+//        }
+//
+//        return data;
     }
 }

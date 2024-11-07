@@ -2,7 +2,6 @@ package org.jnode.fs.ntfs.datarun;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import lombok.Getter;
 import org.jnode.fs.ntfs.NTFSStructure;
 import org.jnode.fs.util.FSUtils;
@@ -75,7 +74,7 @@ public class DataRunDecoder {
     /**
      * Creates a new data run decoder.
      *
-     * @param compressed a flag indicating whether the data runs are from a compressed data attribute.
+     * @param compressed      a flag indicating whether the data runs are from a compressed data attribute.
      * @param compressionUnit the compression unit size. 2 to the power of this value is the number of clusters
      *                        per compression unit.
      */
@@ -87,7 +86,7 @@ public class DataRunDecoder {
     /**
      * Read the data runs and decodes them.
      *
-     * @param parent the parent structure.
+     * @param parent         the parent structure.
      * @param offsetInParent the offset within the parent.
      */
     public void readDataRuns(NTFSStructure parent, int offsetInParent) {
@@ -103,12 +102,6 @@ public class DataRunDecoder {
 
             if (compressed) {
                 if (dataRun.isSparse() && (expectingSparseRunNext || firstDataRun)) {
-                    // This is the sparse run which follows a compressed run.
-                    // The number of runs it contains does not count towards the total
-                    // as the compressed run reports holding all the runs for the pair.
-                    // But we do need to move the offsets.
-                    expectingSparseRunNext = false;
-
                     // Also the sparse run following a compressed run can be coalesced with a subsequent 'real' sparse
                     // run. So add that in if we hit one
                     if (dataRun.getLength() + lastCompressedSize > compressionUnit) {
@@ -118,6 +111,28 @@ public class DataRunDecoder {
                         this.numberOfVCNs += FSUtils.checkedCast(length);
                         vcn += length;
                         lastCompressedSize = 0;
+                        // This is the sparse run which follows a compressed run.
+                        // The number of runs it contains does not count towards the total
+                        // as the compressed run reports holding all the runs for the pair.
+                        // But we do need to move the offsets.
+                        expectingSparseRunNext = false;
+                    } else if (dataRun.getLength() + lastCompressedSize < compressionUnit) {
+                        lastCompressedSize += dataRun.getLength(); // the size is all the clusters (including both compressed and sparse) in the last dataRun.
+                        // this is a sparse run which follows a compressed run or another sparse run, and all of them are in the same compressedRun.
+                        // the sum is less than compressionUnit, so another sparse run is expected after.
+                        // E.g. the last Data Run can be a CompressedDataRun (assuming 16 is the expected clusters in each run) which contains
+                        // [one 3-cluster compressedRun,
+                        // one 10-cluster sparseRun,
+                        // one 3-cluster sparseRun]
+                        // And if we just finish reading the first sparseRun in this Run, then we expect the next few clusters to be sparse as well.
+
+                        // Actually, according to the last sentence in https://flatcap.github.io/linux-ntfs/ntfs/concepts/data_runs.html,
+                        // "Compressed and sparse runs can be intermixed. All this to save space.", so the following runs might be compressed run as well.
+                        // But we didn't see that scenario in the test data.
+                        expectingSparseRunNext = true;
+                    } else { // dataRun.getLength() + lastCompressedSize == compressionUnit
+                        lastCompressedSize = 0;
+                        expectingSparseRunNext = false;
                     }
                 } else if (dataRun.getLength() >= compressionUnit) {
                     // Compressed/sparse pairs always add to the compression unit size.  If
@@ -138,7 +153,7 @@ public class DataRunDecoder {
 
                         // Next add in the compressed portion
                         DataRun compressedRun =
-                            new DataRun(dataRun.getCluster() + uncompressedLength, remainder, false, 0, vcn);
+                                new DataRun(dataRun.getCluster() + uncompressedLength, remainder, false, 0, vcn);
                         lastCompressedRun = new CompressedDataRun(compressedRun, compressionUnit);
                         dataRuns.add(lastCompressedRun);
                         expectingSparseRunNext = true;
@@ -186,6 +201,9 @@ public class DataRunDecoder {
 
             offset += dataRun.getSize();
             firstDataRun = false;
+        }
+        if (log.isDebugEnabled()) {
+            log.debug("There are {} data runs in this NTFSStructure", dataRuns.size());
         }
     }
 

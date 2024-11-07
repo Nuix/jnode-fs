@@ -109,7 +109,7 @@ public final class CompressedDataRun implements DataRunInterface {
         // Now we know it's in our data run, here's the actual fragment to read.
         final long actFirstVcn = Math.max(myFirstVcn, vcn);
         final int actLength = (int) (Math.min(myLastVcn, reqLastVcn) - actFirstVcn + 1);
-        final int vcnOffsetWithinUnit = (int) (actFirstVcn % compressionUnitSize);
+        final int vcnOffsetWithinUnit = (int) (actFirstVcn - myFirstVcn);
         final byte[] tempCompressed = new byte[compressionUnitSize * clusterSize];
         long readVcn = myFirstVcn;
         int tempCompressedOffset = 0;
@@ -123,22 +123,29 @@ public final class CompressedDataRun implements DataRunInterface {
                 return compressedRun.readClusters(vcn, dst, dstOffset, compClusters, clusterSize, volume);
             }
 
-            // Now we know the data is compressed.  Read in the compressed block...
-            final int read = compressedRun.readClusters(readVcn, tempCompressed, tempCompressedOffset,
-                    compClusters, clusterSize, volume);
-            if (read != compClusters) {
-                throw new IOException("Needed " + compClusters + " clusters but could " + "only read " + read);
+            // skip the sparse data runs.
+            if (!compressedRun.isSparse()) {
+                // Now we know the data is compressed.  Read in the compressed block...
+                final int read = compressedRun.readClusters(readVcn, tempCompressed, tempCompressedOffset,
+                        compClusters, clusterSize, volume);
+                if (read != compClusters) {
+                    throw new IOException("Needed " + compClusters + " clusters but could " + "only read " + read);
+                }
+
+                tempCompressedOffset += clusterSize * compClusters;
             }
 
-            tempCompressedOffset += clusterSize * compClusters;
             readVcn += compClusters;
         }
 
-        // Uncompress it, and copy into the destination.
+        final byte[] compressed = new byte[tempCompressedOffset];
+        System.arraycopy(tempCompressed, 0, compressed, 0, tempCompressedOffset);
+
+        // Decompress it, and copy into the destination.
         final byte[] tempUncompressed = new byte[compressionUnitSize * clusterSize];
         // XXX: We could potentially reduce the overhead by modifying the compression
         //      routine such that it's capable of skipping chunks that aren't needed.
-        unCompressUnit(tempCompressed, tempUncompressed);
+        int actualUncompressedLength = decompressUnit(compressed, tempUncompressed);
 
         int copySource = vcnOffsetWithinUnit * clusterSize;
         int copyDest = dstOffset + (int) (actFirstVcn - vcn) * clusterSize;
@@ -162,14 +169,15 @@ public final class CompressedDataRun implements DataRunInterface {
     }
 
     /**
-     * Uncompresses a single unit of multiple compressed blocks.
+     * Decompresses a single unit of multiple compressed blocks.
      *
      * @param compressed   the compressed data (in.)
      * @param uncompressed the uncompressed data (out.)
+     * @return the actual length of the uncompressed data.
      * @throws IOException if the decompression fails.
      */
-    public static void unCompressUnit(final byte[] compressed,
-                                      final byte[] uncompressed) throws IOException {
+    public int decompressUnit(final byte[] compressed,
+                              final byte[] uncompressed) throws IOException {
 
         // This is just a convenient way to simulate the original code's pointer arithmetic.
         // I tried using buffers but positions in those are always from the beginning and
@@ -177,21 +185,24 @@ public final class CompressedDataRun implements DataRunInterface {
         final OffsetByteArray compressedData = new OffsetByteArray(compressed);
         final OffsetByteArray uncompressedData = new OffsetByteArray(uncompressed);
 
-        for (int i = 0; i * BLOCK_SIZE < uncompressed.length; i++) {
-            final int consumed = decompressBlock(compressedData, uncompressedData);
+        // "compressedData.offset < compressed.length - 1" means we can read in at least two bytes (the 16-bit header)
+        // TODO,
+        //  figure out why "compressedData.offset < compressed.length" is not the end condition.
+        //  It indicates that somewhere we didn't read the compressed array correctly before reaching here..
+        while (compressedData.offset < compressed.length - 1) {
+            // Bits [11:0] contain the size of the compressed chunk, minus three bytes.
+            int compressedChunkSize = (compressedData.getShort(0) & (BLOCK_SIZE - 1)) + 3;
+            final int uncompressedChunkSize = decompressBlock(compressedData, uncompressedData);
 
-            // Apple's code had this as an error but to me it looks like this simply
-            // terminates the sequence of compressed blocks.
-            if (consumed == 0) {
-                // At the current point in time this is already zero but if the code
-                // changes in the future to reuse the temp buffer, this is a good idea.
-                uncompressedData.zero(0, uncompressed.length - uncompressedData.offset);
+            if (uncompressedChunkSize == 0) {
                 break;
             }
 
-            compressedData.offset += consumed;
-            uncompressedData.offset += BLOCK_SIZE;
+            compressedData.offset += compressedChunkSize;
+            uncompressedData.offset += uncompressedChunkSize;
         }
+
+        return uncompressedData.offset; //the actual length of the uncompressed data.
     }
 
     /**
@@ -199,11 +210,11 @@ public final class CompressedDataRun implements DataRunInterface {
      *
      * @param compressed   the compressed buffer (in.)
      * @param uncompressed the uncompressed buffer (out.)
-     * @return the number of bytes consumed from the compressed buffer.
+     * @return the number of bytes consumed from the uncompressed buffer.
      * @see <a href="https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-xca/cba0fa15-bd62-4eda-8838-8fc7ab406df1">LZNT1 Algorithm Details</a>
      */
-    private static int decompressBlock(final OffsetByteArray compressed,
-                                       final OffsetByteArray uncompressed) {
+    private int decompressBlock(final OffsetByteArray compressed,
+                                final OffsetByteArray uncompressed) {
 
         // nothing to read from the compressed array.
         if (compressed.offset >= compressed.array.length) {
@@ -213,7 +224,7 @@ public final class CompressedDataRun implements DataRunInterface {
         // the current index in the uncompressed array. (based on the uncompressed.offset)
         int pos = 0;
 
-        // the current index in the compressed array. (based on the uncompressed.offset)
+        // the current index in the compressed array. (based on the compressed.offset)
         int cpos = 0;
 
         // A compressed buffer consists of a series of one or more compressed output chunks. Each chunk begins with a 16-bit header.
@@ -228,7 +239,7 @@ public final class CompressedDataRun implements DataRunInterface {
         // Bits 14 down to 12 contain a signature value. This value MUST always be 3 (unless the header denotes the end of the compressed buffer).
         final int signature = rawLen & 0x7000;
         if (rawLen != 0 && signature != 0x3000 && log.isDebugEnabled()) {
-            log.debug("ntfs_uncompblock: signature {} is not 3", signature);
+            log.error("ntfs_uncompblock: signature {} is not 3", signature);
         }
 
         // Bits 11 down to 0 contain the size of the compressed chunk minus three bytes. This size otherwise
@@ -242,6 +253,7 @@ public final class CompressedDataRun implements DataRunInterface {
                     Integer.toHexString(len) + ",0x" + Integer.toHexString(rawLen));
         }
 
+        // If both bytes of the header are 0, the header is an End_of_buffer terminal that denotes the end of the compressed data stream.
         if (rawLen == 0) {
             // End of sequence, rest is zero.  For some reason there is nothing
             // of the sort documented in the Linux kernel's description of compression.
@@ -257,18 +269,13 @@ public final class CompressedDataRun implements DataRunInterface {
             }
 
             for (int k = 0; k < len + 1; k++) {
-                if (uncompressed.offset + pos >= uncompressed.array.length ||
-                        compressed.offset + cpos >= compressed.array.length) {
-                    // TODO, should do the check before the for loop to get a better performance.
-                    //  and, need to investigate why it may run out of boundary.
-                    break;
-                }
                 uncompressed.put(pos++, compressed.get(cpos++));
             }
 
-            uncompressed.zero(len + 1, BLOCK_SIZE - 1 - len);
-
-            return len + 3;
+            // If the chunk is uncompressed, the total amount of uncompressed data therein can be computed by adding 1 to this
+            // value (adding 3 bytes to get the total chunk size, then subtracting 2 bytes to account for the chunk
+            // header).
+            return len + 1;
         }
 
         int rightmostInUncompressed = Math.min(uncompressed.array.length, BLOCK_SIZE);
@@ -286,13 +293,22 @@ public final class CompressedDataRun implements DataRunInterface {
             byte ctag = compressed.get(cpos++);
 
             final int bitsInByte = 8;
-            for (int i = 0; i < bitsInByte && pos < rightmostInUncompressed; i++) {
+            for (int i = 0; i < bitsInByte; i++) {
+
+                // To process compressed buffers,
+                // the size of the compressed chunk that is stored in the chunk header MUST be used
+                // to determine the position of the last valid byte in the chunk.
+                // The size value MUST ignore flag bits that correspond to bytes outside the chunk.
+                if (cpos >= len + 3 || pos >= rightmostInUncompressed) {
+                    break;
+                }
+
                 if ((ctag & 1) != 0) {
                     int j, lmask, dshift;
                     for (j = pos - 1, lmask = 0xFFF, dshift = 12;
-                         j >= 0x10; j >>= 1) {
+                         j >= 0x10; j >>>= 1) {
                         dshift--;
-                        lmask >>= 1;
+                        lmask >>>= 1;
                     }
 
                     // If the bit corresponding to a data element is set, the element is a two-byte compressed word.
@@ -320,8 +336,8 @@ public final class CompressedDataRun implements DataRunInterface {
                     //  just return as an error for now.
                     if (boff > uncompressed.offset + pos) {
                         log.error("Failed to decompress data, the offset (to start to back to read) {} exceeds the sum of " +
-                                "the current position {} and the uncompressed.offset {}", boff, pos,  uncompressed.offset);
-                        return len + 3;
+                                "the current position {} and the uncompressed.offset {}", boff, pos, uncompressed.offset);
+                        return pos;
                     }
 
                     // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-xca/b1ba6d34-499c-4017-ab0c-fe2daee93efc
@@ -343,19 +359,11 @@ public final class CompressedDataRun implements DataRunInterface {
                     // If the bit corresponding to a data element is NOT set, the element is a one-byte literal.
                     uncompressed.put(pos++, compressed.get(cpos++));
                 }
-                ctag >>= 1;
-
-                // To process compressed buffers,
-                // the size of the compressed chunk that is stored in the chunk header MUST be used
-                // to determine the position of the last valid byte in the chunk.
-                // The size value MUST ignore flag bits that correspond to bytes outside the chunk.
-                if (cpos >= len + 3 || pos >= rightmostInUncompressed) {
-                    break;
-                }
+                ctag >>>= 1;
             }
         }
 
-        return len + 3;
+        return pos;
     }
 
     @Override

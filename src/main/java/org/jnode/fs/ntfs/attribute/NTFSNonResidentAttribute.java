@@ -31,6 +31,7 @@ import org.jnode.fs.ntfs.datarun.DataRunInterface;
  * An NTFS file attribute that has its data stored outside the attribute.
  * The attribute itself contains a runlist refering to the actual data.
  *
+ * @see <a href="https://github.com/tuxera/ntfs-3g/blob/a4a837025b6ac2b0c44c93e34e22535fe9e95b27/include/ntfs-3g/layout.h#L763">Non-resident attributes</a>
  * @author Chira
  * @author Ewout Prangsma (epr@users.sourceforge.net)
  * @author Daniel Noll (daniel@noll.id.au) (compression support)
@@ -126,6 +127,20 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
     }
 
     /**
+     * <pre>
+     *     Byte size of the attribute value after compression.
+     *     Only present when compressed.
+     *     Always is a multiple of the cluster size.
+     *     Represents the actual amount of disk space being used on the disk.
+     * </pre>
+     *
+     * @return the actual amount of disk space being used on the disk.
+     */
+    public long getCompressedSize() {
+        return isCompressedAttribute() ? getInt64(0x40) : 0;
+    }
+
+    /**
      * Gets the decoded data runs for this attribute.
      *
      * @return Returns the data runs.
@@ -158,11 +173,15 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
         final int clusterSize = volume.getClusterSize();
         int readClusters = 0;
         try {
+//            log.info("There are {} data runs.", getDataRuns().size());
+            int i = 0;
             for (DataRunInterface dataRun : getDataRuns()) {
                 if (readClusters >= nrClusters) {
                     break;
                 }
+//                log.info("Start to read data run {}", i);
                 readClusters += dataRun.readClusters(vcn, dst, dstOffset, nrClusters, clusterSize, volume);
+                i++;
             }
         } catch (Exception e) {
             // Wrap the read exception to add the attribute & file record number
