@@ -87,22 +87,6 @@ public class FileSystemTestUtils {
     }
 
     /**
-     * Converts a string of signed ints to a byte array.
-     *
-     * @param ints the int array.
-     * @return the byte array.
-     */
-    public static byte[] intArrayToByteArray(int[] ints) {
-        byte[] bytes = new byte[ints.length];
-
-        for (int i = 0; i < ints.length; i++) {
-            bytes[i] = (byte) ints[i];
-        }
-
-        return bytes;
-    }
-
-    /**
      * Reads a file and write content into a byte array.
      *
      * @param filePath the file path.
@@ -113,20 +97,5 @@ public class FileSystemTestUtils {
     public static byte[] readFileToByteArray(String filePath) throws IOException {
         filePath = getTestFile(filePath).getAbsolutePath();
         return Files.readAllBytes(Paths.get(filePath));
-
-//        File file = new File(filePath);
-//        byte[] data = new byte[(int) file.length()]; // Create byte array of the file size
-//
-//        try (FileInputStream fis = new FileInputStream(file)) {
-//            // Read the file into the byte array
-//            int bytesRead = fis.read(data);
-//            if (bytesRead != data.length) {
-//                System.err.println("Warning: Not all bytes read from the file.");
-//            }
-//        } catch (IOException e) {
-//            return new byte[0];
-//        }
-//
-//        return data;
     }
 }

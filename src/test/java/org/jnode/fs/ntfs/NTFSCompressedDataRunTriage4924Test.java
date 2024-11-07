@@ -8,8 +8,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import org.jnode.fs.FileSystemTestUtils;
 import org.jnode.fs.ntfs.datarun.CompressedDataRun;
-import org.jnode.fs.ntfs.testdata.CompressedTestData;
-import org.jnode.fs.ntfs.testdata.UncompressedTestData;
 import org.junit.Test;
 
 /**
@@ -84,22 +82,16 @@ public class NTFSCompressedDataRunTriage4924Test {
      */
     @Test
     public void testDecompression_libfsntfs_data() throws IOException {
-        byte[] compressed = FileSystemTestUtils.intArrayToByteArray(CompressedTestData.fsntfs_test_compression_lznt1_compressed_data1);
+        byte[] compressed = FileSystemTestUtils.readFileToByteArray("org/jnode/fs/ntfs/libfsntfs/fsntfs_test_compression_lznt1_compressed_data1.bin");
         byte[] uncompressed = new byte[0x20000];
 
-        byte[] expectedUncompressed = new byte[UncompressedTestData.fsntfs_test_compression_uncompressed_data1.length];
-        for (int i = 0; i < UncompressedTestData.fsntfs_test_compression_uncompressed_data1.length; i++) {
-            expectedUncompressed[i] = (byte) UncompressedTestData.fsntfs_test_compression_uncompressed_data1[i];
-        }
+        byte[] expectedUncompressed = FileSystemTestUtils.readFileToByteArray("org/jnode/fs/ntfs/libfsntfs/fsntfs_test_compression_uncompressed_data1.bin");
 
         // Act
         new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
 
         // verify it bit by bit.
         for (int i = 0; i < expectedUncompressed.length; i++) {
-            if ((uncompressed[i] != expectedUncompressed[i])) {
-                int a = 0;
-            }
             assertThat((uncompressed[i] == expectedUncompressed[i]), is(true));
         }
 
@@ -132,9 +124,6 @@ public class NTFSCompressedDataRunTriage4924Test {
         new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
 
         for (int i = 0; i < expectedUncompressed.length; i++) {
-            if (uncompressed[i] != expectedUncompressed[i]) {
-                int a = 0; // for debugging.
-            }
             assertThat((uncompressed[i] == expectedUncompressed[i]), is(true));
         }
 
@@ -159,16 +148,15 @@ public class NTFSCompressedDataRunTriage4924Test {
     @Test
     public void testDecompression_chars() throws IOException {
         // Arrange
-        byte[] compressed = FileSystemTestUtils.intArrayToByteArray(new int[]{
-                0x38, 0xb0, 0x88, 0x46, 0x23, 0x20, 0x00, 0x20,
-                0x47, 0x20, 0x41, 0x00, 0x10, 0xa2, 0x47, 0x01,
-                0xa0, 0x45, 0x20, 0x44, 0x00, 0x08, 0x45, 0x01,
-                0x50, 0x79, 0x00, 0xc0, 0x45, 0x20, 0x05, 0x24,
-                0x13, 0x88, 0x05, 0xb4, 0x02, 0x4a, 0x44, 0xef,
-                0x03, 0x58, 0x02, 0x8c, 0x09, 0x16, 0x01, 0x48,
-                0x45, 0x00, 0xbe, 0x00, 0x9e, 0x00, 0x04, 0x01,
-                0x18, 0x90, 0x00
-        });
+        byte[] compressed = FileSystemTestUtils.toByteArray(
+                "38 b0 88 46 23 20 00 20 " +
+                        "47 20 41 00 10 a2 47 01 " +
+                        "a0 45 20 44 00 08 45 01 " +
+                        "50 79 00 c0 45 20 05 24 " +
+                        "13 88 05 b4 02 4a 44 ef " +
+                        "03 58 02 8c 09 16 01 48 " +
+                        "45 00 be 00 9e 00 04 01 " +
+                        "18 90 00");
 
         byte[] expectedUncompressed = "F# F# G A A G F# E D D E F# F# E E F# F# G A A G F# E D D E F# E D D E E F# D E F# G F# D E F# G F# E D E A F# F# G A A G F# E D D E F# E D D"
                 .getBytes(StandardCharsets.UTF_8);
