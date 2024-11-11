@@ -186,9 +186,6 @@ public final class CompressedDataRun implements DataRunInterface {
         final OffsetByteArray uncompressedData = new OffsetByteArray(uncompressed);
 
         // "compressedData.offset < compressed.length - 1" means we can read in at least two bytes (the 16-bit header)
-        // TODO,
-        //  figure out why "compressedData.offset < compressed.length" is not the end condition.
-        //  It indicates that somewhere we didn't read the compressed array correctly before reaching here..
         while (compressedData.offset < compressed.length - 1) {
             // Bits [11:0] contain the size of the compressed chunk, minus three bytes.
             int compressedChunkSize = (compressedData.getShort(0) & (BLOCK_SIZE - 1)) + 3;
@@ -238,8 +235,8 @@ public final class CompressedDataRun implements DataRunInterface {
 
         // Bits 14 down to 12 contain a signature value. This value MUST always be 3 (unless the header denotes the end of the compressed buffer).
         final int signature = rawLen & 0x7000;
-        if (rawLen != 0 && signature != 0x3000 && log.isDebugEnabled()) {
-            log.error("ntfs_uncompblock: signature {} is not 3", signature);
+        if (rawLen != 0 && signature != 0x3000) {
+            log.error("ntfs_uncompblock: header {} 's signature bits (14 down to 12) is not 3", signature);
         }
 
         // Bits 11 down to 0 contain the size of the compressed chunk minus three bytes. This size otherwise
@@ -319,7 +316,7 @@ public final class CompressedDataRun implements DataRunInterface {
                     // the stored displacement must be incremented by 1 and
                     // the stored length must be incremented by 3,
                     // to get the actual displacement and length.
-                    final int boff = (tmp >> dshift) + 1;
+                    final int boff = (tmp >>> dshift) + 1;
                     int blen = (tmp & lmask) + 3;
 
                     // Some of the bits in a flag byte might not be used.
@@ -329,11 +326,9 @@ public final class CompressedDataRun implements DataRunInterface {
                     // The size value MUST ignore flag bits that correspond to bytes outside the chunk.
                     blen = Math.min(blen, rightmostInUncompressed - pos);
 
-                    // TODO,
-                    //  no idea why the offset may be even larger than the (uncompressed.array.offset + pos),
-                    //  -- it apparently makes it no place to start to read the data.
-                    //  we didn't find any documentation explaining this case..
-                    //  just return as an error for now.
+                    // In some error cases, the offset may be even larger than the (uncompressed.array.offset + pos),
+                    // which apparently makes it no place to start to read the data.
+                    // But since we want to ingest data as much as possible, we just log the error here and continue the data ingestion.
                     if (boff > uncompressed.offset + pos) {
                         log.error("Failed to decompress data, the offset (to start to back to read) {} exceeds the sum of " +
                                 "the current position {} and the uncompressed.offset {}", boff, pos, uncompressed.offset);
