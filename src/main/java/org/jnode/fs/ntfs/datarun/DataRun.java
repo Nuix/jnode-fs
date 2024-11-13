@@ -8,13 +8,13 @@
  * by the Free Software Foundation; either version 2.1 of the License, or
  * (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful, but 
+ * This library is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public 
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; If not, write to the Free Software Foundation, Inc., 
+ * along with this library; If not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
@@ -24,9 +24,9 @@ import java.io.IOException;
 import java.util.Arrays;
 import org.jnode.fs.ntfs.NTFSStructure;
 import org.jnode.fs.ntfs.NTFSVolume;
+import org.jnode.fs.util.FSUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.jnode.fs.util.FSUtils;
 
 /**
  * @author Ewout Prangsma (epr@users.sourceforge.net)
@@ -88,6 +88,7 @@ public final class DataRun implements DataRunInterface {
      * @param offset
      * @param vcn         First VCN of this datarun.
      * @param previousLCN
+     * @see <a href="https://flatcap.github.io/linux-ntfs/ntfs/concepts/data_runs.html">NTFS Data Runs</a>
      */
     public DataRun(NTFSStructure attr, int offset, long vcn, long previousLCN) {
         NTFSStructure dataRunStructure = new NTFSStructure(attr, offset);
@@ -306,6 +307,6 @@ public final class DataRun implements DataRunInterface {
     @Override
     public String toString() {
         return String.format("[%s-run vcn:%d-%d cluster:%d]", isSparse() ? "sparse" : "data", getFirstVcn(),
-                             getLastVcn(), getCluster());
+                getLastVcn(), getCluster());
     }
 }
