@@ -1,7 +1,7 @@
 package org.jnode.fs.ntfs.attribute;
 
 import org.jnode.fs.ntfs.FileRecord;
-import org.jnode.fs.ntfs.datarun.DataRunInterface;
+import org.jnode.fs.util.FSUtils;
 
 import java.io.IOException;
 import java.util.List;
@@ -38,33 +38,19 @@ public class ReparsePointAttributeNonRes extends NTFSNonResidentAttribute implem
             List<NTFSAttribute> ntfsAttributes = getFileRecord().readStoredAttributes();
             for (NTFSAttribute ntfsAttribute : ntfsAttributes) {
                 if (ntfsAttribute instanceof ReparsePointAttributeNonRes) {
-                    ReparsePointAttributeNonRes attribute = (ReparsePointAttributeNonRes) ntfsAttribute;
-                    List<DataRunInterface> attributeDataRuns = attribute.getDataRunDecoder().getDataRuns();
 
-                    // Calculate the total number of clusters of the data runs.
-                    int totalClusterCount = 0;
-                    for (DataRunInterface attributeDataRun : attributeDataRuns) {
-                        totalClusterCount += (int) attributeDataRun.getLength();
-                    }
-                    final byte[] data = new byte[totalClusterCount * getFileRecord().getClusterSize()];
-                    int index = 0;
-
-                    // Read the data runs.
-                    for (DataRunInterface attributeDataRun : attributeDataRuns) {
-                        try {
-                            int readClusterNumber = readVCN(attributeDataRun.getFirstVcn(), data, index, (int) attributeDataRun.getLength());
-                            index += readClusterNumber * getFileRecord().getClusterSize();
-                        } catch (IOException e) {
-                            log.error("Failed to read data run", e);
-                        }
-                    }
+                    long length = getFileRecord().getAttributeTotalSize(NTFSAttribute.Types.REPARSE_POINT, null);
+                    byte[] tempBuffer = new byte[FSUtils.checkedCast(length)];
+                    getFileRecord().readData(NTFSAttribute.Types.REPARSE_POINT, null, 0, tempBuffer, 0, (int) length, true);
 
                     // reset the data runs that contains the actual attribute data.
-                    reset(data, 0);
+                    reset(tempBuffer, 0);
 
                     break;
                 }
             }
+        } catch (IOException e) {
+            log.error("Failed to read stored attributes", e);
         } finally {
             isActualClusterReadOut.set(true);
         }
