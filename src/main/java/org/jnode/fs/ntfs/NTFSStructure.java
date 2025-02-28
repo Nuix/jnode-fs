@@ -77,7 +77,7 @@ public class NTFSStructure {
      * @param buffer
      * @param offset
      */
-    final void reset(byte[] buffer, int offset) {
+    protected final void reset(byte[] buffer, int offset) {
         this.buffer = buffer;
         this.offset = offset;
     }

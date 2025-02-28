@@ -767,7 +767,7 @@ public class FileRecord extends NTFSRecord {
      *
      * @return the stored attributes.
      */
-    private List<NTFSAttribute> readStoredAttributes() {
+    public List<NTFSAttribute> readStoredAttributes() {
         AttributeListBuilder attributeListBuilder = new AttributeListBuilder();
         int offset = getFirstAttributeOffset();
 
