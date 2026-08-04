@@ -63,7 +63,7 @@ final class IndexBlock extends NTFSRecord {
      * @return
      */
     public long getIndexBlockVCN() {
-        return getUInt32(0x10);
+        return getInt64(0x10);
     }
 
     /**

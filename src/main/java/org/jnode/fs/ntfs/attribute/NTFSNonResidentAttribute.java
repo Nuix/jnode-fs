@@ -22,7 +22,9 @@ package org.jnode.fs.ntfs.attribute;
 
 import java.io.IOException;
 import java.util.List;
+import org.jetbrains.annotations.TestOnly;
 import org.jnode.fs.ntfs.FileRecord;
+import org.jnode.fs.ntfs.NTFSStructure;
 import org.jnode.fs.ntfs.NTFSVolume;
 import org.jnode.fs.ntfs.datarun.DataRunDecoder;
 import org.jnode.fs.ntfs.datarun.DataRunInterface;
@@ -56,6 +58,14 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
         dataRunDecoder = new DataRunDecoder(isCompressedAttribute(), compressionUnit);
     }
 
+    @TestOnly
+    public NTFSNonResidentAttribute(NTFSStructure ntfsStructure, int offset) {
+        super(ntfsStructure, offset);
+
+        int compressionUnit = getCompressionUnitSize();
+        dataRunDecoder = new DataRunDecoder(isCompressedAttribute(), compressionUnit);
+    }
+
     /**
      * Gets the data run decoder.
      *
@@ -66,14 +76,22 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
     }
 
     /**
+     * Gets the first (lowest) virtual cluster number covered by this attribute.
+     *
      * @return Returns the startVCN.
      */
     public long getStartVCN() {
-        return getUInt32(0x10);
+        return getInt64(0x10);
     }
 
+    /**
+     * Gets the last (highest) virtual cluster number covered by this attribute. This has been seen to be -1 in
+     * combination with a data size of 0.
+     *
+     * @return Returns the lastVCN.
+     */
     public long getLastVCN() {
-        return getUInt32(0x18);
+        return getInt64(0x18);
     }
 
     /**
