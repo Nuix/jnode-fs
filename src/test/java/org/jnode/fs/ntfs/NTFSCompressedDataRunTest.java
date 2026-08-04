@@ -480,4 +480,100 @@ public class NTFSCompressedDataRunTest {
             is(true));
         assertThat(uncompressedContent, containsString("% matrix llx lly urx ury string")); // Near the end of the chunk
     }
+
+    /**
+     * The last compression unit of a file is only valid up to the attribute's valid data length, so the block
+     * stored there is often truncated: the chunk header describes more data than is actually present. Decoding
+     * must stop at the end of the stored data and leave the remainder of the unit zeroed.
+     *
+     * @see <a href="https://github.com/libyal/libfsntfs/blob/main/documentation/New%20Technologies%20File%20System%20(NTFS).asciidoc#truncated-lznt1-compressed-block">Truncated LZNT1 compressed block</a>
+     */
+    @Test
+    public void testDecompression_ofTruncatedCompressedChunk_stopsAtEndOfInput() throws IOException {
+        // Arrange: header 0xb00f is a compressed chunk (bit 15), signature 3 (bits 14-12), claiming 0x0f + 3 = 18
+        // bytes. Only 7 bytes are actually present: the header, a flag byte of 0 (eight literals) and 4 literals.
+        byte[] compressed = toByteArray("0F B0 00 41 42 43 44");
+        byte[] uncompressed = new byte[0x1000];
+
+        // Act
+        int length = new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
+
+        // Assert
+        assertThat(length, is(4));
+        assertThat(new String(uncompressed, 0, 4, StandardCharsets.US_ASCII), is("ABCD"));
+        for (int i = 4; i < uncompressed.length; i++) {
+            assertThat("byte " + i + " should be zero", uncompressed[i], is((byte) 0));
+        }
+    }
+
+    /**
+     * As above, but for a chunk of uncompressed literal data (bit 15 of the header clear).
+     */
+    @Test
+    public void testDecompression_ofTruncatedLiteralChunk_stopsAtEndOfInput() throws IOException {
+        // Arrange: header 0x30ff is an uncompressed chunk claiming 0xff + 1 = 256 literal bytes, but only 4 are
+        // actually present.
+        byte[] compressed = toByteArray("FF 30 41 42 43 44");
+        byte[] uncompressed = new byte[0x1000];
+
+        // Act
+        new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
+
+        // Assert
+        assertThat(new String(uncompressed, 0, 4, StandardCharsets.US_ASCII), is("ABCD"));
+        for (int i = 4; i < uncompressed.length; i++) {
+            assertThat("byte " + i + " should be zero", uncompressed[i], is((byte) 0));
+        }
+    }
+
+    /**
+     * Decoding must stop at the end of the destination buffer, even when it is not a whole number of 4096-byte
+     * blocks and so runs out part way through a chunk.
+     */
+    @Test
+    public void testDecompression_intoBufferShorterThanTheData_stopsAtEndOfBuffer() throws IOException {
+        // Arrange: two uncompressed literal chunks of 4096 bytes each. Header 0x3fff is an uncompressed chunk
+        // (bit 15 clear), signature 3, claiming 0xfff + 1 = 4096 literal bytes.
+        byte[] compressed = new byte[2 + 0x1000 + 2 + 0x1000];
+        compressed[0] = (byte) 0xFF;
+        compressed[1] = (byte) 0x3F;
+        java.util.Arrays.fill(compressed, 2, 2 + 0x1000, (byte) 'A');
+        compressed[0x1002] = (byte) 0xFF;
+        compressed[0x1003] = (byte) 0x3F;
+        java.util.Arrays.fill(compressed, 0x1004, 0x1004 + 0x1000, (byte) 'B');
+
+        // Deliberately not a multiple of the 4096-byte block size, so the second chunk only partly fits.
+        byte[] uncompressed = new byte[5000];
+
+        // Act
+        new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
+
+        // Assert
+        for (int i = 0; i < 0x1000; i++) {
+            assertThat("byte " + i, uncompressed[i], is((byte) 'A'));
+        }
+        for (int i = 0x1000; i < uncompressed.length; i++) {
+            assertThat("byte " + i, uncompressed[i], is((byte) 'B'));
+        }
+    }
+
+    /**
+     * A single byte left over after a complete chunk cannot start a 16-bit chunk header, so it must be ignored
+     * rather than read past the end of the buffer.
+     */
+    @Test
+    public void testDecompression_ofSingleTrailingByte_isIgnored() throws IOException {
+        // Arrange: header 0xb004 claims 0x04 + 3 = 7 bytes and exactly 7 are present (header, a flag byte of 0 and
+        // 4 literals), leaving one stray byte that is too short to be another chunk header.
+        byte[] compressed = toByteArray("04 B0 00 41 42 43 44 FF");
+        byte[] uncompressed = new byte[0x1000];
+
+        // Act
+        int length = new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
+
+        // Assert
+        assertThat(length, is(4));
+        assertThat(new String(uncompressed, 0, 4, StandardCharsets.US_ASCII), is("ABCD"));
+        assertThat(uncompressed[4], is((byte) 0));
+    }
 }

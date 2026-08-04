@@ -87,7 +87,7 @@ public class UsnJournal {
             for (Map.Entry<Long, String> entry : attributeMap.entrySet()) {
                 if ((value & entry.getKey()) != 0) {
                     reasons.add(entry.getValue());
-                    value -= entry.getKey();
+                    value &= ~entry.getKey();
                 }
             }
 
@@ -111,9 +111,8 @@ public class UsnJournal {
         public static final long COMPRESSED = register(0x800, "compressed");
         public static final long OFFLINE = register(0x1000, "offline");
         public static final long NOT_INDEXED = register(0x2000, "not-indexed");
+        public static final long ENCRYPTED = register(0x4000, "encrypted");
         public static final long VIRTUAL = register(0x10000, "virtual");
-
-        public static final long ENCRYPTED = register(0x3FFF, "encrypted");
     }
 
     /**
@@ -123,7 +122,7 @@ public class UsnJournal {
         /**
          * The lookup map for reasons.
          */
-        private static final Map<Long, String> reasonMap = new HashMap<Long, String>();
+        private static final Map<Long, String> reasonMap = new LinkedHashMap<Long, String>();
 
         /**
          * Registers a value in the map.
@@ -149,7 +148,7 @@ public class UsnJournal {
             for (Map.Entry<Long, String> entry : reasonMap.entrySet()) {
                 if ((value & entry.getKey()) != 0) {
                     reasons.add(entry.getValue());
-                    value -= entry.getKey();
+                    value &= ~entry.getKey();
                 }
             }
 
@@ -161,34 +160,34 @@ public class UsnJournal {
         }
 
         /**
-         * Data in one or more data streams was overwritten.
+         * The data in the file or directory was overwritten (USN_REASON_DATA_OVERWRITE).
          */
-        public static final long DATA_WRITE = register(0x1, "data-write");
+        public static final long DATA_OVERWRITE = register(0x1, "data-overwrite");
 
         /**
-         * File or directory added.
+         * The file or directory was extended, i.e. added to (USN_REASON_DATA_EXTEND).
          */
-        public static final long FS_ENTRY_ADDED = register(0x2, "fs-entry-added");
+        public static final long DATA_EXTEND = register(0x2, "data-extend");
 
         /**
-         * File or directory truncated.
+         * The file or directory was truncated (USN_REASON_DATA_TRUNCATION).
          */
-        public static final long FS_ENTRY_TRUNCATED = register(0x4, "fs-entry-truncated");
+        public static final long DATA_TRUNCATION = register(0x4, "data-truncation");
 
         /**
-         * Data in one or more data streams was overwritten. Alternate value.
+         * The data in one or more named data streams was overwritten (USN_REASON_NAMED_DATA_OVERWRITE).
          */
-        public static final long DATA_WRITE_ALT = register(0x10, "data-write-alt");
+        public static final long NAMED_DATA_OVERWRITE = register(0x10, "named-data-overwrite");
 
         /**
-         * Data in one or more data streams was appended to.
+         * One or more named data streams were extended, i.e. added to (USN_REASON_NAMED_DATA_EXTEND).
          */
-        public static final long DATA_APPEND = register(0x20, "data-append");
+        public static final long NAMED_DATA_EXTEND = register(0x20, "named-data-extend");
 
         /**
-         * Data in one or more data streams was truncated.
+         * One or more named data streams were truncated (USN_REASON_NAMED_DATA_TRUNCATION).
          */
-        public static final long DATA_TRUNCATED = register(0x40, "data-truncated");
+        public static final long NAMED_DATA_TRUNCATION = register(0x40, "named-data-truncation");
 
         /**
          * File or directory created.
@@ -261,6 +260,16 @@ public class UsnJournal {
         public static final long DATA_STREAM_ALTERED = register(0x200000, "data-stream-altered");
 
         /**
+         * The stream was modified through a TxF transaction (USN_REASON_TRANSACTED_CHANGE).
+         */
+        public static final long TRANSACTED_CHANGE = register(0x400000, "transacted-change");
+
+        /**
+         * The state of the FILE_ATTRIBUTE_INTEGRITY_STREAM attribute changed (USN_REASON_INTEGRITY_CHANGE).
+         */
+        public static final long INTEGRITY_CHANGE = register(0x800000, "integrity-change");
+
+        /**
          * The file or directory was closed.
          */
         public static final long FS_ENTRY_CLOSED = register(0x80000000L, "fs-entry-closed");
@@ -284,5 +293,10 @@ public class UsnJournal {
          * The change was related to the replication service.
          */
         public static final int REPLICATION = 0x4;
+
+        /**
+         * The operation is modifying a file on a client system to match the copy in the cloud.
+         */
+        public static final int CLIENT_REPLICATION = 0x8;
     }
 }

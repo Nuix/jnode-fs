@@ -84,7 +84,7 @@ public class UsnRecordV2 extends NTFSStructure implements UsnRecordV2V3<Long> {
 
     @Override
     public int getSourceInfo() {
-        return getInt32(0x2b);
+        return getInt32(0x2c);
     }
 
     @Override
@@ -99,13 +99,22 @@ public class UsnRecordV2 extends NTFSStructure implements UsnRecordV2V3<Long> {
 
     @Override
     public int getFileNameSize() {
-        return getInt16(0x38);
+        return getUInt16(0x38);
+    }
+
+    /**
+     * Gets the offset of the file name, relative to the start of the record.
+     *
+     * @return the offset.
+     */
+    public int getFileNameOffset() {
+        return getUInt16(0x3a);
     }
 
     @Override
     public String getFileName() {
         byte[] buffer = new byte[getFileNameSize()];
-        getData(0x3c, buffer, 0, buffer.length);
+        getData(getFileNameOffset(), buffer, 0, buffer.length);
 
         try {
             return new String(buffer, "UTF-16LE");
