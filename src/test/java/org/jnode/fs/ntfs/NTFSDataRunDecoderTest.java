@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.jnode.fs.FileSystemTestUtils;
+import org.jnode.fs.ntfs.datarun.DataRun;
 import org.jnode.fs.ntfs.datarun.DataRunDecoder;
 import org.jnode.fs.ntfs.datarun.DataRunInterface;
 import org.junit.Test;
@@ -454,6 +455,52 @@ public class NTFSDataRunDecoderTest {
             "[data-run vcn:915556-966781 cluster:2154152454]\n" +
             "[data-run vcn:966782-969023 cluster:2004175]\n" +
             "[data-run vcn:969024-1003839 cluster:1810559287]\n";
+        assertDataRuns(dataRuns, expectedRuns);
+    }
+
+    /**
+     * A data run delta of zero is legal. For the first run in a list it means the run starts at cluster 0, which
+     * is exactly what $Boot (MFT record 7) does on every NTFS volume.
+     */
+    @Test
+    public void testDataRunStartingAtClusterZero() {
+        // Arrange: the $Boot runlist from complex-compression.dd - 2 clusters at a delta of 0, then the end of
+        // list marker
+        byte[] buffer = toByteArray("11 02 00 00");
+        DataRunDecoder dataRunDecoder = new DataRunDecoder(false, 1);
+
+        // Act
+        dataRunDecoder.readDataRuns(new NTFSStructure(buffer, 0), 0);
+        List<DataRunInterface> dataRuns = dataRunDecoder.getDataRuns();
+
+        // Assert
+        assertDataRuns(dataRuns, "[data-run vcn:0-1 cluster:0]\n");
+
+        DataRun run = (DataRun) dataRuns.get(0);
+        assertThat("a run at cluster 0 is stored, not sparse", run.isSparse(), is(false));
+        assertThat(run.mapVcnToLcn(0), is(0L));
+        assertThat(run.mapVcnToLcn(1), is(1L));
+    }
+
+    /**
+     * A delta of zero part way through a list means "same cluster as the previous run", and must not reset the
+     * base that the following runs are decoded against.
+     */
+    @Test
+    public void testMidListDataRunWithAZeroDelta() {
+        // Arrange: 4 clusters at 176, 4 more at the same place, then 4 at +8339
+        byte[] buffer = toByteArray("21 04 B0 00 11 04 00 21 04 93 20 00");
+        DataRunDecoder dataRunDecoder = new DataRunDecoder(false, 1);
+
+        // Act
+        dataRunDecoder.readDataRuns(new NTFSStructure(buffer, 0), 0);
+        List<DataRunInterface> dataRuns = dataRunDecoder.getDataRuns();
+
+        // Assert
+        String expectedRuns =
+            "[data-run vcn:0-3 cluster:176]\n" +
+            "[data-run vcn:4-7 cluster:176]\n" +
+            "[data-run vcn:8-11 cluster:8515]\n";
         assertDataRuns(dataRuns, expectedRuns);
     }
 
