@@ -645,19 +645,16 @@ public class FileRecord extends NTFSRecord {
 
         int clustersRead = nresData.readVCN(startCluster, tmp, 0, clustersToRead);
 
-        if (clustersRead > 0) {
-            // If if the data is past the 'initialised' part of the attribute. If it is uninitialised then it must
-            // be read as zeros. Annoyingly the initialised portion isn't even cluster aligned...
+        if (clustersRead > 0 && limitToInitialised) {
+            // Any part of the buffer past the 'initialised' part of the attribute is uninitialised and must be read
+            // as zeros. Annoyingly the initialised portion isn't even cluster aligned, so the tail of the last
+            // initialised cluster holds whatever happened to be on disk and has to be cleared here.
 
-            long readUpToOffset = (startCluster + clustersToRead) * clusterSize;
+            long uninitialisedStart = initialisedSize - startCluster * (long) clusterSize;
+            int startIndex = (int) Math.min(Math.max(uninitialisedStart, 0), tmp.length);
 
-            if (readUpToOffset > initialisedSize && limitToInitialised) {
-                int delta = (int) (readUpToOffset - initialisedSize);
-                int startIndex = Math.max((tmp.length - delta), 0);
-
-                if (startIndex < tmp.length) {
-                    Arrays.fill(tmp, startIndex, tmp.length, (byte) 0);
-                }
+            if (startIndex < tmp.length) {
+                Arrays.fill(tmp, startIndex, tmp.length, (byte) 0);
             }
         }
 
