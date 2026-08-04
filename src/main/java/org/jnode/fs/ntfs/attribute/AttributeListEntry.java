@@ -76,8 +76,8 @@ public final class AttributeListEntry extends NTFSStructure {
      * Gets the starting VCN of the attribute, zero if the attribute is resident.
      * @return the starting VCN.
      */
-    public int getStartingVCN() {
-        return getUInt16(0x08);
+    public long getStartingVCN() {
+        return getInt64(0x08);
     }
 
     /**
