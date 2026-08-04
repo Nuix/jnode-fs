@@ -64,12 +64,21 @@ final class IndexRoot extends NTFSStructure {
     }
 
     /**
-     * Gets the number of clusters per index record.
-     * @return
+     * Gets the number of cluster blocks per index record.
+     *
+     * <p>When the cluster is larger than the index block this is expressed in sectors rather than clusters, which
+     * is how ntfs-3g and Windows write it, and it is always positive. The negative form documented for the volume
+     * header ({@code 2^(-n)} bytes) has not been seen here on any volume: every image in the test corpus stores
+     * index block size divided by whichever of the cluster or sector size is smaller.</p>
+     *
+     * @return the number of cluster blocks per index record.
      */
     public int getClustersPerIndexBlock() {
         final int v = getInt8(0x0C);
         if (v < 0) {
+            // Fall back to treating the VCN unit as the whole index block. Log it, because if this ever fires the
+            // encoding needs working out properly against a real volume.
+            log.warn("Negative clusters per index block value: {}, falling back to 1", v);
             return 1;
         } else {
             return v;

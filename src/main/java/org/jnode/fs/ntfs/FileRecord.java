@@ -760,6 +760,32 @@ public class FileRecord extends NTFSRecord {
     }
 
     /**
+     * Works out how far into the record the attribute walk is allowed to go.
+     *
+     * <p>The used entry size is preferred, since that is what the record itself says is in use. It is sanity
+     * checked against the allocated size and against what is actually in the buffer, so that a corrupt value
+     * cannot be used to read outside the record.</p>
+     *
+     * @return the exclusive upper bound, relative to the start of the record.
+     */
+    private int getAttributeWalkLimit() {
+        int bufferLimit = getBuffer().length - getOffset();
+        int limit = bufferLimit;
+
+        long allocatedSize = getAllocatedSize();
+        if (allocatedSize > 0 && allocatedSize < limit) {
+            limit = (int) allocatedSize;
+        }
+
+        long usedSize = getRealSize();
+        if (usedSize > 0 && usedSize < limit) {
+            limit = (int) usedSize;
+        }
+
+        return limit;
+    }
+
+    /**
      * Reads in the stored attributes.
      *
      * @return the stored attributes.
@@ -768,7 +794,17 @@ public class FileRecord extends NTFSRecord {
         AttributeListBuilder attributeListBuilder = new AttributeListBuilder();
         int offset = getFirstAttributeOffset();
 
+        // Attributes cannot extend past the part of the record that is in use. Without this bound a corrupt size
+        // walks straight into the neighbouring record in the shared buffer, or off the end of it.
+        final int limit = getAttributeWalkLimit();
+
         while (true) {
+            if (offset < 0 || offset + 4 > limit) {
+                log.debug("{}:Attribute offset {} is outside the record (limit {}), stopping the walk",
+                    referenceNumber, offset, limit);
+                break;
+            }
+
             int type = getUInt32AsInt(offset);
 
             if (type == 0xFFFFFFFF) {
@@ -786,6 +822,11 @@ public class FileRecord extends NTFSRecord {
                     if (offsetToNextOffset <= 0) {
                         log.debug("Non-positive offset, preventing infinite loop.  Data on disk may be corrupt.  "
                                   + "referenceNumber = {}", referenceNumber);
+                        break;
+                    } else if (offset + offsetToNextOffset > limit) {
+                        log.debug("{}:Attribute at offset {} has size {} which runs past the end of the record "
+                                  + "(limit {}).  Data on disk may be corrupt.", referenceNumber, offset,
+                            offsetToNextOffset, limit);
                         break;
                     } else {
                         offset += offsetToNextOffset;
