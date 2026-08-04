@@ -41,6 +41,11 @@ import org.jnode.fs.ntfs.datarun.DataRunInterface;
 public class NTFSNonResidentAttribute extends NTFSAttribute {
 
     /**
+     * The compression unit size to assume when an attribute is flagged as compressed but does not record one.
+     */
+    private static final int DEFAULT_COMPRESSION_UNIT_SIZE = 16;
+
+    /**
      * The data run decoder.
      */
     private final DataRunDecoder dataRunDecoder;
@@ -111,8 +116,23 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
         return getUInt16(0x22);
     }
 
+    /**
+     * Gets the number of cluster blocks in a compression unit.
+     *
+     * <p>Compressed attribute data with a stored compression unit size of 0 has been seen on Windows XP. The
+     * default of 16 cluster blocks is used in that case, since a unit of 1 would mean no data was ever
+     * decompressed.</p>
+     *
+     * @return the number of cluster blocks per compression unit.
+     */
     private int getCompressionUnitSize() {
-        return 1 << getStoredCompressionUnitSize();
+        int stored = getStoredCompressionUnitSize();
+
+        if (stored == 0 && isCompressedAttribute()) {
+            return DEFAULT_COMPRESSION_UNIT_SIZE;
+        }
+
+        return 1 << stored;
     }
 
     /**

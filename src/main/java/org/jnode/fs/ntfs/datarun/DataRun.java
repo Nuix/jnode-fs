@@ -159,7 +159,10 @@ public final class DataRun implements DataRunInterface {
             default:
                 throw new IllegalArgumentException("Unknown cluster length " + clusterlen);
         }
-        this.cluster = cluster == 0 ? 0 : cluster + previousLCN;
+        // A delta of zero is legal: it means the run starts at the same cluster as the previous one, and for the
+        // first run in a list it means the run starts at cluster 0 - which is exactly what $Boot does. Sparseness
+        // is decided solely by the cluster length nibble being zero, handled above.
+        this.cluster = sparse ? 0 : cluster + previousLCN;
     }
 
     /**
@@ -293,12 +296,12 @@ public final class DataRun implements DataRunInterface {
             throw new ArrayIndexOutOfBoundsException("Invalid VCN for this data run: " + vcn);
         }
 
-        long cluster = getCluster();
-
-        if (cluster == 0 || isSparse()) {
+        if (isSparse()) {
             // This is a sparse cluster, not actually stored on disk
             return -1;
         }
+
+        long cluster = getCluster();
 
         final int vcnDelta = (int) (vcn - getFirstVcn());
         return cluster + vcnDelta;

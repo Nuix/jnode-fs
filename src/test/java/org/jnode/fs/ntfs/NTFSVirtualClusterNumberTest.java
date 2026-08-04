@@ -24,7 +24,30 @@ public class NTFSVirtualClusterNumberTest {
      * @return the attribute.
      */
     private static byte[] nonResidentAttribute(long firstVcn, long lastVcn) {
-        byte[] buffer = new byte[0x50];
+        return nonResidentAttribute(firstVcn, lastVcn, 0, 0, new byte[0]);
+    }
+
+    /**
+     * Builds a non-resident $DATA attribute header with data runs.
+     *
+     * @param firstVcn        the value for offset 0x10.
+     * @param lastVcn         the value for offset 0x18.
+     * @param flags           the attribute data flags for offset 0x0c.
+     * @param compressionUnit the stored compression unit size for offset 0x22.
+     * @param dataRuns        the runlist to place at offset 0x40.
+     * @return the attribute.
+     */
+    static byte[] nonResidentAttribute(long firstVcn, long lastVcn, int flags, int compressionUnit,
+                                       byte[] dataRuns) {
+        byte[] buffer = new byte[0x40 + Math.max(dataRuns.length, 0x10)];
+        LittleEndian.setInt16(buffer, 0x0c, flags);
+        LittleEndian.setInt16(buffer, 0x22, compressionUnit);
+        System.arraycopy(dataRuns, 0, buffer, 0x40, dataRuns.length);
+        fillHeader(buffer, firstVcn, lastVcn);
+        return buffer;
+    }
+
+    private static void fillHeader(byte[] buffer, long firstVcn, long lastVcn) {
         LittleEndian.setInt32(buffer, 0x00, 0x80);      // $DATA
         LittleEndian.setInt32(buffer, 0x04, buffer.length);
         buffer[0x08] = 1;                               // non-resident
@@ -35,7 +58,6 @@ public class NTFSVirtualClusterNumberTest {
         LittleEndian.setInt64(buffer, 0x28, 0x1000);    // allocated size
         LittleEndian.setInt64(buffer, 0x30, 0x1000);    // data size
         LittleEndian.setInt64(buffer, 0x38, 0x1000);    // initialised size
-        return buffer;
     }
 
     /**

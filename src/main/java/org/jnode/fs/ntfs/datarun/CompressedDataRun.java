@@ -115,13 +115,10 @@ public final class CompressedDataRun implements DataRunInterface {
         int tempCompressedOffset = 0;
 
         for (DataRun compressedRun : compressedRuns) {
-            // This is the actual number of stored clusters after compression.
-            // If the number of stored clusters is the same as the compression unit size,
-            // then the data can be read directly without decompressing it.
+            // This is the actual number of stored clusters after compression. A compression unit that is stored
+            // uncompressed occupies the whole unit, but DataRunDecoder emits that as a plain DataRun rather than
+            // wrapping it here, so every run reaching this point is shorter than the unit.
             int compClusters = FSUtils.checkedCast(compressedRun.getLength());
-            if (compClusters == compressionUnitSize) {
-                return compressedRun.readClusters(vcn, dst, dstOffset, compClusters, clusterSize, volume);
-            }
 
             // skip the sparse data runs.
             if (!compressedRun.isSparse()) {
