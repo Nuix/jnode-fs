@@ -182,33 +182,38 @@ public class LogRecord extends NTFSStructure {
      * @param length the length.
      */
     public final void getDataAcrossPages(int offset, byte[] dst, int dstOffset, int length) {
-        if (getCrossesPage()) {
-            int baseOffset = getOffset() + offset;
-            int offsetWithinPage = baseOffset % pageSize;
-            int pageOffset = baseOffset / pageSize;
-
-            while (length > 0) {
-                if (pageOffset > getBuffer().length) {
-                    // Wrap back around to the start of the 'normal' area
-                    pageOffset = LogFile.NORMAL_AREA_START * pageSize;
-                }
-
-                int endOffset = Math.min(offsetWithinPage + length, pageSize);
-                int readLength = endOffset - offsetWithinPage;
-                getData(pageOffset + offsetWithinPage, dst, dstOffset, readLength);
-
-                length -= readLength;
-                offsetWithinPage += readLength;
-                dstOffset += readLength;
-
-                if (offsetWithinPage >= pageSize || readLength == 0) {
-                    offsetWithinPage = logPageDataOffset;
-                    pageOffset += pageSize;
-                }
-            }
+        if (!getCrossesPage()) {
+            getData(offset, dst, dstOffset, length);
+            return;
         }
 
-        getData(offset, dst, dstOffset, length);
+        // Note the offsets here are absolute positions in the buffer, not relative to this record, so the copies
+        // are done against the buffer directly rather than through getData().
+        final byte[] buffer = getBuffer();
+        int baseOffset = getOffset() + offset;
+        int offsetWithinPage = baseOffset % pageSize;
+        int pageStart = baseOffset - offsetWithinPage;
+
+        while (length > 0) {
+            if (pageStart >= buffer.length) {
+                // Wrap back around to the start of the 'normal' area
+                pageStart = LogFile.NORMAL_AREA_START * pageSize;
+            }
+
+            int readLength = Math.min(length, pageSize - offsetWithinPage);
+            if (readLength <= 0) {
+                break;
+            }
+
+            System.arraycopy(buffer, pageStart + offsetWithinPage, dst, dstOffset, readLength);
+
+            length -= readLength;
+            dstOffset += readLength;
+
+            // Anything left continues in the data area of the next page, past its header
+            offsetWithinPage = logPageDataOffset;
+            pageStart += pageSize;
+        }
     }
 
     /**

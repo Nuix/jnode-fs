@@ -33,6 +33,7 @@ public class ReparsePointAttributeRes extends NTFSResidentAttribute implements R
 
     @Override
     public int getReparseDataLength() {
-        return getUInt32AsInt(getAttributeOffset() + 0x4);
+        // 16-bit, followed by a 2 byte reserved field
+        return getUInt16(getAttributeOffset() + 0x4);
     }
 }
