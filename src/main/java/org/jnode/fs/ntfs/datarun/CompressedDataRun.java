@@ -218,6 +218,17 @@ public final class CompressedDataRun implements DataRunInterface {
             return 0;
         }
 
+        // The number of bytes actually available in the compressed buffer from the start of this chunk. The chunk
+        // header records how long the chunk claims to be, but the stored data can be shorter than that: the last
+        // compression unit of a file is only valid up to the attribute's valid data length, so the block there is
+        // often truncated. Every read below is bounded by this as well as by the claimed chunk size.
+        final int availableInCompressed = compressed.array.length - compressed.offset;
+
+        // A chunk header is 16-bit, so a single trailing byte cannot start one.
+        if (availableInCompressed < 2) {
+            return 0;
+        }
+
         // the current index in the uncompressed array. (based on the uncompressed.offset)
         int pos = 0;
 
@@ -257,6 +268,11 @@ public final class CompressedDataRun implements DataRunInterface {
             return 0;
         }
 
+        int rightmostInUncompressed = Math.min(uncompressed.array.length - uncompressed.offset, BLOCK_SIZE);
+
+        // The last byte of this chunk, bounded by what is actually stored as well as by the size the header claims.
+        final int chunkEnd = Math.min(len + 3, availableInCompressed);
+
         // Bit 15 indicates whether the chunk contains compressed data. If this bit is zero, the chunk header is followed by uncompressed literal data.
         // If this bit is set, the next byte of the chunk is the beginning of a Flag_group nonterminal that describes some compressed data.
         if ((rawLen & 0x8000) == 0) {
@@ -265,7 +281,8 @@ public final class CompressedDataRun implements DataRunInterface {
                 log.debug("ntfs_uncompblock: len: " + len + " instead of 0xfff");
             }
 
-            for (int k = 0; k < len + 1; k++) {
+            final int literalLength = Math.min(len + 1, Math.min(chunkEnd - cpos, rightmostInUncompressed));
+            for (int k = 0; k < literalLength; k++) {
                 uncompressed.put(pos++, compressed.get(cpos++));
             }
 
@@ -275,10 +292,8 @@ public final class CompressedDataRun implements DataRunInterface {
             return len + 1;
         }
 
-        int rightmostInUncompressed = Math.min(uncompressed.array.length, BLOCK_SIZE);
-
         // Now this chunk contains compressed data, decompress it.
-        while (cpos < len + 3 && pos < rightmostInUncompressed) {
+        while (cpos < chunkEnd && pos < rightmostInUncompressed) {
             // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-xca/1fd21d29-f42f-4fc4-b677-9de7cc386be8
             // If a chunk is compressed, its chunk header is immediately followed by the first byte of a Flag_group nonterminal.
             //
@@ -296,11 +311,16 @@ public final class CompressedDataRun implements DataRunInterface {
                 // the size of the compressed chunk that is stored in the chunk header MUST be used
                 // to determine the position of the last valid byte in the chunk.
                 // The size value MUST ignore flag bits that correspond to bytes outside the chunk.
-                if (cpos >= len + 3 || pos >= rightmostInUncompressed) {
+                if (cpos >= chunkEnd || pos >= rightmostInUncompressed) {
                     break;
                 }
 
                 if ((ctag & 1) != 0) {
+                    // A compressed word is two bytes; a truncated chunk may not have both of them.
+                    if (cpos + 2 > chunkEnd) {
+                        break;
+                    }
+
                     int j, lmask, dshift;
                     for (j = pos - 1, lmask = 0xFFF, dshift = 12;
                          j >= 0x10; j >>>= 1) {
