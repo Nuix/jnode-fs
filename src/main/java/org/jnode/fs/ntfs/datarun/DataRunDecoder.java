@@ -57,11 +57,6 @@ public class DataRunDecoder {
     private boolean expectingSparseRunNext = false;
 
     /**
-     * Whether this is the first data-run in the list.
-     */
-    private boolean firstDataRun = true;
-
-    /**
      * The last compressed run size.
      */
     private long lastCompressedSize = 0;
@@ -101,7 +96,7 @@ public class DataRunDecoder {
             }
 
             if (compressed) {
-                if (dataRun.isSparse() && (expectingSparseRunNext || firstDataRun)) {
+                if (dataRun.isSparse() && expectingSparseRunNext) {
                     // Also the sparse run following a compressed run can be coalesced with a subsequent 'real' sparse
                     // run. So add that in if we hit one
                     if (dataRun.getLength() + lastCompressedSize > compressionUnit) {
@@ -134,6 +129,16 @@ public class DataRunDecoder {
                         lastCompressedSize = 0;
                         expectingSparseRunNext = false;
                     }
+                } else if (dataRun.isSparse()) {
+                    // A sparse run that doesn't follow a compressed run isn't the tail of a compressed/sparse pair,
+                    // it is one or more entirely sparse compression units, e.g. a hole at the start of the stream.
+                    // It counts towards the total in full.
+                    dataRuns.add(dataRun);
+
+                    this.numberOfVCNs += FSUtils.checkedCast(dataRun.getLength());
+                    vcn += dataRun.getLength();
+                    lastCompressedSize = 0;
+
                 } else if (dataRun.getLength() >= compressionUnit) {
                     // Compressed/sparse pairs always add to the compression unit size.  If
                     // the unit only compresses to 16, the system will store it uncompressed.
@@ -200,7 +205,6 @@ public class DataRunDecoder {
             }
 
             offset += dataRun.getSize();
-            firstDataRun = false;
         }
         if (log.isDebugEnabled()) {
             log.debug("There are {} data runs in this NTFSStructure", dataRuns.size());
