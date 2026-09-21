@@ -64,6 +64,13 @@ public class LogRecord extends NTFSStructure {
      * @return {@code true} if valid.
      */
     public boolean isValid() {
+        // LogFile.parseRecords works the offset out as a long and narrows it, so a corrupt or unexpected page can
+        // put a record outside the buffer - or, once the narrowing overflows, before it.
+        int offset = getOffset();
+        if (offset < 0 || offset + HEADER_SIZE > getBuffer().length) {
+            return false;
+        }
+
         return getLsn() != 0;
     }
 
@@ -152,7 +159,7 @@ public class LogRecord extends NTFSStructure {
         int position = getOffset();
         int remaining = offset;
 
-        while (true) {
+        while (position >= 0) {
             int spaceLeftInPage = pageSize - position % pageSize;
 
             if (remaining < spaceLeftInPage) {
@@ -162,6 +169,8 @@ public class LogRecord extends NTFSStructure {
             remaining -= spaceLeftInPage;
             position = nextPageDataStart(position);
         }
+
+        return -1;
     }
 
     /**
@@ -178,7 +187,11 @@ public class LogRecord extends NTFSStructure {
             nextPage = LogFile.NORMAL_AREA_START * pageSize;
         }
 
-        return nextPage + logPageDataOffset;
+        int start = nextPage + logPageDataOffset;
+
+        // The wrap only helps if the normal area is actually in the buffer. On one no longer than the normal area
+        // itself - a truncated or synthetic $LogFile - it lands past the end, so there is nowhere to continue.
+        return start < getBuffer().length ? start : -1;
     }
 
     /**
@@ -188,7 +201,12 @@ public class LogRecord extends NTFSStructure {
      * @return the value.
      */
     private int getUInt8AcrossPages(int offset) {
-        return getBuffer()[resolveAcrossPages(offset)] & 0xFF;
+        byte[] buffer = getBuffer();
+        int position = resolveAcrossPages(offset);
+
+        // A field that the buffer does not reach reads as zero rather than throwing; a record that runs off the
+        // end of the log is rejected by isValid() before its fields are of any interest.
+        return position < 0 || position >= buffer.length ? 0 : buffer[position] & 0xFF;
     }
 
     /**
@@ -241,7 +259,12 @@ public class LogRecord extends NTFSStructure {
         int position = resolveAcrossPages(offset);
 
         while (length > 0) {
-            int readLength = Math.min(length, pageSize - position % pageSize);
+            if (position < 0 || position >= buffer.length) {
+                // Nowhere valid left to read from, so the rest of the destination is left as it was
+                break;
+            }
+
+            int readLength = Math.min(length, Math.min(pageSize - position % pageSize, buffer.length - position));
 
             System.arraycopy(buffer, position, dst, dstOffset, readLength);
 
