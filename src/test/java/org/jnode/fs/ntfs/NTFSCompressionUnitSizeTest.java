@@ -9,6 +9,7 @@ import org.junit.Test;
 import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
 import static org.jnode.fs.FileSystemTestUtils.*;
+import static org.jnode.fs.ntfs.NTFSTestRecords.*;
 
 /**
  * Tests how the compression unit size recorded in a non-resident attribute is interpreted.
@@ -23,12 +24,10 @@ public class NTFSCompressionUnitSizeTest {
     /** A compressed unit stored in 7 clusters, followed by the 9 sparse clusters that pad it out to 16. */
     private static final String COMPRESSED_RUNS = "21 07 B4 08 01 09 00";
 
-    private static List<DataRunInterface> decode(int flags, int storedCompressionUnit) {
-        byte[] buffer = NTFSVirtualClusterNumberTest.nonResidentAttribute(
-            0, 15, flags, storedCompressionUnit, toByteArray(COMPRESSED_RUNS));
-
+    private static List<DataRunInterface> decode(int flags, int storedCompressionUnit) throws Exception {
         NTFSNonResidentAttribute attribute =
-            new NTFSNonResidentAttribute(new NTFSStructure(buffer, 0), 0);
+            nonResident(0, 15, flags, storedCompressionUnit, toByteArray(COMPRESSED_RUNS));
+
         attribute.getDataRunDecoder().readDataRuns(attribute, attribute.getDataRunsOffset());
         return attribute.getDataRuns();
     }
@@ -39,7 +38,7 @@ public class NTFSCompressionUnitSizeTest {
      * - the compressed bytes are handed back raw.
      */
     @Test
-    public void testCompressedAttributeWithAZeroCompressionUnit() {
+    public void testCompressedAttributeWithAZeroCompressionUnit() throws Exception {
         // Act
         List<DataRunInterface> dataRuns = decode(COMPRESSED, 0);
 
@@ -53,7 +52,7 @@ public class NTFSCompressionUnitSizeTest {
      * The ordinary case: 2^4 = 16 clusters.
      */
     @Test
-    public void testCompressedAttributeWithTheUsualCompressionUnit() {
+    public void testCompressedAttributeWithTheUsualCompressionUnit() throws Exception {
         // Act
         List<DataRunInterface> dataRuns = decode(COMPRESSED, 4);
 
@@ -68,7 +67,7 @@ public class NTFSCompressionUnitSizeTest {
      * as plain data runs.
      */
     @Test
-    public void testUncompressedAttributeIsUnaffected() {
+    public void testUncompressedAttributeIsUnaffected() throws Exception {
         // Act
         List<DataRunInterface> dataRuns = decode(0, 0);
 

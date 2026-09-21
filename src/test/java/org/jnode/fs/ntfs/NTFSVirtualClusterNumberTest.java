@@ -8,6 +8,7 @@ import org.junit.Test;
 
 import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
+import static org.jnode.fs.ntfs.NTFSTestRecords.*;
 
 /**
  * Tests that the 64-bit virtual cluster number fields are read at their full width.
@@ -17,75 +18,29 @@ import static org.hamcrest.Matchers.*;
 public class NTFSVirtualClusterNumberTest {
 
     /**
-     * Builds a non-resident $DATA attribute header.
-     *
-     * @param firstVcn the value for offset 0x10.
-     * @param lastVcn  the value for offset 0x18.
-     * @return the attribute.
-     */
-    private static byte[] nonResidentAttribute(long firstVcn, long lastVcn) {
-        return nonResidentAttribute(firstVcn, lastVcn, 0, 0, new byte[0]);
-    }
-
-    /**
-     * Builds a non-resident $DATA attribute header with data runs.
-     *
-     * @param firstVcn        the value for offset 0x10.
-     * @param lastVcn         the value for offset 0x18.
-     * @param flags           the attribute data flags for offset 0x0c.
-     * @param compressionUnit the stored compression unit size for offset 0x22.
-     * @param dataRuns        the runlist to place at offset 0x40.
-     * @return the attribute.
-     */
-    static byte[] nonResidentAttribute(long firstVcn, long lastVcn, int flags, int compressionUnit,
-                                       byte[] dataRuns) {
-        byte[] buffer = new byte[0x40 + Math.max(dataRuns.length, 0x10)];
-        LittleEndian.setInt16(buffer, 0x0c, flags);
-        LittleEndian.setInt16(buffer, 0x22, compressionUnit);
-        System.arraycopy(dataRuns, 0, buffer, 0x40, dataRuns.length);
-        fillHeader(buffer, firstVcn, lastVcn);
-        return buffer;
-    }
-
-    private static void fillHeader(byte[] buffer, long firstVcn, long lastVcn) {
-        LittleEndian.setInt32(buffer, 0x00, 0x80);      // $DATA
-        LittleEndian.setInt32(buffer, 0x04, buffer.length);
-        buffer[0x08] = 1;                               // non-resident
-        LittleEndian.setInt16(buffer, 0x0a, 0x40);      // name offset
-        LittleEndian.setInt64(buffer, 0x10, firstVcn);
-        LittleEndian.setInt64(buffer, 0x18, lastVcn);
-        LittleEndian.setInt16(buffer, 0x20, 0x40);      // data runs offset
-        LittleEndian.setInt64(buffer, 0x28, 0x1000);    // allocated size
-        LittleEndian.setInt64(buffer, 0x30, 0x1000);    // data size
-        LittleEndian.setInt64(buffer, 0x38, 0x1000);    // initialised size
-    }
-
-    /**
      * A last VCN of -1 in combination with a data size of 0 occurs on essentially every volume - it is present in
      * all 19 NTFS images in the nuix-core test corpus. Read as an unsigned 32-bit value it came back as
      * 4294967295.
      */
     @Test
-    public void testLastVcnOfMinusOne() {
+    public void testLastVcnOfMinusOne() throws Exception {
         // Arrange
         byte[] buffer = nonResidentAttribute(0, -1L);
 
         // Act
-        NTFSNonResidentAttribute attribute =
-            new NTFSNonResidentAttribute(new NTFSStructure(buffer, 0), 0);
+        NTFSNonResidentAttribute attribute = (NTFSNonResidentAttribute) attribute(buffer);
 
         // Assert
         assertThat(attribute.getLastVCN(), is(-1L));
     }
 
     @Test
-    public void testVcnsBeyond32Bits() {
+    public void testVcnsBeyond32Bits() throws Exception {
         // Arrange
         byte[] buffer = nonResidentAttribute(0x100000000L, 0x1000000FFL);
 
         // Act
-        NTFSNonResidentAttribute attribute =
-            new NTFSNonResidentAttribute(new NTFSStructure(buffer, 0), 0);
+        NTFSNonResidentAttribute attribute = (NTFSNonResidentAttribute) attribute(buffer);
 
         // Assert
         assertThat(attribute.getStartVCN(), is(0x100000000L));
@@ -93,13 +48,12 @@ public class NTFSVirtualClusterNumberTest {
     }
 
     @Test
-    public void testOrdinaryVcnsAreUnaffected() {
+    public void testOrdinaryVcnsAreUnaffected() throws Exception {
         // Arrange: the largest start VCN seen in the corpus is 41840, in ntfs1-gen2
         byte[] buffer = nonResidentAttribute(41840, 41855);
 
         // Act
-        NTFSNonResidentAttribute attribute =
-            new NTFSNonResidentAttribute(new NTFSStructure(buffer, 0), 0);
+        NTFSNonResidentAttribute attribute = (NTFSNonResidentAttribute) attribute(buffer);
 
         // Assert
         assertThat(attribute.getStartVCN(), is(41840L));
@@ -111,7 +65,7 @@ public class NTFSVirtualClusterNumberTest {
      * only 256 MB into a file at the usual 4 KiB cluster size.
      */
     @Test
-    public void testAttributeListEntryStartingVcn() {
+    public void testAttributeListEntryStartingVcn() throws Exception {
         // Arrange: a single $DATA entry, 0x20 bytes, with a starting VCN that does not fit in 16 bits
         byte[] buffer = new byte[0x20];
         LittleEndian.setInt32(buffer, 0x00, 0x80);      // $DATA

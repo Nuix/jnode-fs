@@ -23,7 +23,6 @@ package org.jnode.fs.ntfs;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import org.jetbrains.annotations.TestOnly;
 import org.jnode.fs.ntfs.attribute.NTFSResidentAttribute;
 
 /**
@@ -39,11 +38,6 @@ public class StandardInformationAttribute extends NTFSResidentAttribute {
      */
     public StandardInformationAttribute(FileRecord fileRecord, int offset) {
         super(fileRecord, offset);
-    }
-
-    @TestOnly
-    public StandardInformationAttribute(NTFSStructure ntfsStructure, int offset) {
-        super(ntfsStructure, offset);
     }
 
     /**

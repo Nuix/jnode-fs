@@ -32,11 +32,18 @@ final class IndexRoot extends NTFSStructure {
     public static final int SIZE = 0x10;
 
     /**
+     * The number of cluster blocks per index record.
+     */
+    private final int clustersPerIndexBlock;
+
+    /**
      * Initialize this instance.
      * @param attr
      */
     public IndexRoot(IndexRootAttribute attr) {
         super(attr, attr.getAttributeOffset());
+
+        this.clustersPerIndexBlock = decodeClustersPerIndexBlock();
     }
 
     /**
@@ -74,14 +81,25 @@ final class IndexRoot extends NTFSStructure {
      * @return the number of cluster blocks per index record.
      */
     public int getClustersPerIndexBlock() {
+        return clustersPerIndexBlock;
+    }
+
+    /**
+     * Decodes the stored number of cluster blocks per index record.
+     *
+     * @return the number of cluster blocks, at least 1.
+     */
+    private int decodeClustersPerIndexBlock() {
         final int v = getInt8(0x0C);
-        if (v < 0) {
-            // Fall back to treating the VCN unit as the whole index block. Log it, because if this ever fires the
-            // encoding needs working out properly against a real volume.
-            log.warn("Negative clusters per index block value: {}, falling back to 1", v);
+
+        if (v <= 0) {
+            // Fall back to treating the VCN unit as the whole index block. Callers divide the index block size by
+            // this, so a stored zero would otherwise throw. Log it, because if this ever fires the encoding needs
+            // working out properly against a real volume.
+            log.warn("Clusters per index block is {}, falling back to 1", v);
             return 1;
-        } else {
-            return v;
         }
+
+        return v;
     }
 }

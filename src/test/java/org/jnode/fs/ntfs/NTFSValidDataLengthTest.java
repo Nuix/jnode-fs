@@ -41,6 +41,7 @@ public class NTFSValidDataLengthTest {
 
     @Test
     public void testReadPastValidDataLengthReturnsZeros() throws Exception {
+        // The image decompresses to 419 MB and getTestFile leaves deleting the copy to the caller
         File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/ntfs/complex-compression.dd");
 
         try (FileDevice device = new FileDevice(testFile, "r")) {
@@ -74,6 +75,8 @@ public class NTFSValidDataLengthTest {
                     }
                 }
             }
+        } finally {
+            testFile.delete();
         }
     }
 }

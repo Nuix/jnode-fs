@@ -23,7 +23,9 @@ package org.jnode.fs.ntfs.security;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.jnode.fs.ntfs.NTFSFile;
 import org.jnode.util.LittleEndian;
 
@@ -73,6 +75,7 @@ public class SecurityDescriptorStream {
     public List<SecurityDescriptorStreamEntry> getEntries() throws IOException {
         if (entries == null) {
             entries = new ArrayList<SecurityDescriptorStreamEntry>();
+            Set<Long> seen = new HashSet<Long>();
             long offset = 0;
             long streamLength = sdsFile.getLength();
 
@@ -92,12 +95,27 @@ public class SecurityDescriptorStream {
                     continue;
                 }
 
-                entries.add(entry);
+                // Each descriptor is written twice, the mirror a block after the original and identical to it down
+                // to the offset it records for itself, so hand back one of each rather than both.
+                if (seen.add(identity(entry))) {
+                    entries.add(entry);
+                }
+
                 offset += entry.getLength();
             }
         }
 
         return entries;
+    }
+
+    /**
+     * Gets a value that distinguishes one security descriptor from another, but not a descriptor from its mirror.
+     *
+     * @param entry the entry.
+     * @return the identity of the descriptor the entry holds.
+     */
+    private static long identity(SecurityDescriptorStreamEntry entry) {
+        return (long) entry.getSecurityId() << 32 | entry.getOffsetToEntry() & 0xFFFFFFFFL;
     }
 
     /**

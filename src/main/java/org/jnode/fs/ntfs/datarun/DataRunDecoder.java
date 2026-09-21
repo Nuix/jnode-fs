@@ -100,7 +100,12 @@ public class DataRunDecoder {
                     // Also the sparse run following a compressed run can be coalesced with a subsequent 'real' sparse
                     // run. So add that in if we hit one
                     if (dataRun.getLength() + lastCompressedSize > compressionUnit) {
-                        long length = dataRun.getLength() - (compressionUnit - lastCompressedSize);
+                        // Only the part of this run that closes off the current unit is absorbed by the compressed
+                        // run; the rest stands on its own. Clamping keeps a corrupt over-filled unit from making
+                        // that remainder longer than the run actually is, which would shift every following VCN.
+                        long absorbed = Math.min(dataRun.getLength(),
+                            Math.max(0, compressionUnit - lastCompressedSize));
+                        long length = dataRun.getLength() - absorbed;
                         dataRuns.add(new DataRun(0, length, true, 0, vcn));
 
                         this.numberOfVCNs += FSUtils.checkedCast(length);
@@ -180,7 +185,15 @@ public class DataRunDecoder {
                     long adjustedVcn = lastCompressedRun.getFirstVcn() + lastCompressedSize;
                     DataRun adjustedRun = new DataRun(parent, offset, adjustedVcn, previousLCN);
                     lastCompressedRun.addDataRun(adjustedRun);
-                    lastCompressedSize += dataRun.getLength();
+
+                    if (lastCompressedSize + dataRun.getLength() > compressionUnit) {
+                        log.warn("Compressed run fragments total {} clusters, more than the {} cluster compression " +
+                                 "unit. Data on disk may be corrupt.", lastCompressedSize + dataRun.getLength(),
+                            compressionUnit);
+                        lastCompressedSize = compressionUnit;
+                    } else {
+                        lastCompressedSize += dataRun.getLength();
+                    }
 
                 } else {
                     lastCompressedRun = new CompressedDataRun(dataRun, compressionUnit);

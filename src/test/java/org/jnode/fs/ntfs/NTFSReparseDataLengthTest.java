@@ -45,13 +45,13 @@ public class NTFSReparseDataLengthTest {
      * answer on real data. A non-zero reserved value is what exposes it.
      */
     @Test
-    public void testReparseDataLengthIgnoresTheReservedField() {
+    public void testReparseDataLengthIgnoresTheReservedField() throws Exception {
         // Arrange
         byte[] buffer = reparsePoint(ReparsePointTags.IO_REPARSE_TAG_MOUNT_POINT, 0x30, 0xABCD);
 
         // Act
         ReparsePointAttributeRes attribute =
-            new ReparsePointAttributeRes(new NTFSStructure(buffer, 0), 0);
+            (ReparsePointAttributeRes) NTFSTestRecords.attribute(buffer);
 
         // Assert
         assertThat(attribute.getReparseTag(), is(ReparsePointTags.IO_REPARSE_TAG_MOUNT_POINT));
@@ -59,13 +59,13 @@ public class NTFSReparseDataLengthTest {
     }
 
     @Test
-    public void testReparseDataLengthWithAZeroReservedField() {
+    public void testReparseDataLengthWithAZeroReservedField() throws Exception {
         // Arrange
         byte[] buffer = reparsePoint(ReparsePointTags.IO_REPARSE_TAG_SYMLINK, 0x1234, 0);
 
         // Act
         ReparsePointAttributeRes attribute =
-            new ReparsePointAttributeRes(new NTFSStructure(buffer, 0), 0);
+            (ReparsePointAttributeRes) NTFSTestRecords.attribute(buffer);
 
         // Assert
         assertThat(attribute.getReparseTag(), is(ReparsePointTags.IO_REPARSE_TAG_SYMLINK));

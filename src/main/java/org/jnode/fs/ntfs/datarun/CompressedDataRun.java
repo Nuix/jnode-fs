@@ -115,13 +115,17 @@ public final class CompressedDataRun implements DataRunInterface {
         int tempCompressedOffset = 0;
 
         for (DataRun compressedRun : compressedRuns) {
-            // This is the actual number of stored clusters after compression. A compression unit that is stored
-            // uncompressed occupies the whole unit, but DataRunDecoder emits that as a plain DataRun rather than
-            // wrapping it here, so every run reaching this point is shorter than the unit.
+            // This is the actual number of stored clusters after compression.
             int compClusters = FSUtils.checkedCast(compressedRun.getLength());
 
             // skip the sparse data runs.
             if (!compressedRun.isSparse()) {
+                if (tempCompressedOffset + clusterSize * compClusters > tempCompressed.length) {
+                    throw new IOException(String.format(
+                            "Runs at VCN %d hold more than the %d cluster compression unit", myFirstVcn,
+                            compressionUnitSize));
+                }
+
                 // Now we know the data is compressed.  Read in the compressed block...
                 final int read = compressedRun.readClusters(readVcn, tempCompressed, tempCompressedOffset,
                         compClusters, clusterSize, volume);
@@ -135,14 +139,22 @@ public final class CompressedDataRun implements DataRunInterface {
             readVcn += compClusters;
         }
 
-        final byte[] compressed = new byte[tempCompressedOffset];
-        System.arraycopy(tempCompressed, 0, compressed, 0, tempCompressedOffset);
-
         // Decompress it, and copy into the destination.
         final byte[] tempUncompressed = new byte[compressionUnitSize * clusterSize];
-        // XXX: We could potentially reduce the overhead by modifying the compression
-        //      routine such that it's capable of skipping chunks that aren't needed.
-        int actualUncompressedLength = decompressUnit(compressed, tempUncompressed);
+
+        if (tempCompressedOffset == tempUncompressed.length) {
+            // A unit that does not compress is stored as-is, filling the whole unit. It can be stored as several
+            // fragments, so the test has to be on the total rather than on any single run: a unit split across two
+            // runs is still stored raw, and running it through the decompressor produces garbage.
+            System.arraycopy(tempCompressed, 0, tempUncompressed, 0, tempCompressedOffset);
+        } else {
+            final byte[] compressed = new byte[tempCompressedOffset];
+            System.arraycopy(tempCompressed, 0, compressed, 0, tempCompressedOffset);
+
+            // XXX: We could potentially reduce the overhead by modifying the compression
+            //      routine such that it's capable of skipping chunks that aren't needed.
+            decompressUnit(compressed, tempUncompressed);
+        }
 
         int copySource = vcnOffsetWithinUnit * clusterSize;
         int copyDest = dstOffset + (int) (actFirstVcn - vcn) * clusterSize;
@@ -278,15 +290,16 @@ public final class CompressedDataRun implements DataRunInterface {
                 log.debug("ntfs_uncompblock: len: " + len + " instead of 0xfff");
             }
 
+            // If the chunk is uncompressed, the total amount of uncompressed data therein can be computed by adding 1 to this
+            // value (adding 3 bytes to get the total chunk size, then subtracting 2 bytes to account for the chunk
+            // header). A truncated chunk holds fewer bytes than that, and the caller advances by what is returned,
+            // so the count has to be what was actually written rather than what the header claims.
             final int literalLength = Math.min(len + 1, Math.min(chunkEnd - cpos, rightmostInUncompressed));
             for (int k = 0; k < literalLength; k++) {
                 uncompressed.put(pos++, compressed.get(cpos++));
             }
 
-            // If the chunk is uncompressed, the total amount of uncompressed data therein can be computed by adding 1 to this
-            // value (adding 3 bytes to get the total chunk size, then subtracting 2 bytes to account for the chunk
-            // header).
-            return len + 1;
+            return literalLength;
         }
 
         // Now this chunk contains compressed data, decompress it.
