@@ -33,12 +33,16 @@ import org.jnode.fs.FSFile;
 import org.jnode.fs.FSObject;
 import org.jnode.fs.FileSystem;
 import org.jnode.fs.ntfs.index.IndexEntry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author vali
  * @author Ewout Prangsma (epr@users.sourceforge.net)
  */
 public class NTFSEntry implements FSEntry, FSEntryCreated, FSEntryLastChanged, FSEntryLastAccessed {
+
+    private static final Logger log = LoggerFactory.getLogger(NTFSEntry.class);
 
     private FSObject cachedFSObject;
 
@@ -168,25 +172,37 @@ public class NTFSEntry implements FSEntry, FSEntryCreated, FSEntryLastChanged, F
      * @see org.jnode.fs.FSEntry#isFile()
      */
     public boolean isFile() {
-        if (indexEntry != null) {
-            FileNameAttribute.Structure fileName = new FileNameAttribute.Structure(
-                indexEntry, IndexEntry.CONTENT_OFFSET);
-            return !fileName.isDirectory();
-        } else {
-            return !fileRecord.isDirectory();
-        }
+        return !isDirectory();
     }
 
     /**
      * @see org.jnode.fs.FSEntry#isDirectory()
      */
     public boolean isDirectory() {
-        if (indexEntry != null) {
-            FileNameAttribute.Structure fileName = new FileNameAttribute.Structure(
-                indexEntry, IndexEntry.CONTENT_OFFSET);
-            return fileName.isDirectory();
-        } else {
+        if (indexEntry == null) {
             return fileRecord.isDirectory();
+        }
+
+        FileNameAttribute.Structure fileName = new FileNameAttribute.Structure(
+            indexEntry, IndexEntry.CONTENT_OFFSET);
+
+        if (fileName.isDirectory()) {
+            return true;
+        }
+
+        if (indexEntry.getFileReferenceNumber() >= MasterFileTable.SystemFiles.FIRST_USER) {
+            return false;
+        }
+
+        // The $FILE_NAME flag is not set on some of the reserved records, $Extend among them, so for those the MFT
+        // record is consulted instead. Only those: reading a record costs a device read, and doing it for every
+        // ordinary file would turn listing a directory into one read per entry.
+        try {
+            FileRecord record = getFileRecord();
+            return record != null && record.isDirectory();
+        } catch (IOException e) {
+            log.debug("Failed to read the file record for entry {}, falling back to the $FILE_NAME flag", id, e);
+            return false;
         }
     }
 
@@ -273,10 +289,10 @@ public class NTFSEntry implements FSEntry, FSEntryCreated, FSEntryLastChanged, F
      * @return Returns the fileRecord.
      */
     public FileRecord getFileRecord() throws IOException {
-        if (fileRecord != null) {
-            return fileRecord;
+        if (fileRecord == null) {
+            fileRecord = indexEntry.getParentFileRecord().getVolume().getMFT().getIndexedFileRecord(indexEntry);
         }
-        return indexEntry.getParentFileRecord().getVolume().getMFT().getIndexedFileRecord(indexEntry);
+        return fileRecord;
     }
 
     /**

@@ -20,7 +20,6 @@
  
 package org.jnode.fs.ntfs.usnjrnl;
 
-import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import org.jnode.fs.ntfs.FileId128;
 import org.jnode.fs.ntfs.NTFSStructure;
@@ -32,6 +31,11 @@ import org.jnode.fs.ntfs.NTFSUTIL;
  * @author Luke Quinane
  */
 public class UsnRecordV3 extends NTFSStructure implements UsnRecordV2V3<FileId128> {
+
+    /**
+     * The length of the fixed part of the record; the file name starts after it.
+     */
+    private static final int FIXED_HEADER_LENGTH = 0x4c;
 
     /**
      * Creates a new journal entry at the given offset.
@@ -70,47 +74,49 @@ public class UsnRecordV3 extends NTFSStructure implements UsnRecordV2V3<FileId12
 
     @Override
     public long getUsn() {
-        return getInt64(0x20);
+        return getInt64(0x28);
     }
 
     @Override
     public long getTimestamp() {
-        return NTFSUTIL.filetimeToMillis(getInt64(0x28));
+        return NTFSUTIL.filetimeToMillis(getInt64(0x30));
     }
 
     @Override
     public long getReason() {
-        return getUInt32(0x30);
+        return getUInt32(0x38);
     }
 
     @Override
     public int getSourceInfo() {
-        return getInt32(0x34);
+        return getInt32(0x3c);
     }
 
     public int getSecurityId() {
-        return getInt32(0x38);
+        return getInt32(0x40);
     }
 
     public int getFileAttributes() {
-        return getInt32(0x3c);
+        return getInt32(0x44);
     }
 
     @Override
     public int getFileNameSize() {
-        return getInt16(0x40);
+        return getUInt16(0x48);
+    }
+
+    /**
+     * Gets the offset of the file name, relative to the start of the record.
+     *
+     * @return the offset.
+     */
+    public int getFileNameOffset() {
+        return getUInt16(0x4a);
     }
 
     @Override
     public String getFileName() {
-        byte[] buffer = new byte[getFileNameSize()];
-        getData(0x44, buffer, 0, buffer.length);
-
-        try {
-            return new String(buffer, "UTF-16LE");
-        } catch (UnsupportedEncodingException e) {
-            throw new IllegalStateException("UTF-16LE charset missing from JRE", e);
-        }
+        return UsnJournal.readFileName(this, getSize(), FIXED_HEADER_LENGTH, getFileNameOffset(), getFileNameSize());
     }
 
     @Override

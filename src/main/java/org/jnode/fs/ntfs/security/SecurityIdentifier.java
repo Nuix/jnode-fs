@@ -67,6 +67,11 @@ public class SecurityIdentifier {
      * @return the SID as a string.
      */
     public String toSidString() {
+        if (subAuthorities.isEmpty()) {
+            // A SID with no sub-authorities is valid, e.g. S-1-0
+            return String.format("S-1-%d", authority);
+        }
+
         StringBuilder subAuthorityBuilder = new StringBuilder();
         subAuthorityBuilder.append(subAuthorities.get(0));
 

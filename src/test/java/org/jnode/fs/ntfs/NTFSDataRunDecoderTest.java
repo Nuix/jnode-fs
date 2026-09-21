@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.jnode.fs.FileSystemTestUtils;
+import org.jnode.fs.ntfs.datarun.DataRun;
 import org.jnode.fs.ntfs.datarun.DataRunDecoder;
 import org.jnode.fs.ntfs.datarun.DataRunInterface;
 import org.junit.Test;
@@ -454,6 +455,156 @@ public class NTFSDataRunDecoderTest {
             "[data-run vcn:915556-966781 cluster:2154152454]\n" +
             "[data-run vcn:966782-969023 cluster:2004175]\n" +
             "[data-run vcn:969024-1003839 cluster:1810559287]\n";
+        assertDataRuns(dataRuns, expectedRuns);
+    }
+
+    /**
+     * A data run delta of zero is legal. For the first run in a list it means the run starts at cluster 0, which
+     * is exactly what $Boot (MFT record 7) does on every NTFS volume.
+     */
+    @Test
+    public void testDataRunStartingAtClusterZero() {
+        // Arrange: the $Boot runlist from complex-compression.dd - 2 clusters at a delta of 0, then the end of
+        // list marker
+        byte[] buffer = toByteArray("11 02 00 00");
+        DataRunDecoder dataRunDecoder = new DataRunDecoder(false, 1);
+
+        // Act
+        dataRunDecoder.readDataRuns(new NTFSStructure(buffer, 0), 0);
+        List<DataRunInterface> dataRuns = dataRunDecoder.getDataRuns();
+
+        // Assert
+        assertDataRuns(dataRuns, "[data-run vcn:0-1 cluster:0]\n");
+
+        DataRun run = (DataRun) dataRuns.get(0);
+        assertThat("a run at cluster 0 is stored, not sparse", run.isSparse(), is(false));
+        assertThat(run.mapVcnToLcn(0), is(0L));
+        assertThat(run.mapVcnToLcn(1), is(1L));
+    }
+
+    /**
+     * A delta of zero part way through a list means "same cluster as the previous run", and must not reset the
+     * base that the following runs are decoded against.
+     */
+    @Test
+    public void testMidListDataRunWithAZeroDelta() {
+        // Arrange: 4 clusters at 176, 4 more at the same place, then 4 at +8339
+        byte[] buffer = toByteArray("21 04 B0 00 11 04 00 21 04 93 20 00");
+        DataRunDecoder dataRunDecoder = new DataRunDecoder(false, 1);
+
+        // Act
+        dataRunDecoder.readDataRuns(new NTFSStructure(buffer, 0), 0);
+        List<DataRunInterface> dataRuns = dataRunDecoder.getDataRuns();
+
+        // Assert
+        String expectedRuns =
+            "[data-run vcn:0-3 cluster:176]\n" +
+            "[data-run vcn:4-7 cluster:176]\n" +
+            "[data-run vcn:8-11 cluster:8515]\n";
+        assertDataRuns(dataRuns, expectedRuns);
+    }
+
+    @Test
+    public void testCompressedRuns_leadingSparseCompressionUnit() {
+        // Arrange: a hole covering the first compression unit, then a compressed unit stored in 7 clusters.
+        byte[] buffer = toByteArray("01 10 21 07 B4 08 01 09 00");
+        DataRunDecoder dataRunDecoder = new DataRunDecoder(true, 16);
+
+        // Act
+        dataRunDecoder.readDataRuns(new NTFSStructure(buffer, 0), 0);
+        List<DataRunInterface> dataRuns = dataRunDecoder.getDataRuns();
+
+        // Assert
+        assertThat(dataRunDecoder.getNumberOfVCNs(), is(32));
+
+        String expectedRuns =
+            "[sparse-run vcn:0-15 cluster:0]\n" +
+            "[compressed-run vcn:16-31 [[data-run vcn:16-22 cluster:2228]]]\n";
+        assertDataRuns(dataRuns, expectedRuns);
+    }
+
+    @Test
+    public void testCompressedRuns_leadingSparseSpanningMultipleCompressionUnits() {
+        // Arrange: a hole covering the first two compression units, then a compressed unit.
+        byte[] buffer = toByteArray("01 20 21 07 B4 08 01 09 00");
+        DataRunDecoder dataRunDecoder = new DataRunDecoder(true, 16);
+
+        // Act
+        dataRunDecoder.readDataRuns(new NTFSStructure(buffer, 0), 0);
+        List<DataRunInterface> dataRuns = dataRunDecoder.getDataRuns();
+
+        // Assert
+        assertThat(dataRunDecoder.getNumberOfVCNs(), is(48));
+
+        String expectedRuns =
+            "[sparse-run vcn:0-31 cluster:0]\n" +
+            "[compressed-run vcn:32-47 [[data-run vcn:32-38 cluster:2228]]]\n";
+        assertDataRuns(dataRuns, expectedRuns);
+    }
+
+    @Test
+    public void testCompressedRuns_leadingSparseShorterThanCompressionUnit() {
+        // Arrange: a hole shorter than one compression unit at the start of the stream. Previously this left
+        // expectingSparseRunNext set with no lastCompressedRun, so the following run hit a NullPointerException.
+        byte[] buffer = toByteArray("01 03 21 07 B4 08 01 09 00");
+        DataRunDecoder dataRunDecoder = new DataRunDecoder(true, 16);
+
+        // Act
+        dataRunDecoder.readDataRuns(new NTFSStructure(buffer, 0), 0);
+        List<DataRunInterface> dataRuns = dataRunDecoder.getDataRuns();
+
+        // Assert
+        assertThat(dataRunDecoder.getNumberOfVCNs(), is(19));
+
+        String expectedRuns =
+            "[sparse-run vcn:0-2 cluster:0]\n" +
+            "[compressed-run vcn:3-18 [[data-run vcn:3-9 cluster:2228]]]\n";
+        assertDataRuns(dataRuns, expectedRuns);
+    }
+
+    @Test
+    public void testCompressedRuns_sparseCompressionUnitBetweenCompressedUnits() {
+        // Arrange: compressed unit, an entirely sparse compression unit, then another compressed unit. This case
+        // already decoded correctly, it guards the fix for the leading-sparse cases above.
+        byte[] buffer = toByteArray("21 07 B4 08 01 09 01 10 21 07 B4 08 01 09 00");
+        DataRunDecoder dataRunDecoder = new DataRunDecoder(true, 16);
+
+        // Act
+        dataRunDecoder.readDataRuns(new NTFSStructure(buffer, 0), 0);
+        List<DataRunInterface> dataRuns = dataRunDecoder.getDataRuns();
+
+        // Assert
+        assertThat(dataRunDecoder.getNumberOfVCNs(), is(48));
+
+        String expectedRuns =
+            "[compressed-run vcn:0-15 [[data-run vcn:0-6 cluster:2228]]]\n" +
+            "[sparse-run vcn:16-31 cluster:0]\n" +
+            "[compressed-run vcn:32-47 [[data-run vcn:32-38 cluster:4456]]]\n";
+        assertDataRuns(dataRuns, expectedRuns);
+    }
+
+    /**
+     * Fragments of a compression unit cannot add up to more than the unit. When they do the run list is corrupt,
+     * and the sparse run that closes the unit must not be stretched to make up the difference: that would push
+     * every following VCN along and shift the rest of the stream.
+     */
+    @Test
+    public void testCompressedRuns_fragmentsTotallingMoreThanTheCompressionUnit() {
+        // Arrange: a 10 cluster fragment and a 9 cluster fragment, 19 clusters in a 16 cluster unit, then a 5
+        // cluster sparse run
+        byte[] buffer = toByteArray("21 0A B4 08 11 09 10 01 05 00");
+        DataRunDecoder dataRunDecoder = new DataRunDecoder(true, 16);
+
+        // Act
+        dataRunDecoder.readDataRuns(new NTFSStructure(buffer, 0), 0);
+        List<DataRunInterface> dataRuns = dataRunDecoder.getDataRuns();
+
+        // Assert: the sparse run is the 5 clusters that are actually on disk, not 8
+        assertThat(dataRunDecoder.getNumberOfVCNs(), is(21));
+
+        String expectedRuns =
+            "[compressed-run vcn:0-15 [[data-run vcn:0-9 cluster:2228], [data-run vcn:10-18 cluster:2244]]]\n" +
+            "[sparse-run vcn:16-20 cluster:0]\n";
         assertDataRuns(dataRuns, expectedRuns);
     }
 

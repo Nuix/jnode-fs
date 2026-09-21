@@ -23,7 +23,9 @@ package org.jnode.fs.ntfs.security;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.jnode.fs.ntfs.NTFSFile;
 import org.jnode.util.LittleEndian;
 
@@ -33,6 +35,17 @@ import org.jnode.util.LittleEndian;
  * @author Luke Quinane
  */
 public class SecurityDescriptorStream {
+
+    /**
+     * The size of the blocks that the security descriptor entries are laid out in. No entry crosses one of these
+     * boundaries; the remainder of a block is padded with zeros.
+     */
+    private static final long BLOCK_SIZE = 0x40000;
+
+    /**
+     * The size of the fixed part of an entry: hash, security id, offset and size.
+     */
+    private static final int HEADER_SIZE = 0x14;
 
     /**
      * The stream that holds the security descriptors.
@@ -62,6 +75,7 @@ public class SecurityDescriptorStream {
     public List<SecurityDescriptorStreamEntry> getEntries() throws IOException {
         if (entries == null) {
             entries = new ArrayList<SecurityDescriptorStreamEntry>();
+            Set<Long> seen = new HashSet<Long>();
             long offset = 0;
             long streamLength = sdsFile.getLength();
 
@@ -69,15 +83,39 @@ public class SecurityDescriptorStream {
                 SecurityDescriptorStreamEntry entry = readOneEntry(offset);
 
                 if (entry == null) {
-                    break;
+                    // No entry crosses a 256 KiB boundary, so the stream is padded with zeros up to the next one.
+                    // Skip the padding and carry on, rather than treating it as the end of the stream.
+                    long nextBlock = (offset / BLOCK_SIZE + 1) * BLOCK_SIZE;
+
+                    if (nextBlock >= streamLength) {
+                        break;
+                    }
+
+                    offset = nextBlock;
+                    continue;
                 }
 
-                entries.add(entry);
+                // Each descriptor is written twice, the mirror a block after the original and identical to it down
+                // to the offset it records for itself, so hand back one of each rather than both.
+                if (seen.add(identity(entry))) {
+                    entries.add(entry);
+                }
+
                 offset += entry.getLength();
             }
         }
 
         return entries;
+    }
+
+    /**
+     * Gets a value that distinguishes one security descriptor from another, but not a descriptor from its mirror.
+     *
+     * @param entry the entry.
+     * @return the identity of the descriptor the entry holds.
+     */
+    private static long identity(SecurityDescriptorStreamEntry entry) {
+        return (long) entry.getSecurityId() << 32 | entry.getOffsetToEntry() & 0xFFFFFFFFL;
     }
 
     /**
@@ -88,12 +126,21 @@ public class SecurityDescriptorStream {
      * @throws java.io.IOException if an error occurs reading the entry.
      */
     public SecurityDescriptorStreamEntry readOneEntry(long offset) throws IOException {
+        long streamLength = sdsFile.getLength();
+
+        // Not enough room left for the fixed part of an entry header
+        if (offset + HEADER_SIZE > streamLength) {
+            return null;
+        }
+
         // First read in the size of the entry
         byte[] sizeBuffer = new byte[0x4];
         sdsFile.read(offset + 0x10, ByteBuffer.wrap(sizeBuffer));
         int size = LittleEndian.getInt32(sizeBuffer, 0);
 
-        if (size == 0) {
+        // A zero size is the padding at the end of a block. A size that is negative, smaller than the header or
+        // longer than what is left of the stream means the entry is not usable either.
+        if (size <= HEADER_SIZE || offset + size > streamLength) {
             return null;
         }
 

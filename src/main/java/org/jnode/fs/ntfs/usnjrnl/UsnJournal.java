@@ -20,12 +20,14 @@
  
 package org.jnode.fs.ntfs.usnjrnl;
 
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.jnode.fs.ntfs.NTFSStructure;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Items related to the USN journal file ($Extend\$UsnJrnl).
@@ -33,6 +35,43 @@ import org.jnode.fs.ntfs.NTFSStructure;
  * @author Luke Quinane
  */
 public class UsnJournal {
+
+    private static final Logger log = LoggerFactory.getLogger(UsnJournal.class);
+
+    /**
+     * Reads the file name out of a USN record.
+     *
+     * <p>The stored offset and size are taken straight off disk. Records recovered from the unallocated tail of
+     * $UsnJrnl:$J routinely carry junk in these fields, which would otherwise splice a neighbouring record's bytes
+     * into the name or read past the end of the journal buffer.</p>
+     *
+     * @param record            the record to read from.
+     * @param recordSize        the size the record records for itself.
+     * @param fixedHeaderLength the length of the record's fixed part, which the name has to start after.
+     * @param nameOffset        the stored offset to the name, relative to the start of the record.
+     * @param nameSize          the stored size of the name in bytes.
+     * @return the file name, or an empty string if the stored offset or size is not usable.
+     */
+    static String readFileName(NTFSStructure record, long recordSize, int fixedHeaderLength, int nameOffset,
+                               int nameSize) {
+        long available = Math.min(recordSize, record.getBuffer().length - (long) record.getOffset());
+
+        if (nameOffset < fixedHeaderLength || nameSize < 0 || nameOffset > available ||
+            nameSize > available - nameOffset) {
+            log.debug("Ignoring a USN record file name at offset {} of size {}; only {} bytes are readable",
+                nameOffset, nameSize, available);
+            return "";
+        }
+
+        byte[] buffer = new byte[nameSize];
+        record.getData(nameOffset, buffer, 0, buffer.length);
+
+        try {
+            return new String(buffer, "UTF-16LE");
+        } catch (UnsupportedEncodingException e) {
+            throw new IllegalStateException("UTF-16LE charset missing from JRE", e);
+        }
+    }
 
     /**
      * Gets the major version for a USN record entry.
@@ -87,7 +126,7 @@ public class UsnJournal {
             for (Map.Entry<Long, String> entry : attributeMap.entrySet()) {
                 if ((value & entry.getKey()) != 0) {
                     reasons.add(entry.getValue());
-                    value -= entry.getKey();
+                    value &= ~entry.getKey();
                 }
             }
 
@@ -111,9 +150,8 @@ public class UsnJournal {
         public static final long COMPRESSED = register(0x800, "compressed");
         public static final long OFFLINE = register(0x1000, "offline");
         public static final long NOT_INDEXED = register(0x2000, "not-indexed");
+        public static final long ENCRYPTED = register(0x4000, "encrypted");
         public static final long VIRTUAL = register(0x10000, "virtual");
-
-        public static final long ENCRYPTED = register(0x3FFF, "encrypted");
     }
 
     /**
@@ -123,7 +161,7 @@ public class UsnJournal {
         /**
          * The lookup map for reasons.
          */
-        private static final Map<Long, String> reasonMap = new HashMap<Long, String>();
+        private static final Map<Long, String> reasonMap = new LinkedHashMap<Long, String>();
 
         /**
          * Registers a value in the map.
@@ -149,7 +187,7 @@ public class UsnJournal {
             for (Map.Entry<Long, String> entry : reasonMap.entrySet()) {
                 if ((value & entry.getKey()) != 0) {
                     reasons.add(entry.getValue());
-                    value -= entry.getKey();
+                    value &= ~entry.getKey();
                 }
             }
 
@@ -161,34 +199,34 @@ public class UsnJournal {
         }
 
         /**
-         * Data in one or more data streams was overwritten.
+         * The data in the file or directory was overwritten (USN_REASON_DATA_OVERWRITE).
          */
-        public static final long DATA_WRITE = register(0x1, "data-write");
+        public static final long DATA_OVERWRITE = register(0x1, "data-overwrite");
 
         /**
-         * File or directory added.
+         * The file or directory was extended, i.e. added to (USN_REASON_DATA_EXTEND).
          */
-        public static final long FS_ENTRY_ADDED = register(0x2, "fs-entry-added");
+        public static final long DATA_EXTEND = register(0x2, "data-extend");
 
         /**
-         * File or directory truncated.
+         * The file or directory was truncated (USN_REASON_DATA_TRUNCATION).
          */
-        public static final long FS_ENTRY_TRUNCATED = register(0x4, "fs-entry-truncated");
+        public static final long DATA_TRUNCATION = register(0x4, "data-truncation");
 
         /**
-         * Data in one or more data streams was overwritten. Alternate value.
+         * The data in one or more named data streams was overwritten (USN_REASON_NAMED_DATA_OVERWRITE).
          */
-        public static final long DATA_WRITE_ALT = register(0x10, "data-write-alt");
+        public static final long NAMED_DATA_OVERWRITE = register(0x10, "named-data-overwrite");
 
         /**
-         * Data in one or more data streams was appended to.
+         * One or more named data streams were extended, i.e. added to (USN_REASON_NAMED_DATA_EXTEND).
          */
-        public static final long DATA_APPEND = register(0x20, "data-append");
+        public static final long NAMED_DATA_EXTEND = register(0x20, "named-data-extend");
 
         /**
-         * Data in one or more data streams was truncated.
+         * One or more named data streams were truncated (USN_REASON_NAMED_DATA_TRUNCATION).
          */
-        public static final long DATA_TRUNCATED = register(0x40, "data-truncated");
+        public static final long NAMED_DATA_TRUNCATION = register(0x40, "named-data-truncation");
 
         /**
          * File or directory created.
@@ -261,9 +299,56 @@ public class UsnJournal {
         public static final long DATA_STREAM_ALTERED = register(0x200000, "data-stream-altered");
 
         /**
+         * The stream was modified through a TxF transaction (USN_REASON_TRANSACTED_CHANGE).
+         */
+        public static final long TRANSACTED_CHANGE = register(0x400000, "transacted-change");
+
+        /**
+         * The state of the FILE_ATTRIBUTE_INTEGRITY_STREAM attribute changed (USN_REASON_INTEGRITY_CHANGE).
+         */
+        public static final long INTEGRITY_CHANGE = register(0x800000, "integrity-change");
+
+        /**
          * The file or directory was closed.
          */
         public static final long FS_ENTRY_CLOSED = register(0x80000000L, "fs-entry-closed");
+
+        /**
+         * @deprecated renamed to {@link #DATA_OVERWRITE} to match USN_REASON_DATA_OVERWRITE.
+         */
+        @Deprecated
+        public static final long DATA_WRITE = DATA_OVERWRITE;
+
+        /**
+         * @deprecated renamed to {@link #DATA_EXTEND} to match USN_REASON_DATA_EXTEND. The old name described this
+         *     as the file being added to the file system, which is what {@link #FS_ENTRY_CREATED} means.
+         */
+        @Deprecated
+        public static final long FS_ENTRY_ADDED = DATA_EXTEND;
+
+        /**
+         * @deprecated renamed to {@link #DATA_TRUNCATION} to match USN_REASON_DATA_TRUNCATION.
+         */
+        @Deprecated
+        public static final long FS_ENTRY_TRUNCATED = DATA_TRUNCATION;
+
+        /**
+         * @deprecated renamed to {@link #NAMED_DATA_OVERWRITE} to match USN_REASON_NAMED_DATA_OVERWRITE.
+         */
+        @Deprecated
+        public static final long DATA_WRITE_ALT = NAMED_DATA_OVERWRITE;
+
+        /**
+         * @deprecated renamed to {@link #NAMED_DATA_EXTEND} to match USN_REASON_NAMED_DATA_EXTEND.
+         */
+        @Deprecated
+        public static final long DATA_APPEND = NAMED_DATA_EXTEND;
+
+        /**
+         * @deprecated renamed to {@link #NAMED_DATA_TRUNCATION} to match USN_REASON_NAMED_DATA_TRUNCATION.
+         */
+        @Deprecated
+        public static final long DATA_TRUNCATED = NAMED_DATA_TRUNCATION;
     }
 
     /**
@@ -284,5 +369,10 @@ public class UsnJournal {
          * The change was related to the replication service.
          */
         public static final int REPLICATION = 0x4;
+
+        /**
+         * The operation is modifying a file on a client system to match the copy in the cloud.
+         */
+        public static final int CLIENT_REPLICATION = 0x8;
     }
 }

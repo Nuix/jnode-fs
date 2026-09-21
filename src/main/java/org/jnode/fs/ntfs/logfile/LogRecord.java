@@ -64,6 +64,13 @@ public class LogRecord extends NTFSStructure {
      * @return {@code true} if valid.
      */
     public boolean isValid() {
+        // LogFile.parseRecords works the offset out as a long and narrows it, so a corrupt or unexpected page can
+        // put a record outside the buffer - or, once the narrowing overflows, before it.
+        int offset = getOffset();
+        if (offset < 0 || offset + HEADER_SIZE > getBuffer().length) {
+            return false;
+        }
+
         return getLsn() != 0;
     }
 
@@ -140,20 +147,82 @@ public class LogRecord extends NTFSStructure {
     }
 
     /**
+     * Maps an offset within this record to its absolute position in the buffer.
+     *
+     * <p>A record that runs past the end of its page continues in the data area of the next page, past that page's
+     * header, so once the offset passes the page boundary the mapping is no longer a simple addition.</p>
+     *
+     * @param offset the offset to the field in this structure.
+     * @return the absolute position in the buffer.
+     */
+    private int resolveAcrossPages(int offset) {
+        int position = getOffset();
+        int remaining = offset;
+
+        while (position >= 0) {
+            int spaceLeftInPage = pageSize - position % pageSize;
+
+            if (remaining < spaceLeftInPage) {
+                return position + remaining;
+            }
+
+            remaining -= spaceLeftInPage;
+            position = nextPageDataStart(position);
+        }
+
+        return -1;
+    }
+
+    /**
+     * Gets the absolute position of the data area of the page after the one holding a given position.
+     *
+     * @param position the absolute position in the buffer.
+     * @return the absolute position of the next page's data area.
+     */
+    private int nextPageDataStart(int position) {
+        int nextPage = position - position % pageSize + pageSize;
+
+        if (nextPage >= getBuffer().length) {
+            // Wrap back around to the start of the 'normal' area
+            nextPage = LogFile.NORMAL_AREA_START * pageSize;
+        }
+
+        int start = nextPage + logPageDataOffset;
+
+        // The wrap only helps if the normal area is actually in the buffer. On one no longer than the normal area
+        // itself - a truncated or synthetic $LogFile - it lands past the end, so there is nowhere to continue.
+        return start < getBuffer().length ? start : -1;
+    }
+
+    /**
+     * Gets an unsigned 8-bit integer which may or may not be past the log file page boundary.
+     *
+     * @param offset the offset to the field in this structure.
+     * @return the value.
+     */
+    private int getUInt8AcrossPages(int offset) {
+        byte[] buffer = getBuffer();
+        int position = resolveAcrossPages(offset);
+
+        // A field that the buffer does not reach reads as zero rather than throwing; a record that runs off the
+        // end of the log is rejected by isValid() before its fields are of any interest.
+        return position < 0 || position >= buffer.length ? 0 : buffer[position] & 0xFF;
+    }
+
+    /**
      * Gets an unsigned 16-bit integer which may or may not cross the log file page boundary.
      *
      * @param offset the offset to the field in this structure.
      * @return the value.
      */
     protected int getUInt16AcrossPages(int offset) {
-        if (getCrossesPage()) {
-            int offsetWithinPage = getOffset() % pageSize + offset;
-            if (offsetWithinPage + 2 > pageSize) {
-                return getUInt16(offsetWithinPage + logPageDataOffset);
-            }
+        if (!getCrossesPage()) {
+            return getUInt16(offset);
         }
 
-        return getUInt16(offset);
+        // Assembled a byte at a time so that a field straddling the boundary picks up each half from the page it
+        // actually lives on.
+        return getUInt8AcrossPages(offset) | getUInt8AcrossPages(offset + 1) << 8;
     }
 
     /**
@@ -163,14 +232,11 @@ public class LogRecord extends NTFSStructure {
      * @return the value.
      */
     protected long getUInt32AcrossPages(int offset) {
-        if (getCrossesPage()) {
-            int offsetWithinPage = getOffset() % pageSize + offset;
-            if (offsetWithinPage + 4 > pageSize) {
-                return getUInt32(offsetWithinPage + logPageDataOffset);
-            }
+        if (!getCrossesPage()) {
+            return getUInt32(offset);
         }
 
-        return getUInt32(offset);
+        return getUInt16AcrossPages(offset) | (long) getUInt16AcrossPages(offset + 2) << 16;
     }
 
     /**
@@ -182,33 +248,32 @@ public class LogRecord extends NTFSStructure {
      * @param length the length.
      */
     public final void getDataAcrossPages(int offset, byte[] dst, int dstOffset, int length) {
-        if (getCrossesPage()) {
-            int baseOffset = getOffset() + offset;
-            int offsetWithinPage = baseOffset % pageSize;
-            int pageOffset = baseOffset / pageSize;
-
-            while (length > 0) {
-                if (pageOffset > getBuffer().length) {
-                    // Wrap back around to the start of the 'normal' area
-                    pageOffset = LogFile.NORMAL_AREA_START * pageSize;
-                }
-
-                int endOffset = Math.min(offsetWithinPage + length, pageSize);
-                int readLength = endOffset - offsetWithinPage;
-                getData(pageOffset + offsetWithinPage, dst, dstOffset, readLength);
-
-                length -= readLength;
-                offsetWithinPage += readLength;
-                dstOffset += readLength;
-
-                if (offsetWithinPage >= pageSize || readLength == 0) {
-                    offsetWithinPage = logPageDataOffset;
-                    pageOffset += pageSize;
-                }
-            }
+        if (!getCrossesPage()) {
+            getData(offset, dst, dstOffset, length);
+            return;
         }
 
-        getData(offset, dst, dstOffset, length);
+        // The positions worked out here are absolute in the buffer, not relative to this record, so the copies are
+        // made against the buffer directly rather than through getData().
+        final byte[] buffer = getBuffer();
+        int position = resolveAcrossPages(offset);
+
+        while (length > 0) {
+            if (position < 0 || position >= buffer.length) {
+                // Nowhere valid left to read from, so the rest of the destination is left as it was
+                break;
+            }
+
+            int readLength = Math.min(length, Math.min(pageSize - position % pageSize, buffer.length - position));
+
+            System.arraycopy(buffer, position, dst, dstOffset, readLength);
+
+            length -= readLength;
+            dstOffset += readLength;
+
+            // Anything left continues in the data area of the next page, past its header
+            position = nextPageDataStart(position);
+        }
     }
 
     /**
