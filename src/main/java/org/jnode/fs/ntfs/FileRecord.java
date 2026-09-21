@@ -620,9 +620,14 @@ public class FileRecord extends NTFSRecord {
         // Limit to the initialised size for compressed attributes
         limitToInitialised = limitToInitialised || attr.isCompressedAttribute();
 
-        // Grab the initialised size (if that is itself initialised)
-        long initialisedSize = ((NTFSNonResidentAttribute) attr).getAttributeInitializedSize();
-        if (initialisedSize == 0) {
+        NTFSNonResidentAttribute nresData = (NTFSNonResidentAttribute) attr;
+        long initialisedSize = nresData.getAttributeInitializedSize();
+
+        // Only the fragment that starts at VCN 0 records the sizes; the fragments continuing a split attribute
+        // carry zero in all three of them. A zero there means 'not recorded' and there is nothing to limit to, but
+        // a zero on the first fragment means the attribute holds no initialised data at all, so the whole of it
+        // reads as zeros.
+        if (initialisedSize == 0 && nresData.getStartVCN() != 0) {
             limitToInitialised = false;
         }
 
@@ -640,8 +645,6 @@ public class FileRecord extends NTFSRecord {
         }
 
         byte[] tmp = new byte[nrClusters * clusterSize];
-
-        NTFSNonResidentAttribute nresData = (NTFSNonResidentAttribute) attr;
 
         int clustersRead = nresData.readVCN(startCluster, tmp, 0, clustersToRead);
 

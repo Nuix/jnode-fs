@@ -1,12 +1,11 @@
 package org.jnode.fs.ntfs;
 
-import java.io.File;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.jnode.driver.block.FileDevice;
+import org.jnode.driver.block.TestImageDevice;
 import org.jnode.fs.FSFile;
 import org.jnode.fs.FileSystemTestUtils;
 import org.jnode.fs.ntfs.security.SecurityDescriptorStream;
@@ -39,15 +38,13 @@ public class NTFSLargeSecurityStreamTest {
 
     private static final long BLOCK_SIZE = 0x40000;
 
-    private static File testFile;
-    private static FileDevice device;
+    private static TestImageDevice device;
     private static NTFSFile.StreamFile sds;
 
     @BeforeClass
     public static void setUpClass() throws Exception {
         FileSystemService fss = FileSystemTestUtils.createFSService(NTFSFileSystemType.class.getName());
-        testFile = FileSystemTestUtils.getTestFile(IMAGE);
-        device = new FileDevice(testFile, "r");
+        device = FileSystemTestUtils.openImage(IMAGE);
         NTFSFileSystem fs = fss.getFileSystemType(NTFSFileSystemType.ID).create(device, true);
 
         FileRecord secure = fs.getNTFSVolume().getMFT().getRecord(MasterFileTable.SystemFiles.SECURE);
@@ -60,9 +57,6 @@ public class NTFSLargeSecurityStreamTest {
         sds = null;
         if (device != null) {
             device.close();
-        }
-        if (testFile != null) {
-            testFile.delete();
         }
     }
 

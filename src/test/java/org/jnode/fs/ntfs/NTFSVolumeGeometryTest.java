@@ -4,7 +4,7 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
-import org.jnode.driver.block.FileDevice;
+import org.jnode.driver.block.TestImageDevice;
 import org.jnode.fs.FSFile;
 import org.jnode.fs.FileSystemTestUtils;
 import org.jnode.fs.service.FileSystemService;
@@ -85,9 +85,7 @@ public class NTFSVolumeGeometryTest {
     private static void assertVolume(String image, int bytesPerSector, int sectorsPerCluster, int clusterSize)
         throws Exception {
 
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/ntfs/" + image + ".raw");
-
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        try (TestImageDevice device = FileSystemTestUtils.openImage("org/jnode/fs/ntfs/" + image + ".raw")) {
             FileSystemService fss = FileSystemTestUtils.createFSService(NTFSFileSystemType.class.getName());
             NTFSFileSystem fs = fss.getFileSystemType(NTFSFileSystemType.ID).create(device, true);
 
@@ -105,8 +103,6 @@ public class NTFSVolumeGeometryTest {
             hello.read(0, buffer);
 
             assertThat(image + " file content", buffer.array(), is(expected));
-        } finally {
-            testFile.delete();
         }
     }
 

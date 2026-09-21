@@ -1,13 +1,12 @@
 package org.jnode.fs.ntfs;
 
-import java.io.File;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.jnode.driver.block.FileDevice;
+import org.jnode.driver.block.TestImageDevice;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.FSFile;
 import org.jnode.fs.FileSystemTestUtils;
@@ -27,15 +26,13 @@ import static org.hamcrest.Matchers.*;
  */
 public class NTFSImageStructureTest {
 
-    private static File testFile;
-    private static FileDevice device;
+    private static TestImageDevice device;
     private static NTFSFileSystem fs;
 
     @BeforeClass
     public static void setUpClass() throws Exception {
         FileSystemService fss = FileSystemTestUtils.createFSService(NTFSFileSystemType.class.getName());
-        testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/ntfs/complex-compression.dd");
-        device = new FileDevice(testFile, "r");
+        device = FileSystemTestUtils.openImage("org/jnode/fs/ntfs/complex-compression.dd");
         fs = fss.getFileSystemType(NTFSFileSystemType.ID).create(device, true);
     }
 
@@ -43,9 +40,6 @@ public class NTFSImageStructureTest {
     public static void tearDownClass() {
         if (device != null) {
             device.close();
-        }
-        if (testFile != null) {
-            testFile.delete();
         }
     }
 

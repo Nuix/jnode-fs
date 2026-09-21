@@ -1,11 +1,10 @@
 package org.jnode.fs.ntfs;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.jnode.driver.block.FileDevice;
+import org.jnode.driver.block.TestImageDevice;
 import org.jnode.fs.FileSystemTestUtils;
 import org.jnode.fs.ntfs.attribute.NTFSAttribute;
 import org.jnode.fs.ntfs.attribute.ReparsePointAttribute;
@@ -41,15 +40,13 @@ public class NTFSReparsePointImageTest {
 
     private static final String IMAGE = "org/jnode/fs/ntfs/ntfs-reparse-nonresident.raw";
 
-    private static File testFile;
-    private static FileDevice device;
+    private static TestImageDevice device;
     private static NTFSFileSystem fs;
 
     @BeforeClass
     public static void setUpClass() throws Exception {
         FileSystemService fss = FileSystemTestUtils.createFSService(NTFSFileSystemType.class.getName());
-        testFile = FileSystemTestUtils.getTestFile(IMAGE);
-        device = new FileDevice(testFile, "r");
+        device = FileSystemTestUtils.openImage(IMAGE);
         fs = fss.getFileSystemType(NTFSFileSystemType.ID).create(device, true);
     }
 
@@ -58,9 +55,6 @@ public class NTFSReparsePointImageTest {
         fs = null;
         if (device != null) {
             device.close();
-        }
-        if (testFile != null) {
-            testFile.delete();
         }
     }
 
