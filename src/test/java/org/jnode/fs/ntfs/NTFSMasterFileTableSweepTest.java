@@ -1,7 +1,5 @@
 package org.jnode.fs.ntfs;
 
-import java.io.File;
-import java.nio.file.Files;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +19,7 @@ import static org.hamcrest.Matchers.*;
  * <p>The rest of the corpus is small purpose-built volumes; this is the master file table of a working Windows XP
  * machine, 12,305 records with the attribute mix that accumulates on a real system. It is the $MFT of the NIST
  * CFReDS Hacking Case, extracted from the published {@code SCHARDT.001-008} raw image with
- * {@code extract_mft.py}. Works of NIST employees are not subject to copyright in the United States; note though
+ * {@code scripts/extract_mft.py}. Works of NIST employees are not subject to copyright in the United States; note though
  * that the image it came from is of a Windows XP install, so it is only the file <em>metadata</em> that is
  * reproduced here, not the content of any file on it.</p>
  *
@@ -42,12 +40,7 @@ public class NTFSMasterFileTableSweepTest {
 
     @BeforeClass
     public static void setUpClass() throws Exception {
-        File testFile = FileSystemTestUtils.getTestFile(IMAGE);
-        try {
-            mft = Files.readAllBytes(testFile.toPath());
-        } finally {
-            testFile.delete();
-        }
+        mft = FileSystemTestUtils.readImage(IMAGE);
     }
 
     @AfterClass

@@ -2,6 +2,7 @@ package org.jnode.fs;
 
 import java.io.*;
 import java.nio.file.Files;
+import org.jnode.driver.block.TestImageDevice;
 import java.nio.file.Paths;
 import java.util.zip.GZIPInputStream;
 import javax.annotation.Nonnull;
@@ -11,7 +12,8 @@ public class FileSystemTestUtils {
     /**
      * Gets a copy of the test file from the resources folder. If the test file is gzipped,
      * the decompressed version of the test file is returned. It is up to the caller to
-     * delete the file when complete.
+     * delete the file when complete - prefer {@link #openImage(String)}, which ties the
+     * copy's life to the device and cleans up on close.
      *
      * @param path the path to the test file.
      * @return a copy of the test file.
@@ -46,6 +48,50 @@ public class FileSystemTestUtils {
             tempFile.delete();
             throw e;
         }
+    }
+
+    /**
+     * Opens a test image as a block device.
+     *
+     * <p>The image is decompressed to a temporary file which the device deletes when it is closed, so callers
+     * only need a try-with-resources rather than a try/finally that remembers to clean up.</p>
+     *
+     * @param path the path to the test file, without any .gz suffix.
+     * @return the device.
+     * @throws IOException if the image cannot be read.
+     */
+    public static TestImageDevice openImage(String path) throws IOException {
+        return new TestImageDevice(getTestFile(path));
+    }
+
+    /**
+     * Reads a test image straight into memory, with no temporary file.
+     *
+     * <p>Suitable for the smaller images and for bare structures such as an $MFT, which are read as a byte array
+     * rather than opened as a device. Do not use it for the volume images, which run to hundreds of megabytes
+     * once expanded.</p>
+     *
+     * @param path the path to the test file, without any .gz suffix.
+     * @return the decompressed contents.
+     * @throws IOException if the image cannot be read.
+     */
+    public static byte[] readImage(String path) throws IOException {
+        File resourceFile = new File("src/test/resources/", path).getAbsoluteFile();
+        File gzipFile = new File(resourceFile.getParent(), resourceFile.getName() + ".gz");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        try (InputStream in = gzipFile.isFile()
+                ? new GZIPInputStream(new FileInputStream(gzipFile))
+                : new FileInputStream(resourceFile)) {
+
+            byte[] buffer = new byte[32768];
+            int length;
+            while ((length = in.read(buffer)) > 0) {
+                out.write(buffer, 0, length);
+            }
+        }
+
+        return out.toByteArray();
     }
 
     public static FileSystemService createFSService(String className) {

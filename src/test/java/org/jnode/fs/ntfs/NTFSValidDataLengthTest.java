@@ -2,7 +2,7 @@ package org.jnode.fs.ntfs;
 
 import java.io.File;
 
-import org.jnode.driver.block.FileDevice;
+import org.jnode.driver.block.TestImageDevice;
 import org.jnode.fs.FileSystemTestUtils;
 import org.jnode.fs.ntfs.attribute.NTFSAttribute;
 import org.jnode.fs.ntfs.attribute.NTFSNonResidentAttribute;
@@ -41,10 +41,8 @@ public class NTFSValidDataLengthTest {
 
     @Test
     public void testReadPastValidDataLengthReturnsZeros() throws Exception {
-        // The image decompresses to 419 MB and getTestFile leaves deleting the copy to the caller
-        File testFile = FileSystemTestUtils.getTestFile("org/jnode/fs/ntfs/complex-compression.dd");
-
-        try (FileDevice device = new FileDevice(testFile, "r")) {
+        // The image decompresses to 419 MB; the device deletes its copy on close
+        try (TestImageDevice device = FileSystemTestUtils.openImage("org/jnode/fs/ntfs/complex-compression.dd")) {
             NTFSFileSystemType type = fss.getFileSystemType(NTFSFileSystemType.ID);
             NTFSFileSystem fs = type.create(device, true);
             MasterFileTable mft = fs.getNTFSVolume().getMFT();
@@ -75,8 +73,6 @@ public class NTFSValidDataLengthTest {
                     }
                 }
             }
-        } finally {
-            testFile.delete();
         }
     }
 }
