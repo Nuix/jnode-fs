@@ -86,6 +86,68 @@ public class NTFSAttributeWalkTest {
     }
 
     /**
+     * Builds a record whose only attribute starts so close to the end that the type field fits but the header does
+     * not. The used and allocated sizes are left at zero, as they are on a record recovered from unallocated space,
+     * so the walk has nothing but the buffer to bound itself with.
+     *
+     * @param attributeOffset the offset to start the attribute at.
+     * @param nonResident     whether to flag the attribute as non-resident, which has a longer header.
+     * @return the record buffer.
+     */
+    private static byte[] recordWithAttributeAtTheEnd(int attributeOffset, boolean nonResident) {
+        byte[] buffer = new byte[RECORD_SIZE];
+        System.arraycopy("FILE".getBytes(java.nio.charset.StandardCharsets.US_ASCII), 0, buffer, 0, 4);
+        LittleEndian.setInt16(buffer, 0x04, 0x30);   // fix-up offset
+        LittleEndian.setInt16(buffer, 0x06, 1);      // no fix-ups
+        LittleEndian.setInt16(buffer, 0x14, attributeOffset);
+        LittleEndian.setInt16(buffer, 0x16, 0x01);   // in use
+
+        LittleEndian.setInt32(buffer, attributeOffset, 0x30);   // $FILE_NAME, not the end of list marker
+
+        // The residency flag is itself past the end of the record in the tightest case, which is the point
+        if (attributeOffset + 0x08 < buffer.length) {
+            buffer[attributeOffset + 0x08] = (byte) (nonResident ? 1 : 0);
+        }
+
+        return buffer;
+    }
+
+    /**
+     * An attribute whose four byte type field is the last thing in the record has no room for the rest of its
+     * header. Reading it anyway runs off the end of the buffer, since building an attribute reads out to 0x18 for a
+     * resident one.
+     */
+    @Test
+    public void testAttributeWithNoRoomForItsHeaderIsNotRead() throws Exception {
+        // Arrange: four bytes of room left, which is enough for the type but not for the header
+        byte[] buffer = recordWithAttributeAtTheEnd(RECORD_SIZE - 4, false);
+
+        // Act
+        List<NTFSAttribute> attributes = new FileRecord(null, RECORD_SIZE, false, 1, buffer, 0)
+            .readStoredAttributes();
+
+        // Assert
+        assertThat(attributes, is(empty()));
+    }
+
+    /**
+     * A non-resident header is 0x40 bytes, so there is a range of offsets where a resident attribute would fit but
+     * a non-resident one does not.
+     */
+    @Test
+    public void testNonResidentAttributeWithNoRoomForItsHeaderIsNotRead() throws Exception {
+        // Arrange: 0x20 bytes of room, enough for a resident header but not for a non-resident one
+        byte[] buffer = recordWithAttributeAtTheEnd(RECORD_SIZE - 0x20, true);
+
+        // Act
+        List<NTFSAttribute> attributes = new FileRecord(null, RECORD_SIZE, false, 1, buffer, 0)
+            .readStoredAttributes();
+
+        // Assert
+        assertThat(attributes, is(empty()));
+    }
+
+    /**
      * A record with no end of list marker at all must stop at the end of the record rather than running off the
      * end of the buffer.
      */

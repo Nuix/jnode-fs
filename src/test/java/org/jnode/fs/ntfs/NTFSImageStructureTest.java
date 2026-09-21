@@ -2,8 +2,10 @@ package org.jnode.fs.ntfs;
 
 import java.io.File;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.jnode.driver.block.FileDevice;
 import org.jnode.fs.FSEntry;
@@ -49,36 +51,41 @@ public class NTFSImageStructureTest {
 
     /**
      * $Secure:$SDS is laid out in 256 KiB blocks with no entry crossing a boundary, so the remainder of a block is
-     * zero padded. Treating that padding as the end of the stream stopped enumeration at the first gap.
+     * zero padded. Enumeration has to step over that padding rather than treat it as the end of the stream, since a
+     * volume with more than a block of descriptors carries on in the next one.
      *
-     * <p>On this volume there are 9 distinct descriptors, written at the start of the stream and mirrored at
-     * 0x40000, so all 18 should be enumerated.</p>
+     * <p>Every descriptor is also written twice, the mirror a block after the original, so stepping over the
+     * padding reaches the mirrors. Those are the same descriptors and must not be handed back a second time.</p>
      */
     @Test
-    public void testSecurityDescriptorStreamSkipsBlockPadding() throws Exception {
+    public void testSecurityDescriptorStreamSkipsBlockPaddingWithoutRepeatingTheMirror() throws Exception {
         // Arrange
         FileRecord secure = fs.getNTFSVolume().getMFT().getRecord(MasterFileTable.SystemFiles.SECURE);
         Map<String, FSFile> streams = new NTFSFile(fs, secure).getStreams();
         assertThat(streams.keySet(), hasItem("$SDS"));
+        NTFSFile.StreamFile sdsFile = (NTFSFile.StreamFile) streams.get("$SDS");
+
+        // Guard the pre-condition: the stream really does run past the first 256 KiB block, i.e. it holds the
+        // mirror, so that the assertions below are not vacuous
+        assertThat("the stream should extend past the first block", sdsFile.getLength(), is(greaterThan(0x40000L)));
+        assertThat("the mirror of the first descriptor should be at 0x40000",
+            new SecurityDescriptorStream(sdsFile).readOneEntry(0x40000).getSecurityId(), is(256));
 
         // Act
-        SecurityDescriptorStream sds =
-            new SecurityDescriptorStream((NTFSFile.StreamFile) streams.get("$SDS"));
-        List<SecurityDescriptorStreamEntry> entries = sds.getEntries();
+        List<SecurityDescriptorStreamEntry> entries = new SecurityDescriptorStream(sdsFile).getEntries();
 
-        // Assert
-        assertThat(entries, hasSize(18));
+        // Assert: the 9 distinct descriptors on this volume, each once
+        assertThat(entries, hasSize(9));
 
-        // The first entry of each 256 KiB block records its own offset within the block
-        assertThat(entries.get(0).getSecurityId(), is(256));
-        assertThat(entries.get(0).getOffsetToEntry(), is(0));
-        assertThat(entries.get(9).getSecurityId(), is(256));
-        assertThat(entries.get(9).getOffsetToEntry(), is(0));
-
+        Set<Integer> securityIds = new LinkedHashSet<>();
         for (SecurityDescriptorStreamEntry entry : entries) {
             assertThat("every entry should carry a security descriptor",
                 entry.getSecurityDescriptor().getRevision(), is(1));
+            assertThat("duplicate security id " + entry.getSecurityId(),
+                securityIds.add(entry.getSecurityId()), is(true));
         }
+
+        assertThat(securityIds, contains(256, 257, 258, 259, 260, 261, 262, 263, 264));
     }
 
     /**

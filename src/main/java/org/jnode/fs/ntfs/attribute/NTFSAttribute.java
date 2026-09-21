@@ -21,7 +21,6 @@
 package org.jnode.fs.ntfs.attribute;
 
 import lombok.Getter;
-import org.jetbrains.annotations.TestOnly;
 import org.jnode.fs.ntfs.FileNameAttribute;
 import org.jnode.fs.ntfs.FileRecord;
 import org.jnode.fs.ntfs.NTFSStructure;
@@ -99,6 +98,26 @@ public abstract class NTFSAttribute extends NTFSStructure {
         }
     }
 
+    /**
+     * The length of the part of the attribute header that resident and non-resident attributes share.
+     */
+    public static final int COMMON_HEADER_LENGTH = 0x10;
+
+    /**
+     * The length of a resident attribute's header.
+     */
+    public static final int RESIDENT_HEADER_LENGTH = 0x18;
+
+    /**
+     * The length of a non-resident attribute's header.
+     */
+    public static final int NON_RESIDENT_HEADER_LENGTH = 0x40;
+
+    /**
+     * The length of a compressed non-resident attribute's header, which carries the compressed size as well.
+     */
+    public static final int COMPRESSED_NON_RESIDENT_HEADER_LENGTH = 0x48;
+
     private final Types type;
 
     /**
@@ -119,14 +138,6 @@ public abstract class NTFSAttribute extends NTFSStructure {
     public NTFSAttribute(FileRecord fileRecord, int offset) {
         super(fileRecord, offset);
         this.fileRecord = fileRecord;
-        this.type = Types.fromValue(getUInt32AsInt(0));
-        this.flags = getUInt16(0x0C);
-    }
-
-    @TestOnly
-    public NTFSAttribute(NTFSStructure ntfsStructure, int offset) {
-        super(ntfsStructure, offset);
-        this.fileRecord = null;
         this.type = Types.fromValue(getUInt32AsInt(0));
         this.flags = getUInt16(0x0C);
     }
@@ -219,6 +230,25 @@ public abstract class NTFSAttribute extends NTFSStructure {
      * @return the debug string.
      */
     public abstract String toDebugString();
+
+    /**
+     * Gets the number of bytes the header of the attribute at a given offset occupies.
+     *
+     * <p>Callers use this to check that a whole header is present before building the attribute, so only the first
+     * {@link #COMMON_HEADER_LENGTH} bytes need to be readable to call it.</p>
+     *
+     * @param fileRecord the containing file record.
+     * @param offset     the offset to the attribute.
+     * @return the length of the header in bytes.
+     */
+    public static int getHeaderLength(FileRecord fileRecord, int offset) {
+        if (fileRecord.getUInt8(offset + 0x08) == 0) {
+            return RESIDENT_HEADER_LENGTH;
+        }
+
+        boolean compressed = (fileRecord.getUInt16(offset + 0x0C) & 0x0001) != 0;
+        return compressed ? COMPRESSED_NON_RESIDENT_HEADER_LENGTH : NON_RESIDENT_HEADER_LENGTH;
+    }
 
     /**
      * Create an NTFSAttribute instance suitable for the given attribute data.

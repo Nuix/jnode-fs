@@ -20,7 +20,6 @@
  
 package org.jnode.fs.ntfs.usnjrnl;
 
-import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import org.jnode.fs.ntfs.FileId128;
 import org.jnode.fs.ntfs.NTFSStructure;
@@ -32,6 +31,11 @@ import org.jnode.fs.ntfs.NTFSUTIL;
  * @author Luke Quinane
  */
 public class UsnRecordV3 extends NTFSStructure implements UsnRecordV2V3<FileId128> {
+
+    /**
+     * The length of the fixed part of the record; the file name starts after it.
+     */
+    private static final int FIXED_HEADER_LENGTH = 0x4c;
 
     /**
      * Creates a new journal entry at the given offset.
@@ -112,14 +116,7 @@ public class UsnRecordV3 extends NTFSStructure implements UsnRecordV2V3<FileId12
 
     @Override
     public String getFileName() {
-        byte[] buffer = new byte[getFileNameSize()];
-        getData(getFileNameOffset(), buffer, 0, buffer.length);
-
-        try {
-            return new String(buffer, "UTF-16LE");
-        } catch (UnsupportedEncodingException e) {
-            throw new IllegalStateException("UTF-16LE charset missing from JRE", e);
-        }
+        return UsnJournal.readFileName(this, getSize(), FIXED_HEADER_LENGTH, getFileNameOffset(), getFileNameSize());
     }
 
     @Override

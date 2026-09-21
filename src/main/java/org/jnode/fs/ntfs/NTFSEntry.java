@@ -190,9 +190,13 @@ public class NTFSEntry implements FSEntry, FSEntryCreated, FSEntryLastChanged, F
             return true;
         }
 
-        // The $FILE_NAME flag is not wholly reliable - directories have been seen without it, e.g. $Extend - so
-        // fall back to the MFT record, which is the authority. The record is cached, and anything that goes on to
-        // call getFile() or getDirectory() would have loaded it anyway.
+        if (indexEntry.getFileReferenceNumber() >= MasterFileTable.SystemFiles.FIRST_USER) {
+            return false;
+        }
+
+        // The $FILE_NAME flag is not set on some of the reserved records, $Extend among them, so for those the MFT
+        // record is consulted instead. Only those: reading a record costs a device read, and doing it for every
+        // ordinary file would turn listing a directory into one read per entry.
         try {
             FileRecord record = getFileRecord();
             return record != null && record.isDirectory();

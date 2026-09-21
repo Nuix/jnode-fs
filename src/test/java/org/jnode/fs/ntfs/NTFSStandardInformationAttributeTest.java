@@ -48,26 +48,26 @@ public class NTFSStandardInformationAttributeTest {
      * documentation is 11553149976. Read as a signed 32-bit value it came back truncated.
      */
     @Test
-    public void testUpdateSequenceNumberIs64Bit() {
+    public void testUpdateSequenceNumberIs64Bit() throws Exception {
         // Arrange
         byte[] buffer = standardInformation(0, 11553149976L);
 
         // Act
         StandardInformationAttribute attribute =
-            new StandardInformationAttribute(new NTFSStructure(buffer, 0), 0);
+            (StandardInformationAttribute) NTFSTestRecords.attribute(buffer);
 
         // Assert
         assertThat(attribute.getUpdateSequenceNumber(), is(11553149976L));
     }
 
     @Test
-    public void testQuotaChargedIs64Bit() {
+    public void testQuotaChargedIs64Bit() throws Exception {
         // Arrange
         byte[] buffer = standardInformation(0x1_0000_0000L, 0);
 
         // Act
         StandardInformationAttribute attribute =
-            new StandardInformationAttribute(new NTFSStructure(buffer, 0), 0);
+            (StandardInformationAttribute) NTFSTestRecords.attribute(buffer);
 
         // Assert
         assertThat(attribute.getQuotaCharged(), is(0x1_0000_0000L));
@@ -78,7 +78,7 @@ public class NTFSStandardInformationAttributeTest {
      * several flags were missing entirely so they surfaced as "Unknown 0x...".
      */
     @Test
-    public void testFlagNames() {
+    public void testFlagNames() throws Exception {
         assertThat(StandardInformationAttribute.Flags.getNames(0x40), contains("Device"));
         assertThat(StandardInformationAttribute.Flags.getNames(0x20), contains("Archive"));
         assertThat(StandardInformationAttribute.Flags.getNames(0x10), contains("Directory"));
@@ -98,13 +98,13 @@ public class NTFSStandardInformationAttributeTest {
      * The fields either side of the two widened ones are genuinely 4 bytes and must be left alone.
      */
     @Test
-    public void testSurroundingFieldsAreUnchanged() {
+    public void testSurroundingFieldsAreUnchanged() throws Exception {
         // Arrange: 22720 is the largest update sequence number in the nuix-core corpus
         byte[] buffer = standardInformation(0, 22720);
 
         // Act
         StandardInformationAttribute attribute =
-            new StandardInformationAttribute(new NTFSStructure(buffer, 0), 0);
+            (StandardInformationAttribute) NTFSTestRecords.attribute(buffer);
 
         // Assert
         assertThat(attribute.getUpdateSequenceNumber(), is(22720L));

@@ -583,6 +583,31 @@ public class NTFSDataRunDecoderTest {
         assertDataRuns(dataRuns, expectedRuns);
     }
 
+    /**
+     * Fragments of a compression unit cannot add up to more than the unit. When they do the run list is corrupt,
+     * and the sparse run that closes the unit must not be stretched to make up the difference: that would push
+     * every following VCN along and shift the rest of the stream.
+     */
+    @Test
+    public void testCompressedRuns_fragmentsTotallingMoreThanTheCompressionUnit() {
+        // Arrange: a 10 cluster fragment and a 9 cluster fragment, 19 clusters in a 16 cluster unit, then a 5
+        // cluster sparse run
+        byte[] buffer = toByteArray("21 0A B4 08 11 09 10 01 05 00");
+        DataRunDecoder dataRunDecoder = new DataRunDecoder(true, 16);
+
+        // Act
+        dataRunDecoder.readDataRuns(new NTFSStructure(buffer, 0), 0);
+        List<DataRunInterface> dataRuns = dataRunDecoder.getDataRuns();
+
+        // Assert: the sparse run is the 5 clusters that are actually on disk, not 8
+        assertThat(dataRunDecoder.getNumberOfVCNs(), is(21));
+
+        String expectedRuns =
+            "[compressed-run vcn:0-15 [[data-run vcn:0-9 cluster:2228], [data-run vcn:10-18 cluster:2244]]]\n" +
+            "[sparse-run vcn:16-20 cluster:0]\n";
+        assertDataRuns(dataRuns, expectedRuns);
+    }
+
     @Test
     public void testCompressedExpectingSparseAfterMerge() {
         // Arrange

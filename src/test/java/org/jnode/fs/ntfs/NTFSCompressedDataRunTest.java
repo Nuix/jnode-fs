@@ -517,12 +517,37 @@ public class NTFSCompressedDataRunTest {
         byte[] uncompressed = new byte[0x1000];
 
         // Act
-        new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
+        int length = new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
 
-        // Assert
+        // Assert: the length is what was actually written, not the 256 bytes the header claims
+        assertThat(length, is(4));
         assertThat(new String(uncompressed, 0, 4, StandardCharsets.US_ASCII), is("ABCD"));
         for (int i = 4; i < uncompressed.length; i++) {
             assertThat("byte " + i + " should be zero", uncompressed[i], is((byte) 0));
+        }
+    }
+
+    /**
+     * A literal chunk that is cut short by the destination buffer rather than by the input must also report what it
+     * wrote. The caller advances its write position by the returned length, so an overstated one skips past the end
+     * of the buffer and leaves the following chunks misplaced.
+     */
+    @Test
+    public void testDecompression_ofLiteralChunkLimitedByTheOutputBuffer_reportsWhatItWrote() throws IOException {
+        // Arrange: header 0x3fff claims a full 4096 bytes of literal data, into a 100 byte buffer
+        byte[] compressed = new byte[2 + 0x1000];
+        compressed[0] = (byte) 0xFF;
+        compressed[1] = (byte) 0x3F;
+        java.util.Arrays.fill(compressed, 2, compressed.length, (byte) 'A');
+        byte[] uncompressed = new byte[100];
+
+        // Act
+        int length = new CompressedDataRun(null, 16).decompressUnit(compressed, uncompressed);
+
+        // Assert
+        assertThat(length, is(100));
+        for (int i = 0; i < uncompressed.length; i++) {
+            assertThat("byte " + i, uncompressed[i], is((byte) 'A'));
         }
     }
 

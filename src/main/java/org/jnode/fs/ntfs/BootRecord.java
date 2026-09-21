@@ -20,6 +20,8 @@
  
 package org.jnode.fs.ntfs;
 
+import java.io.IOException;
+
 /**
  * @author Chira
  * @author Ewout Prangsma (epr@users.sourceforge.net)
@@ -74,8 +76,9 @@ public final class BootRecord extends NTFSStructure {
      * Initialize this instance.
      *
      * @param buffer the byte buffer to base this instance from.
+     * @throws IOException if the volume header does not describe a usable geometry.
      */
-    public BootRecord(byte[] buffer) {
+    public BootRecord(byte[] buffer) throws IOException {
         super(buffer, 0);
         this.systemID = new String(buffer, 0x03, 8);
         this.bytesPerSector = getUInt16(0x0B);
@@ -92,6 +95,20 @@ public final class BootRecord extends NTFSStructure {
         this.clusterSize = sectorsPerCluster * bytesPerSector;
         this.fileRecordSize = calcByteSize(clustersPerMFTRecord);
         this.indexRecordSize = calcByteSize(clustersPerIndexRecord);
+
+        // Both of these are divisors and array sizes further in, so a degenerate value has to be rejected here
+        // rather than surfacing as a division by zero or an empty MFT buffer somewhere deep in the record code.
+        if (clusterSize <= 0) {
+            throw new IOException(String.format(
+                "Invalid NTFS volume header: %d bytes per sector and %d sectors per cluster give a cluster size of %d",
+                bytesPerSector, sectorsPerCluster, clusterSize));
+        }
+
+        if (fileRecordSize <= 0) {
+            throw new IOException(
+                "Invalid NTFS volume header: file record size is " + fileRecordSize + " (stored value " +
+                    clustersPerMFTRecord + ")");
+        }
 
         log.debug("ClusterSize     = {}", clusterSize);
         log.debug("FileRecordSize  = {}", fileRecordSize);

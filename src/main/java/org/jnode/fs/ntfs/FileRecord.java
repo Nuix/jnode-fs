@@ -810,6 +810,13 @@ public class FileRecord extends NTFSRecord {
             if (type == 0xFFFFFFFF) {
                 // Normal end of list condition.
                 break;
+            } else if (offset + NTFSAttribute.COMMON_HEADER_LENGTH > limit ||
+                       offset + NTFSAttribute.getHeaderLength(this, offset) > limit) {
+                // The end of list marker is only four bytes, so a whole header is only needed once a real attribute
+                // turns out to follow. Building one reads all of it, so check for all of it first.
+                log.debug("{}:Attribute header at offset {} runs past the end of the record (limit {}), stopping " +
+                          "the walk", referenceNumber, offset, limit);
+                break;
             } else {
                 NTFSAttribute attribute = NTFSAttribute.getAttribute(FileRecord.this, offset);
 

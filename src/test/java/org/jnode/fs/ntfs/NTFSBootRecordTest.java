@@ -1,10 +1,13 @@
 package org.jnode.fs.ntfs;
 
+import java.io.IOException;
+
 import org.jnode.util.LittleEndian;
 import org.junit.Test;
 
 import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.fail;
 
 /**
  * Tests for {@link BootRecord}.
@@ -41,7 +44,7 @@ public class NTFSBootRecordTest {
     }
 
     @Test
-    public void testCommonClusterSizes() {
+    public void testCommonClusterSizes() throws Exception {
         // 512 byte clusters, as used by test.ntfs and ntfs1-gen2
         assertThat(new BootRecord(bootSector(512, 1, -10, 1)).getClusterSize(), is(512));
 
@@ -65,7 +68,7 @@ public class NTFSBootRecordTest {
      * this for the 128 KiB to 2 MiB cluster sizes; read as a plain byte the cluster size comes out nonsensical.
      */
     @Test
-    public void testLargeClusterSizesUseThePowerOfTwoEncoding() {
+    public void testLargeClusterSizesUseThePowerOfTwoEncoding() throws Exception {
         // 0xf8 => 2^(256-248) = 2^8 = 256 sectors => 128 KiB
         BootRecord oneTwentyEightK = new BootRecord(bootSector(512, 0xf8, -10, 1));
         assertThat(oneTwentyEightK.getSectorsPerCluster(), is(256));
@@ -87,7 +90,7 @@ public class NTFSBootRecordTest {
      * negative value is {@code 2^(-n)} bytes.
      */
     @Test
-    public void testRecordSizes() {
+    public void testRecordSizes() throws Exception {
         // -10 => 2^10 => the usual 1024 byte MFT record, regardless of the cluster size
         assertThat(new BootRecord(bootSector(512, 8, -10, 1)).getFileRecordSize(), is(1024));
         assertThat(new BootRecord(bootSector(512, 1, -10, 1)).getFileRecordSize(), is(1024));
@@ -96,8 +99,41 @@ public class NTFSBootRecordTest {
         assertThat(new BootRecord(bootSector(512, 8, 1, 1)).getFileRecordSize(), is(4096));
         assertThat(new BootRecord(bootSector(512, 2, 4, 4)).getIndexRecordSize(), is(4096));
 
-        // Zero means zero cluster blocks, not 2^0
-        assertThat(new BootRecord(bootSector(512, 8, 0, 0)).getFileRecordSize(), is(0));
-        assertThat(new BootRecord(bootSector(512, 8, 0, 0)).getIndexRecordSize(), is(0));
+        // Zero means zero cluster blocks, not 2^0, which leaves no usable record size
+        assertThat(new BootRecord(bootSector(512, 8, 1, 0)).getIndexRecordSize(), is(0));
+    }
+
+    /**
+     * A file record size of zero would allocate empty MFT record buffers and map every record index to offset 0, so
+     * it is rejected here rather than producing an MFT of empty records further in.
+     */
+    @Test
+    public void testAZeroFileRecordSizeIsRejected() {
+        try {
+            new BootRecord(bootSector(512, 8, 0, 1));
+            fail("a file record size of zero should be rejected");
+        } catch (IOException e) {
+            assertThat(e.getMessage(), containsString("file record size is 0"));
+        }
+    }
+
+    /**
+     * Sectors per cluster of zero gives a cluster size of zero, which is a divisor in the MFT and file system code.
+     */
+    @Test
+    public void testAZeroClusterSizeIsRejected() {
+        try {
+            new BootRecord(bootSector(512, 0, -10, 1));
+            fail("a cluster size of zero should be rejected");
+        } catch (IOException e) {
+            assertThat(e.getMessage(), containsString("cluster size of 0"));
+        }
+
+        try {
+            new BootRecord(bootSector(0, 8, -10, 1));
+            fail("a bytes per sector of zero should be rejected");
+        } catch (IOException e) {
+            assertThat(e.getMessage(), containsString("cluster size of 0"));
+        }
     }
 }

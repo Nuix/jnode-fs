@@ -2,6 +2,7 @@ package org.jnode.fs.ntfs;
 
 import java.util.Arrays;
 
+import org.jnode.util.LittleEndian;
 import org.jnode.fs.ntfs.usnjrnl.UsnJournal;
 import org.jnode.fs.ntfs.usnjrnl.UsnRecordV2;
 import org.jnode.fs.ntfs.usnjrnl.UsnRecordV3;
@@ -220,6 +221,115 @@ public class NTFSUsnRecordTest {
         assertThat(record.getUsn(), is(0x0000000300000002L));
         assertThat(record.getReason(), is(0x80000200L));
         assertThat(record.getSourceInfo(), is(2));
+    }
+
+    /**
+     * The name offset is a stored field, not the fixed 0x3c it happens to be on most records, so a record that
+     * pads before the name still reads back correctly.
+     */
+    @Test
+    public void testFileNameAtANonDefaultOffset() {
+        // Arrange: move the name four bytes further along, leaving padding after the header
+        byte[] buffer = new byte[76];
+        byte[] record = toByteArray(USN_RECORD_V2);
+        System.arraycopy(record, 0, buffer, 0, 0x3c);
+        System.arraycopy(record, 0x3c, buffer, 0x40, 12);
+        LittleEndian.setInt32(buffer, 0x00, 76);        // record size
+        LittleEndian.setInt16(buffer, 0x3a, 0x40);      // name offset
+
+        // Act
+        UsnRecordV2 usnRecord = new UsnRecordV2(buffer, 0);
+
+        // Assert
+        assertThat(usnRecord.getFileName(), is("ab.txt"));
+    }
+
+    /**
+     * Records carved out of the unallocated tail of $UsnJrnl:$J carry junk in the name fields. A name offset past
+     * the end of the record would otherwise splice in whatever follows it in the journal buffer.
+     */
+    @Test
+    public void testFileNameOffsetPastTheEndOfTheRecordIsRejected() {
+        // Arrange: two records back to back, with the first one's name offset pointing into the second
+        byte[] record = toByteArray(USN_RECORD_V2);
+        byte[] buffer = new byte[2 * record.length];
+        System.arraycopy(record, 0, buffer, 0, record.length);
+        System.arraycopy(record, 0, buffer, record.length, record.length);
+        LittleEndian.setInt16(buffer, 0x3a, 0x50);      // past this record's own 0x48 bytes
+
+        // Act
+        UsnRecordV2 usnRecord = new UsnRecordV2(buffer, 0);
+
+        // Assert
+        assertThat(usnRecord.getFileName(), is(""));
+    }
+
+    /**
+     * A name size that runs off the end of the journal buffer used to throw out of System.arraycopy.
+     */
+    @Test
+    public void testFileNameSizePastTheEndOfTheBufferIsRejected() {
+        // Arrange
+        byte[] buffer = toByteArray(USN_RECORD_V2);
+        LittleEndian.setInt16(buffer, 0x38, 0x1000);
+
+        // Act
+        UsnRecordV2 usnRecord = new UsnRecordV2(buffer, 0);
+
+        // Assert
+        assertThat(usnRecord.getFileNameSize(), is(0x1000));
+        assertThat(usnRecord.getFileName(), is(""));
+    }
+
+    /**
+     * A name offset inside the fixed header cannot be right either, and would return the header bytes as a name.
+     */
+    @Test
+    public void testFileNameOffsetInsideTheHeaderIsRejected() {
+        // Arrange
+        byte[] buffer = toByteArray(USN_RECORD_V2);
+        LittleEndian.setInt16(buffer, 0x3a, 0x10);
+
+        // Act
+        UsnRecordV2 usnRecord = new UsnRecordV2(buffer, 0);
+
+        // Assert
+        assertThat(usnRecord.getFileName(), is(""));
+    }
+
+    /**
+     * The same bounds apply to a V3 record, whose fixed header is longer.
+     */
+    @Test
+    public void testV3FileNameOffsetIsBounded() {
+        // Arrange
+        byte[] buffer = toByteArray(USN_RECORD_V3);
+        LittleEndian.setInt16(buffer, 0x4a, 0x60);      // past this record's own 0x58 bytes
+
+        // Act
+        UsnRecordV3 usnRecord = new UsnRecordV3(buffer, 0);
+
+        // Assert
+        assertThat(usnRecord.getFileName(), is(""));
+    }
+
+    /**
+     * The reason constants were renamed to match the USN_REASON_* names. The old names stay as aliases so that code
+     * built against an earlier release still compiles.
+     */
+    @Test
+    @SuppressWarnings("deprecation")
+    public void testDeprecatedReasonAliases() {
+        assertThat(UsnJournal.Reason.DATA_WRITE, is(UsnJournal.Reason.DATA_OVERWRITE));
+        assertThat(UsnJournal.Reason.FS_ENTRY_ADDED, is(UsnJournal.Reason.DATA_EXTEND));
+        assertThat(UsnJournal.Reason.FS_ENTRY_TRUNCATED, is(UsnJournal.Reason.DATA_TRUNCATION));
+        assertThat(UsnJournal.Reason.DATA_WRITE_ALT, is(UsnJournal.Reason.NAMED_DATA_OVERWRITE));
+        assertThat(UsnJournal.Reason.DATA_APPEND, is(UsnJournal.Reason.NAMED_DATA_EXTEND));
+        assertThat(UsnJournal.Reason.DATA_TRUNCATED, is(UsnJournal.Reason.NAMED_DATA_TRUNCATION));
+
+        // The aliases must not register a second name for the same bit
+        assertThat(UsnJournal.Reason.lookupReasons(0x1), hasSize(1));
+        assertThat(UsnJournal.Reason.lookupReasons(0x77), hasSize(6));
     }
 
     @Test
