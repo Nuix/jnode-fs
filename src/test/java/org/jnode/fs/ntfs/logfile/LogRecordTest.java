@@ -203,4 +203,65 @@ public class LogRecordTest {
         // Assert
         assertThat(actual, is(Arrays.copyOfRange(buffer, recordOffset + 8, recordOffset + 8 + 64)));
     }
+
+    /**
+     * A record on the final page must not read past the end of the buffer.
+     *
+     * <p>{@link LogRecord#getDataAcrossPages} bounds each copy by what is left in the page, but not by what is
+     * left in the buffer. On the last page {@code nextPageDataStart} wraps to the start of the normal area - but
+     * the guard that triggers the wrap only checks that the *next* page is past the end, so when the buffer is
+     * no longer than the normal area itself the wrap target is past the end too, and the following
+     * {@code System.arraycopy} runs off the array.</p>
+     *
+     * <p>Seen against a real $LogFile as
+     * {@code arraycopy: last source index 2098141 out of bounds for byte[2097152]}.</p>
+     */
+    @Test
+    public void testGetDataAcrossPages_whenTheRecordIsOnTheLastPage() {
+        // Arrange: a crossing record near the end of the final page of the buffer. The buffer is exactly the
+        // normal area, so the wrap has nowhere valid to land.
+        byte[] buffer = new byte[LogFile.NORMAL_AREA_START * PAGE_SIZE];
+        for (int i = 0; i < buffer.length; i++) {
+            buffer[i] = (byte) (i & 0xFF);
+        }
+        int recordOffset = buffer.length - 128;
+        LittleEndian.setInt16(buffer, recordOffset + 0x28, LogRecord.FLAG_CROSSES_PAGE);
+        LogRecord record = new LogRecord(buffer, recordOffset, PAGE_SIZE, LOG_PAGE_DATA_OFFSET);
+        assertThat("the record must be flagged as crossing a page", record.getCrossesPage(), is(true));
+
+        // Act: ask for more than the tail of the last page holds, which forces the wrap
+        byte[] actual = new byte[512];
+        record.getDataAcrossPages(0, actual, 0, actual.length);
+
+        // Assert: the first 128 bytes still come from the record itself. Where the rest is taken from is the fix
+        // author's call - wrapping to the normal area or stopping short are both defensible - but reading outside
+        // the buffer is not.
+        assertThat(Arrays.copyOfRange(actual, 0, 128),
+                   is(Arrays.copyOfRange(buffer, recordOffset, recordOffset + 128)));
+    }
+
+    /**
+     * A record whose offset lies outside the buffer must not blow up when it is checked for validity.
+     *
+     * <p>{@code LogFile.parseRecords} works out a record offset as a {@code long} and narrows it with an
+     * {@code (int)} cast before constructing a {@link LogRecord}, without checking it against the buffer. A
+     * corrupt or unexpected page therefore yields a record positioned outside - or, once the cast overflows,
+     * before - the buffer, and {@link LogRecord#isValid()} reads there.</p>
+     *
+     * <p>Seen against a real $LogFile as
+     * {@code Index -1996437928 out of bounds for length 67108864} from {@code LittleEndian.getInt64}.</p>
+     */
+    @Test
+    public void testIsValid_whenTheRecordOffsetIsOutsideTheBuffer() {
+        // Arrange
+        byte[] buffer = logPages(PAGE_SIZE);
+
+        // Act + assert: a record past the end of the buffer is simply not valid
+        LogRecord past = new LogRecord(buffer, buffer.length + LOG_PAGE_DATA_OFFSET, PAGE_SIZE, LOG_PAGE_DATA_OFFSET);
+        assertThat("a record beyond the buffer cannot be valid", past.isValid(), is(false));
+
+        // ... and neither is one whose offset has overflowed to a negative value
+        LogRecord negative = new LogRecord(buffer, -1996437928, PAGE_SIZE, LOG_PAGE_DATA_OFFSET);
+        assertThat("a record at a negative offset cannot be valid", negative.isValid(), is(false));
+    }
 }
