@@ -7,7 +7,7 @@
     <groupId>org.jnode</groupId>
     <artifactId>jnode-fs</artifactId>
     <packaging>jar</packaging>
-    <version>1.0.8-btrfs</version>
+    <version>1.0.1</version>
 
     <dependencies>
         <dependency>
@@ -45,7 +45,7 @@
             <scope>compile</scope>
         </dependency>
         <!-- Pure-Java (no native), Apache-2.0, Java-8 codec library. Supplies the btrfs reader's
-             zstd decompressor (the 0.27 line is the last Java-8 build; 2.x needs Java 22). -->
+             zstd and lzo decompressors (the 0.27 line is the last Java-8 build; 2.x needs Java 22). -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>aircompressor</artifactId>

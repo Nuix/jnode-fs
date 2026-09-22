@@ -2,8 +2,8 @@
 
 A read-only btrfs reader for jnode-fs: enough to enumerate the directory tree, report file
 sizes, and read file contents. Built for disk-usage / forensic browsing of btrfs volumes inside
-VM disk images (the motivating use case: SpaceMap could not read Fedora/openSUSE roots, which
-default to btrfs — jnode-fs previously had no btrfs support).
+VM disk images (the motivating use case: a disk-usage tool built on jnode-fs could not read
+Fedora/openSUSE roots, which default to btrfs — jnode-fs previously had no btrfs support).
 
 ## Scope
 
@@ -40,7 +40,7 @@ default to btrfs — jnode-fs previously had no btrfs support).
 
 **Not supported (degrades, does not crash)**
 - Writing (read-only), multi-device/RAID, and the extent/free-space trees (not needed to walk the
-  FS tree). Hardlinks count once per link (no size de-dup) — see the scoping note in sn-spacemap.
+  FS tree). Hardlinks are reported once per link (no size de-duplication across links).
 
 ## Why this is the right layer
 
@@ -54,7 +54,7 @@ read-only tree walk we only need three trees:
 
 The GMTA/btrfs-libs project reads btrfs *send-streams* (the output of `btrfs send`), which is a
 different, higher-level format — not the on-disk B-trees — so it does not help here beyond its
-(MIT) CRC32C, which the JDK already provides via `java.util.zip.CRC32C` (JDK 9+).
+(MIT) CRC32C, which Guava (already a dependency) provides via `Hashing.crc32c()`.
 
 ## Verification
 
