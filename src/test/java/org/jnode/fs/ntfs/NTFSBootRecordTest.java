@@ -70,17 +70,17 @@ public class NTFSBootRecordTest {
     @Test
     public void testLargeClusterSizesUseThePowerOfTwoEncoding() throws Exception {
         // 0xf8 => 2^(256-248) = 2^8 = 256 sectors => 128 KiB
-        BootRecord oneTwentyEightK = new BootRecord(bootSector(512, 0xf8, -10, 1));
+        BootRecord oneTwentyEightK = new BootRecord(bootSector(512, 0xf8, -10, -12));
         assertThat(oneTwentyEightK.getSectorsPerCluster(), is(256));
         assertThat(oneTwentyEightK.getClusterSize(), is(128 * 1024));
 
         // 0xf6 => 2^(256-246) = 2^10 = 1024 sectors => 512 KiB
-        BootRecord fiveTwelveK = new BootRecord(bootSector(512, 0xf6, -10, 1));
+        BootRecord fiveTwelveK = new BootRecord(bootSector(512, 0xf6, -10, -12));
         assertThat(fiveTwelveK.getSectorsPerCluster(), is(1024));
         assertThat(fiveTwelveK.getClusterSize(), is(512 * 1024));
 
         // 0xf4 => 2^(256-244) = 2^12 = 4096 sectors => 2 MiB
-        BootRecord twoM = new BootRecord(bootSector(512, 0xf4, -10, 1));
+        BootRecord twoM = new BootRecord(bootSector(512, 0xf4, -10, -12));
         assertThat(twoM.getSectorsPerCluster(), is(4096));
         assertThat(twoM.getClusterSize(), is(2 * 1024 * 1024));
     }
@@ -98,9 +98,29 @@ public class NTFSBootRecordTest {
         // A positive value is a count of clusters
         assertThat(new BootRecord(bootSector(512, 8, 1, 1)).getFileRecordSize(), is(4096));
         assertThat(new BootRecord(bootSector(512, 2, 4, 4)).getIndexRecordSize(), is(4096));
+    }
 
-        // Zero means zero cluster blocks, not 2^0, which leaves no usable record size
-        assertThat(new BootRecord(bootSector(512, 8, 1, 0)).getIndexRecordSize(), is(0));
+    /**
+     * A stored exponent below -31 wraps the shift, so -32 and -128 decode to 1 byte and pass a plain zero check,
+     * while -30 decodes to 1 GiB. Zero means zero cluster blocks, not 2^0. Index records get the same check as file
+     * records: nothing reads the size today, but a zero is a divisor waiting for a caller.
+     */
+    @Test
+    public void testDegenerateRecordSizesAreRejected() {
+        assertRejected(bootSector(512, 8, -32, 1), "file record size is 1 ");
+        assertRejected(bootSector(512, 8, -128, 1), "file record size is 1 ");
+        assertRejected(bootSector(512, 8, -30, 1), "file record size is 1073741824");
+        assertRejected(bootSector(512, 8, 1, 0), "index record size is 0");
+        assertRejected(bootSector(512, 8, 1, 3), "index record size is 12288");
+    }
+
+    private static void assertRejected(byte[] bootSector, String message) {
+        try {
+            new BootRecord(bootSector);
+            fail("the volume header should be rejected: " + message);
+        } catch (IOException e) {
+            assertThat(e.getMessage(), containsString(message));
+        }
     }
 
     /**

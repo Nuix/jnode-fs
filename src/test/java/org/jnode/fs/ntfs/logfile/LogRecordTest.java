@@ -264,4 +264,23 @@ public class LogRecordTest {
         LogRecord negative = new LogRecord(buffer, -1996437928, PAGE_SIZE, LOG_PAGE_DATA_OFFSET);
         assertThat("a record at a negative offset cannot be valid", negative.isValid(), is(false));
     }
+
+    /**
+     * A record on the last page of the log can have only the fixed part of its header before the end of the buffer,
+     * with the rest wrapping around to the normal area. The across-pages accessors read that part, so the record is
+     * valid as long as the fixed part is in the buffer.
+     */
+    @Test
+    public void testIsValid_whenOnlyTheTailOfTheHeaderWrapsPastTheBuffer() {
+        // Arrange: 0x40 bytes before the end, so the 0x30 byte fixed part fits and the rest of the 0x58 header wraps
+        byte[] buffer = new byte[8 * PAGE_SIZE];
+        int recordOffset = buffer.length - 0x40;
+        LittleEndian.setInt64(buffer, recordOffset, 0x1234);
+        LittleEndian.setInt16(buffer, recordOffset + 0x28, LogRecord.FLAG_CROSSES_PAGE);
+        LogRecord record = new LogRecord(buffer, recordOffset, PAGE_SIZE, LOG_PAGE_DATA_OFFSET);
+
+        // Act + assert
+        assertThat(record.getLsn(), is(0x1234L));
+        assertThat("the fixed part of the record is in the buffer", record.isValid(), is(true));
+    }
 }

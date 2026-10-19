@@ -118,6 +118,11 @@ public abstract class NTFSAttribute extends NTFSStructure {
      */
     public static final int COMPRESSED_NON_RESIDENT_HEADER_LENGTH = 0x48;
 
+    /**
+     * The attribute flag for a compressed attribute.
+     */
+    public static final int FLAG_COMPRESSED = 0x0001;
+
     private final Types type;
 
     /**
@@ -155,7 +160,17 @@ public abstract class NTFSAttribute extends NTFSStructure {
      * @return {@code true} if the attribute contains compressed runs, {@code false} otherwise.
      */
     public boolean isCompressedAttribute() {
-        return (getFlags() & 0x0001) != 0;
+        return isCompressed(getFlags());
+    }
+
+    /**
+     * Checks the compressed flag of an attribute's flags.
+     *
+     * @param flags the attribute flags.
+     * @return {@code true} if the attribute is compressed.
+     */
+    public static boolean isCompressed(int flags) {
+        return (flags & FLAG_COMPRESSED) != 0;
     }
 
     /**
@@ -246,8 +261,8 @@ public abstract class NTFSAttribute extends NTFSStructure {
             return RESIDENT_HEADER_LENGTH;
         }
 
-        boolean compressed = (fileRecord.getUInt16(offset + 0x0C) & 0x0001) != 0;
-        return compressed ? COMPRESSED_NON_RESIDENT_HEADER_LENGTH : NON_RESIDENT_HEADER_LENGTH;
+        return isCompressed(fileRecord.getUInt16(offset + 0x0C))
+            ? COMPRESSED_NON_RESIDENT_HEADER_LENGTH : NON_RESIDENT_HEADER_LENGTH;
     }
 
     /**

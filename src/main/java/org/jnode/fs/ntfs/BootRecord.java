@@ -96,19 +96,16 @@ public final class BootRecord extends NTFSStructure {
         this.fileRecordSize = calcByteSize(clustersPerMFTRecord);
         this.indexRecordSize = calcByteSize(clustersPerIndexRecord);
 
-        // Both of these are divisors and array sizes further in, so a degenerate value has to be rejected here
-        // rather than surfacing as a division by zero or an empty MFT buffer somewhere deep in the record code.
+        // These are divisors and array sizes further in, so a degenerate value has to be rejected here rather than
+        // surfacing as a division by zero or an empty MFT buffer somewhere deep in the record code.
         if (clusterSize <= 0) {
             throw new IOException(String.format(
                 "Invalid NTFS volume header: %d bytes per sector and %d sectors per cluster give a cluster size of %d",
                 bytesPerSector, sectorsPerCluster, clusterSize));
         }
 
-        if (fileRecordSize <= 0) {
-            throw new IOException(
-                "Invalid NTFS volume header: file record size is " + fileRecordSize + " (stored value " +
-                    clustersPerMFTRecord + ")");
-        }
+        checkRecordSize("file", fileRecordSize, clustersPerMFTRecord);
+        checkRecordSize("index", indexRecordSize, clustersPerIndexRecord);
 
         log.debug("ClusterSize     = {}", clusterSize);
         log.debug("FileRecordSize  = {}", fileRecordSize);
@@ -245,6 +242,24 @@ public final class BootRecord extends NTFSStructure {
 
         log.warn("Undefined sectors per cluster block value: {}, using it as-is", raw);
         return raw;
+    }
+
+    /**
+     * Rejects a record size that cannot be real.
+     *
+     * <p>Records are fixed up in 512 byte strides and never formatted larger than 64 KiB. A plain zero check is not
+     * enough: Java masks the shift count, so a stored exponent below -31 gives a size of 1 or 2.</p>
+     *
+     * @param name   the kind of record, for the message.
+     * @param size   the decoded size in bytes.
+     * @param stored the raw signed byte it was decoded from.
+     * @throws IOException if the size is unusable.
+     */
+    private static void checkRecordSize(String name, int size, int stored) throws IOException {
+        if (size < 512 || size > 65536 || Integer.bitCount(size) != 1) {
+            throw new IOException(String.format(
+                "Invalid NTFS volume header: %s record size is %d (stored value %d)", name, size, stored));
+        }
     }
 
     /**

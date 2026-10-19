@@ -80,7 +80,7 @@ public class SecurityDescriptorStream {
             long streamLength = sdsFile.getLength();
 
             while (offset < streamLength) {
-                SecurityDescriptorStreamEntry entry = readOneEntry(offset);
+                SecurityDescriptorStreamEntry entry = readOneEntry(offset, streamLength);
 
                 if (entry == null) {
                     // No entry crosses a 256 KiB boundary, so the stream is padded with zeros up to the next one.
@@ -126,8 +126,18 @@ public class SecurityDescriptorStream {
      * @throws java.io.IOException if an error occurs reading the entry.
      */
     public SecurityDescriptorStreamEntry readOneEntry(long offset) throws IOException {
-        long streamLength = sdsFile.getLength();
+        return readOneEntry(offset, sdsFile.getLength());
+    }
 
+    /**
+     * Reads in a single stream entry.
+     *
+     * @param offset       the offset to read from.
+     * @param streamLength the length of the stream, looked up once by the caller rather than per entry.
+     * @return the entry or {@code null} if the end of the entries is reached.
+     * @throws java.io.IOException if an error occurs reading the entry.
+     */
+    private SecurityDescriptorStreamEntry readOneEntry(long offset, long streamLength) throws IOException {
         // Not enough room left for the fixed part of an entry header
         if (offset + HEADER_SIZE > streamLength) {
             return null;

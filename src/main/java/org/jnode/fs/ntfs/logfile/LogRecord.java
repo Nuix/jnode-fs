@@ -1,6 +1,7 @@
 package org.jnode.fs.ntfs.logfile;
 
 import org.jnode.fs.ntfs.NTFSStructure;
+import org.jnode.util.LittleEndian;
 
 /**
  * $LogFile log record.
@@ -64,14 +65,22 @@ public class LogRecord extends NTFSStructure {
      * @return {@code true} if valid.
      */
     public boolean isValid() {
-        // LogFile.parseRecords works the offset out as a long and narrows it, so a corrupt or unexpected page can
-        // put a record outside the buffer - or, once the narrowing overflows, before it.
-        int offset = getOffset();
-        if (offset < 0 || offset + HEADER_SIZE > getBuffer().length) {
-            return false;
-        }
+        return isInBuffer() && getLsn() != 0;
+    }
 
-        return getLsn() != 0;
+    /**
+     * Checks whether the part of the record that is read in place lies inside the buffer.
+     *
+     * <p>LogFile.parseRecords works the offset out as a long and narrows it, so a corrupt or unexpected page can put
+     * a record outside the buffer - or, once the narrowing overflows, before it. Only the fields up to
+     * {@link #LENGTH_CALCULATION_OFFSET} have to be contiguous; the rest of the header is read through the
+     * across-pages accessors, and on the last page it wraps around to the normal area.</p>
+     *
+     * @return {@code true} if the fixed part of the record can be read.
+     */
+    public boolean isInBuffer() {
+        int offset = getOffset();
+        return offset >= 0 && offset + LENGTH_CALCULATION_OFFSET <= getBuffer().length;
     }
 
     /**
@@ -195,18 +204,19 @@ public class LogRecord extends NTFSStructure {
     }
 
     /**
-     * Gets an unsigned 8-bit integer which may or may not be past the log file page boundary.
+     * Reads a field which may or may not cross the log file page boundary.
+     *
+     * <p>Bytes the buffer does not reach are left as zero rather than throwing; a record that runs off the end of
+     * the log is rejected by {@link #isValid()} before its fields are of any interest.</p>
      *
      * @param offset the offset to the field in this structure.
-     * @return the value.
+     * @param length the length of the field.
+     * @return the field.
      */
-    private int getUInt8AcrossPages(int offset) {
-        byte[] buffer = getBuffer();
-        int position = resolveAcrossPages(offset);
-
-        // A field that the buffer does not reach reads as zero rather than throwing; a record that runs off the
-        // end of the log is rejected by isValid() before its fields are of any interest.
-        return position < 0 || position >= buffer.length ? 0 : buffer[position] & 0xFF;
+    private byte[] readAcrossPages(int offset, int length) {
+        byte[] field = new byte[length];
+        getDataAcrossPages(offset, field, 0, length);
+        return field;
     }
 
     /**
@@ -220,9 +230,7 @@ public class LogRecord extends NTFSStructure {
             return getUInt16(offset);
         }
 
-        // Assembled a byte at a time so that a field straddling the boundary picks up each half from the page it
-        // actually lives on.
-        return getUInt8AcrossPages(offset) | getUInt8AcrossPages(offset + 1) << 8;
+        return LittleEndian.getUInt16(readAcrossPages(offset, 2), 0);
     }
 
     /**
@@ -236,7 +244,7 @@ public class LogRecord extends NTFSStructure {
             return getUInt32(offset);
         }
 
-        return getUInt16AcrossPages(offset) | (long) getUInt16AcrossPages(offset + 2) << 16;
+        return LittleEndian.getUInt32(readAcrossPages(offset, 4), 0);
     }
 
     /**

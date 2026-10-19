@@ -201,8 +201,10 @@ public class NTFSEntry implements FSEntry, FSEntryCreated, FSEntryLastChanged, F
             FileRecord record = getFileRecord();
             return record != null && record.isDirectory();
         } catch (IOException e) {
-            log.debug("Failed to read the file record for entry {}, falling back to the $FILE_NAME flag", id, e);
-            return false;
+            long reference = indexEntry.getFileReferenceNumber();
+            log.warn("Failed to read the file record for reserved entry {}, falling back to the known reserved " +
+                "directories", reference, e);
+            return reference == MasterFileTable.SystemFiles.ROOT || reference == MasterFileTable.SystemFiles.EXTEND;
         }
     }
 

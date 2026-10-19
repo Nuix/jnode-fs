@@ -608,6 +608,55 @@ public class NTFSDataRunDecoderTest {
         assertDataRuns(dataRuns, expectedRuns);
     }
 
+    /**
+     * A unit that does not compress is stored raw, and on a fragmented volume its 16 clusters can be spread over
+     * several runs. Fragments adding up to exactly the unit close it, so the next run starts a new unit instead of
+     * being appended to the full one, which made the unit unreadable and left the stream two clusters short.
+     */
+    @Test
+    public void testCompressedRuns_fragmentsExactlyFillingTheCompressionUnit() {
+        // Arrange: 10 + 6 clusters of raw data, then a 5 cluster compressed unit padded by an 11 cluster sparse run
+        byte[] buffer = toByteArray("11 0A 64 11 06 64 11 05 64 01 0B 00");
+        DataRunDecoder dataRunDecoder = new DataRunDecoder(true, 16);
+
+        // Act
+        dataRunDecoder.readDataRuns(new NTFSStructure(buffer, 0), 0);
+        List<DataRunInterface> dataRuns = dataRunDecoder.getDataRuns();
+
+        // Assert
+        assertThat(dataRunDecoder.getNumberOfVCNs(), is(32));
+
+        String expectedRuns =
+            "[compressed-run vcn:0-15 [[data-run vcn:0-9 cluster:100], [data-run vcn:10-15 cluster:200]]]\n" +
+            "[compressed-run vcn:16-31 [[data-run vcn:16-20 cluster:300]]]\n";
+        assertDataRuns(dataRuns, expectedRuns);
+    }
+
+    /**
+     * The fragment closing a raw unit can sit directly in front of the next raw unit on disk, so the two arrive as
+     * one run longer than the unit. Its leading clusters close the open unit and the rest is the following unit;
+     * taking the whole run as whole units left the open unit short and shifted every VCN after it.
+     */
+    @Test
+    public void testCompressedRuns_closingFragmentCoalescedWithTheNextRawUnit() {
+        // Arrange: 10 clusters, then 6 + 16 as one run, then a 2 cluster compressed unit padded by 14 sparse
+        byte[] buffer = toByteArray("11 0A 64 11 16 64 11 02 64 01 0E 00");
+        DataRunDecoder dataRunDecoder = new DataRunDecoder(true, 16);
+
+        // Act
+        dataRunDecoder.readDataRuns(new NTFSStructure(buffer, 0), 0);
+        List<DataRunInterface> dataRuns = dataRunDecoder.getDataRuns();
+
+        // Assert
+        assertThat(dataRunDecoder.getNumberOfVCNs(), is(48));
+
+        String expectedRuns =
+            "[compressed-run vcn:0-15 [[data-run vcn:0-9 cluster:100], [data-run vcn:10-15 cluster:200]]]\n" +
+            "[data-run vcn:16-31 cluster:206]\n" +
+            "[compressed-run vcn:32-47 [[data-run vcn:32-33 cluster:300]]]\n";
+        assertDataRuns(dataRuns, expectedRuns);
+    }
+
     @Test
     public void testCompressedExpectingSparseAfterMerge() {
         // Arrange
