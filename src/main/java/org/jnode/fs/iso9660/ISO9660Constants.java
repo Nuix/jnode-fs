@@ -20,6 +20,9 @@
  
 package org.jnode.fs.iso9660;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+
 
 /**
  * @author Ewout Prangsma (epr@users.sourceforge.net)
@@ -29,7 +32,7 @@ public interface ISO9660Constants {
     public static final char SEPARATOR1 = '.';
     public static final char SEPARATOR2 = ';';
 
-    public static final String DEFAULT_ENCODING = "US-ASCII";
+    public static final Charset DEFAULT_ENCODING = StandardCharsets.US_ASCII;
 
     public static interface VolumeDescriptorType {
 

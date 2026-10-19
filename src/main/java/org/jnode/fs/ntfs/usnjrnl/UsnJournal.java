@@ -20,7 +20,7 @@
  
 package org.jnode.fs.ntfs.usnjrnl;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -66,11 +66,7 @@ public class UsnJournal {
         byte[] buffer = new byte[nameSize];
         record.getData(nameOffset, buffer, 0, buffer.length);
 
-        try {
-            return new String(buffer, "UTF-16LE");
-        } catch (UnsupportedEncodingException e) {
-            throw new IllegalStateException("UTF-16LE charset missing from JRE", e);
-        }
+        return new String(buffer, StandardCharsets.UTF_16LE);
     }
 
     /**

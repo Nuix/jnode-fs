@@ -1,6 +1,6 @@
 package org.jnode.fs.ntfs.logfile;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import org.jnode.fs.ntfs.NTFSStructure;
 
 /**
@@ -83,11 +83,7 @@ public class LogClientRecord extends NTFSStructure {
         int length = getClientNameLength();
         byte[] buffer = new byte[length];
         getData(0x20, buffer, 0, length);
-        try {
-            return new String(buffer, "UTF-16LE");
-        } catch (UnsupportedEncodingException e) {
-            throw new IllegalStateException("UTF-16LE charset missing from JRE", e);
-        }
+        return new String(buffer, StandardCharsets.UTF_16LE);
     }
 
     /**

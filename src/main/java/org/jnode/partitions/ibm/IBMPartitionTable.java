@@ -22,7 +22,7 @@ package org.jnode.partitions.ibm;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -215,7 +215,7 @@ public class IBMPartitionTable implements PartitionTable<IBMPartitionTableEntry>
             return true;
         }
 
-        String bootSectorAsString = new String(bootSector, 0, 512, Charset.forName("US-ASCII"));
+        String bootSectorAsString = new String(bootSector, 0, 512, StandardCharsets.US_ASCII);
 
         if (bootSectorAsString.contains("Invalid partition table\u001eError loading operating system\u0018Missing operating system")) {
             // Matches DOS 2.0 partition boot code error message signature
@@ -285,7 +285,7 @@ public class IBMPartitionTable implements PartitionTable<IBMPartitionTableEntry>
             return true;
         }
 
-        String bsdNameTabString = new String(bootSector, 416, 16, Charset.forName("US-ASCII"));
+        String bsdNameTabString = new String(bootSector, 416, 16, StandardCharsets.US_ASCII);
 
         if (bsdNameTabString.contains("Linu\ufffd") || bsdNameTabString.contains("FreeBS\ufffd")) {
             // Matches BSD nametab entries signature
@@ -295,7 +295,7 @@ public class IBMPartitionTable implements PartitionTable<IBMPartitionTableEntry>
 
         // Rule out the Linux kernel binary
         if (bootSector.length > 520) {
-            String linuxKernelHeaderString = new String(bootSector, 514, 4, Charset.forName("US-ASCII"));
+            String linuxKernelHeaderString = new String(bootSector, 514, 4, StandardCharsets.US_ASCII);
 
             if ("HdrS".equals(linuxKernelHeaderString)) {
                 // Matches Linux kernel header signature
@@ -305,7 +305,7 @@ public class IBMPartitionTable implements PartitionTable<IBMPartitionTableEntry>
         }
 
         // Check if this looks like a filesystem instead of a partition table
-        String oemName = new String(bootSector, 3, 8, Charset.forName("US-ASCII"));
+        String oemName = new String(bootSector, 3, 8, StandardCharsets.US_ASCII);
         if (FILESYSTEM_OEM_NAMES.contains(oemName)) {
             log.debug("Looks like a file system instead of a partition table.");
             return false;

@@ -25,7 +25,7 @@ import org.jnode.partitions.PartitionTableEntry;
 import org.jnode.util.LittleEndian;
 import org.jnode.util.NumberUtils;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /**
  * A GPT partition table entry.
@@ -109,7 +109,7 @@ public class GptPartitionTableEntry implements PartitionTableEntry {
     public String getName() {
         byte[] nameBytes = new byte[72];
         System.arraycopy(first16KiB, offset + 0x38, nameBytes, 0, nameBytes.length);
-        String rawName = new String(nameBytes, Charset.forName("UTF-16LE"));
+        String rawName = new String(nameBytes, StandardCharsets.UTF_16LE);
 
         if (rawName.contains("\u0000")) {
             return rawName.substring(0, rawName.indexOf("\u0000"));

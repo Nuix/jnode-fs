@@ -25,7 +25,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /**
  * @author Ewout Prangsma (epr@users.sourceforge.net)
@@ -35,7 +36,7 @@ public class SupplementaryVolumeDescriptor extends VolumeDescriptor {
     private Logger log = LoggerFactory.getLogger(SupplementaryVolumeDescriptor.class);
 
     private final int flags;
-    private final String encoding;
+    private final Charset encoding;
     private final boolean encodingKnown;
 
     private final String systemIdentifier;
@@ -48,24 +49,18 @@ public class SupplementaryVolumeDescriptor extends VolumeDescriptor {
      * @param volume
      * @param buffer
      */
-    public SupplementaryVolumeDescriptor(ISO9660Volume volume, byte[] buffer)
-        throws UnsupportedEncodingException {
+    public SupplementaryVolumeDescriptor(ISO9660Volume volume, byte[] buffer) {
         super(volume, buffer);
         this.flags = getUInt8(buffer, 8);
         this.escapeSequences = getDChars(buffer, 89, 121 - 89);
 
-        String encoding;
-        boolean encodingKnown;
-        try {
-            encoding = getEncoding(escapeSequences);
-            encodingKnown = true;
-        } catch (UnsupportedEncodingException ex) {
+        Charset encoding = getEncoding(escapeSequences);
+        this.encodingKnown = encoding != null;
+        if (!encodingKnown) {
             encoding = DEFAULT_ENCODING;
-            encodingKnown = false;
             log.warn("Unsupported encoding, escapeSequences: '" + escapeSequences + "'");
         }
         this.encoding = encoding;
-        this.encodingKnown = encodingKnown;
         this.systemIdentifier = getAChars(buffer, 9, 41 - 9, encoding);
         this.volumeIdentifier = getDChars(buffer, 41, 73 - 41, encoding);
         this.spaceSize = getUInt32Both(buffer, 81);
@@ -118,24 +113,24 @@ public class SupplementaryVolumeDescriptor extends VolumeDescriptor {
     }
 
     /**
-     * Gets a derived encoding name from the given escape sequences.
+     * Gets the encoding the given escape sequences select.
      *
      * @param escapeSequences
-     * @return the encoding name
+     * @return the encoding, or {@code null} if the escape sequences are not recognised.
      */
-    private String getEncoding(String escapeSequences) throws UnsupportedEncodingException {
+    private Charset getEncoding(String escapeSequences) {
         if (escapeSequences.equals("%/@")) {
             // UCS-2 level 1
-            return "UTF-16BE";
+            return StandardCharsets.UTF_16BE;
         } else if (escapeSequences.equals("%/C")) {
             // UCS-2 level 2
-            return "UTF-16BE";
+            return StandardCharsets.UTF_16BE;
         } else if (escapeSequences.equals("%/E")) {
             // UCS-2 level 3
-            return "UTF-16BE";
+            return StandardCharsets.UTF_16BE;
         } else {
             // Unknown
-            throw new UnsupportedEncodingException(escapeSequences);
+            return null;
         }
     }
 
@@ -151,7 +146,7 @@ public class SupplementaryVolumeDescriptor extends VolumeDescriptor {
     /**
      * @return Returns the encoding.
      */
-    public final String getEncoding() {
+    public final Charset getEncoding() {
         return this.encoding;
     }
 

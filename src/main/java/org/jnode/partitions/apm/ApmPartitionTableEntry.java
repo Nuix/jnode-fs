@@ -25,7 +25,7 @@ import org.jnode.partitions.ibm.IBMPartitionTable;
 import org.jnode.util.BigEndian;
 import org.jnode.util.NumberUtils;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /**
  * A APM partition table entry.
@@ -88,13 +88,13 @@ public class ApmPartitionTableEntry implements PartitionTableEntry {
     public String getName() {
         byte[] nameBytes = new byte[31];
         System.arraycopy(first16KiB, offset + 0x10, nameBytes, 0, nameBytes.length);
-        return new String(nameBytes, Charset.forName("ASCII")).replace("\u0000", "");
+        return new String(nameBytes, StandardCharsets.US_ASCII).replace("\u0000", "");
     }
 
     public String getType() {
         byte[] nameBytes = new byte[31];
         System.arraycopy(first16KiB, offset + 0x30, nameBytes, 0, nameBytes.length);
-        return new String(nameBytes, Charset.forName("ASCII")).replace("\u0000", "");
+        return new String(nameBytes, StandardCharsets.US_ASCII).replace("\u0000", "");
     }
 
     public String dump() {
