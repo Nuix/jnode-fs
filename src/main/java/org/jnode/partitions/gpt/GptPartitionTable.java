@@ -30,7 +30,7 @@ import org.jnode.util.LittleEndian;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -111,7 +111,7 @@ public class GptPartitionTable implements PartitionTable<GptPartitionTableEntry>
 
         byte[] signatureBytes = new byte[8];
         System.arraycopy(first16KiB, blockSize, signatureBytes, 0, signatureBytes.length);
-        String signature = new String(signatureBytes, Charset.forName("US-ASCII"));
+        String signature = new String(signatureBytes, StandardCharsets.US_ASCII);
 
         if ("EFI PART".equals(signature)) {
             return true;

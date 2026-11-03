@@ -131,21 +131,22 @@ public class StandardInformationAttribute extends NTFSResidentAttribute {
     }
 
     /**
-     * Gets the quota charged (version 3.0+).
+     * Gets the quota charged (version 3.0+). This is an 8 byte field.
      *
      * @return the quota charged.
      */
-    public int getQuotaCharged() {
-        return getInt32(getAttributeOffset() + 0x38);
+    public long getQuotaCharged() {
+        return getInt64(getAttributeOffset() + 0x38);
     }
 
     /**
-     * Gets the update sequence number (USN) (version 3.0+).
+     * Gets the update sequence number (USN) (version 3.0+). This is an 8 byte field, and on a volume with any real
+     * amount of journal activity it exceeds 32 bits.
      *
      * @return the update sequence number.
      */
-    public int getUpdateSequenceNumber() {
-        return getInt32(getAttributeOffset() + 0x40);
+    public long getUpdateSequenceNumber() {
+        return getInt64(getAttributeOffset() + 0x40);
     }
 
     /**
@@ -158,8 +159,10 @@ public class StandardInformationAttribute extends NTFSResidentAttribute {
         READ_ONLY("Read-only", 0x1),
         HIDDEN("Hidden", 0x2),
         SYSTEM("System", 0x4),
+        VOLUME_LABEL("Volume Label", 0x8),
+        DIRECTORY("Directory", 0x10),
         ARCHIVE("Archive", 0x20),
-        DEVICE("Archive", 0x40),
+        DEVICE("Device", 0x40),
         NORMAL("Normal", 0x80),
         TEMPORARY("Temporary", 0x100),
         SPARSE("Sparse", 0x200),
@@ -167,7 +170,19 @@ public class StandardInformationAttribute extends NTFSResidentAttribute {
         COMPRESSED("Compressed", 0x800),
         OFFLINE("Offline", 0x1000),
         NOT_INDEXED("Not Indexed", 0x2000),
-        ENCRYPTED("Encrypted", 0x4000);
+        ENCRYPTED("Encrypted", 0x4000),
+        VIRTUAL("Virtual", 0x10000),
+
+        /**
+         * Mainly used in the file name attribute, where it indicates the entry is a directory. Not the same bit as
+         * {@link #DIRECTORY}.
+         */
+        HAS_INDEX("Has Index", 0x10000000),
+
+        /**
+         * Mainly used in the file name attribute, copied from the corresponding bit in the MFT record.
+         */
+        IS_INDEX_VIEW("Is Index View", 0x20000000);
 
         /**
          * The name of the flag.
@@ -212,7 +227,7 @@ public class StandardInformationAttribute extends NTFSResidentAttribute {
             for (Flags flag : values()) {
                 if (flag.isSet(value)) {
                     names.add(flag.name);
-                    value -= flag.value;
+                    value &= ~flag.value;
                 }
             }
 

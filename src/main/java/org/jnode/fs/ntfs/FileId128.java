@@ -42,7 +42,9 @@ public class FileId128 {
      * @param offset the offset to read the ID from.
      */
     public FileId128(NTFSStructure structure, int offset) {
-        this(structure.getBuffer(), offset);
+        // The offset is relative to the structure, so it has to be rebased onto the structure's own offset before
+        // it can be used to index the shared buffer.
+        this(structure.getBuffer(), structure.getOffset() + offset);
     }
 
     /**

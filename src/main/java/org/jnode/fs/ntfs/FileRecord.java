@@ -620,9 +620,14 @@ public class FileRecord extends NTFSRecord {
         // Limit to the initialised size for compressed attributes
         limitToInitialised = limitToInitialised || attr.isCompressedAttribute();
 
-        // Grab the initialised size (if that is itself initialised)
-        long initialisedSize = ((NTFSNonResidentAttribute) attr).getAttributeInitializedSize();
-        if (initialisedSize == 0) {
+        NTFSNonResidentAttribute nresData = (NTFSNonResidentAttribute) attr;
+        long initialisedSize = nresData.getAttributeInitializedSize();
+
+        // Only the fragment that starts at VCN 0 records the sizes; the fragments continuing a split attribute
+        // carry zero in all three of them. A zero there means 'not recorded' and there is nothing to limit to, but
+        // a zero on the first fragment means the attribute holds no initialised data at all, so the whole of it
+        // reads as zeros.
+        if (initialisedSize == 0 && nresData.getStartVCN() != 0) {
             limitToInitialised = false;
         }
 
@@ -641,23 +646,18 @@ public class FileRecord extends NTFSRecord {
 
         byte[] tmp = new byte[nrClusters * clusterSize];
 
-        NTFSNonResidentAttribute nresData = (NTFSNonResidentAttribute) attr;
-
         int clustersRead = nresData.readVCN(startCluster, tmp, 0, clustersToRead);
 
-        if (clustersRead > 0) {
-            // If if the data is past the 'initialised' part of the attribute. If it is uninitialised then it must
-            // be read as zeros. Annoyingly the initialised portion isn't even cluster aligned...
+        if (clustersRead > 0 && limitToInitialised) {
+            // Any part of the buffer past the 'initialised' part of the attribute is uninitialised and must be read
+            // as zeros. Annoyingly the initialised portion isn't even cluster aligned, so the tail of the last
+            // initialised cluster holds whatever happened to be on disk and has to be cleared here.
 
-            long readUpToOffset = (startCluster + clustersToRead) * clusterSize;
+            long uninitialisedStart = initialisedSize - startCluster * (long) clusterSize;
+            int startIndex = (int) Math.min(Math.max(uninitialisedStart, 0), tmp.length);
 
-            if (readUpToOffset > initialisedSize && limitToInitialised) {
-                int delta = (int) (readUpToOffset - initialisedSize);
-                int startIndex = Math.max((tmp.length - delta), 0);
-
-                if (startIndex < tmp.length) {
-                    Arrays.fill(tmp, startIndex, tmp.length, (byte) 0);
-                }
+            if (startIndex < tmp.length) {
+                Arrays.fill(tmp, startIndex, tmp.length, (byte) 0);
             }
         }
 
@@ -763,6 +763,32 @@ public class FileRecord extends NTFSRecord {
     }
 
     /**
+     * Works out how far into the record the attribute walk is allowed to go.
+     *
+     * <p>The used entry size is preferred, since that is what the record itself says is in use. It is sanity
+     * checked against the allocated size and against what is actually in the buffer, so that a corrupt value
+     * cannot be used to read outside the record.</p>
+     *
+     * @return the exclusive upper bound, relative to the start of the record.
+     */
+    private int getAttributeWalkLimit() {
+        int bufferLimit = getBuffer().length - getOffset();
+        int limit = bufferLimit;
+
+        long allocatedSize = getAllocatedSize();
+        if (allocatedSize > 0 && allocatedSize < limit) {
+            limit = (int) allocatedSize;
+        }
+
+        long usedSize = getRealSize();
+        if (usedSize > 0 && usedSize < limit) {
+            limit = (int) usedSize;
+        }
+
+        return limit;
+    }
+
+    /**
      * Reads in the stored attributes.
      *
      * @return the stored attributes.
@@ -771,11 +797,28 @@ public class FileRecord extends NTFSRecord {
         AttributeListBuilder attributeListBuilder = new AttributeListBuilder();
         int offset = getFirstAttributeOffset();
 
+        // Attributes cannot extend past the part of the record that is in use. Without this bound a corrupt size
+        // walks straight into the neighbouring record in the shared buffer, or off the end of it.
+        final int limit = getAttributeWalkLimit();
+
         while (true) {
+            if (offset < 0 || offset + 4 > limit) {
+                log.debug("{}:Attribute offset {} is outside the record (limit {}), stopping the walk",
+                    referenceNumber, offset, limit);
+                break;
+            }
+
             int type = getUInt32AsInt(offset);
 
             if (type == 0xFFFFFFFF) {
                 // Normal end of list condition.
+                break;
+            } else if (offset + NTFSAttribute.COMMON_HEADER_LENGTH > limit ||
+                       offset + NTFSAttribute.getHeaderLength(this, offset) > limit) {
+                // The end of list marker is only four bytes, so a whole header is only needed once a real attribute
+                // turns out to follow. Building one reads all of it, so check for all of it first.
+                log.debug("{}:Attribute header at offset {} runs past the end of the record (limit {}), stopping " +
+                          "the walk", referenceNumber, offset, limit);
                 break;
             } else {
                 NTFSAttribute attribute = NTFSAttribute.getAttribute(FileRecord.this, offset);
@@ -789,6 +832,11 @@ public class FileRecord extends NTFSRecord {
                     if (offsetToNextOffset <= 0) {
                         log.debug("Non-positive offset, preventing infinite loop.  Data on disk may be corrupt.  "
                                   + "referenceNumber = {}", referenceNumber);
+                        break;
+                    } else if (offset + offsetToNextOffset > limit) {
+                        log.debug("{}:Attribute at offset {} has size {} which runs past the end of the record "
+                                  + "(limit {}).  Data on disk may be corrupt.", referenceNumber, offset,
+                            offsetToNextOffset, limit);
                         break;
                     } else {
                         offset += offsetToNextOffset;

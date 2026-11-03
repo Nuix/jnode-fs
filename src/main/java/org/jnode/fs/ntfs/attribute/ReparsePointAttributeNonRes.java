@@ -65,6 +65,8 @@ public class ReparsePointAttributeNonRes extends NTFSNonResidentAttribute implem
     @Override
     public int getReparseDataLength() {
         readActualCluster(); // Lazy load the actual cluster.
-        return getUInt32AsInt(0x4);
+
+        // 16-bit, followed by a 2 byte reserved field
+        return getUInt16(0x4);
     }
 }

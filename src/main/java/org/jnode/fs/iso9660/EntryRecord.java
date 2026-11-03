@@ -21,7 +21,7 @@
 package org.jnode.fs.iso9660;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 
 /**
  * @author Chira
@@ -40,7 +40,7 @@ public class EntryRecord extends Descriptor {
     private final String identifier;
 
     private final ISO9660Volume volume;
-    private final String encoding;
+    private final Charset encoding;
 
     /**
      * Initialize this instance.
@@ -48,7 +48,7 @@ public class EntryRecord extends Descriptor {
      * @param buff
      * @param bp
      */
-    public EntryRecord(ISO9660Volume volume, byte[] buff, int bp, String encoding) {
+    public EntryRecord(ISO9660Volume volume, byte[] buff, int bp, Charset encoding) {
         final int offset = bp - 1;
         this.volume = volume;
         this.encoding = encoding;
@@ -126,7 +126,7 @@ public class EntryRecord extends Descriptor {
         return volume;
     }
 
-    private final String getFileIdentifier(byte[] buff, int offset, boolean isDir, String encoding) {
+    private final String getFileIdentifier(byte[] buff, int offset, boolean isDir, Charset encoding) {
         final int fidLength = getUInt8(buff, offset + 33);
         if (isDir) {
             final int buff34 = getUInt8(buff, offset + 34);
@@ -136,23 +136,19 @@ public class EntryRecord extends Descriptor {
                 return "..";
             }
         }
-        try {
-            final String id = getDChars(buff, offset + 34, fidLength, encoding);
-            final int sep2Idx = id.indexOf(SEPARATOR2);
-            if (sep2Idx >= 0) {
-                return id.substring(0, sep2Idx);
-            } else {
-                return id;
-            }
-        } catch (UnsupportedEncodingException ex) {
-            throw new RuntimeException(ex);
+        final String id = getDChars(buff, offset + 34, fidLength, encoding);
+        final int sep2Idx = id.indexOf(SEPARATOR2);
+        if (sep2Idx >= 0) {
+            return id.substring(0, sep2Idx);
+        } else {
+            return id;
         }
     }
 
     /**
      * @return Returns the encoding.
      */
-    public final String getEncoding() {
+    public final Charset getEncoding() {
         return this.encoding;
     }
 }

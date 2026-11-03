@@ -214,7 +214,7 @@ public class LogFile {
                             restartArea.getLogPageDataOffset());
 
                         recordOffset = getNextRecordOffset(logRecord, recordOffset);
-                        long lsn = logRecord.getLsn();
+                        long lsn = logRecord.isInBuffer() ? logRecord.getLsn() : 0;
 
                         if (logRecord.isValid() && lsn > 0 && lsn <= pageHeader.getLastLsnOrFileOffset()) {
                             lsnLogRecordMap.put(lsn, logRecord);
@@ -224,7 +224,7 @@ public class LogFile {
                             int start = (logRecord.getOffset()  % logPageSize) + LogRecord.LENGTH_CALCULATION_OFFSET;
                             lastRecordLength -= logPageSize - start;
                         } else {
-                            if (lsn <= 0 || lsn > pageHeader.getLastLsnOrFileOffset()) {
+                            if (logRecord.isInBuffer() && (lsn <= 0 || lsn > pageHeader.getLastLsnOrFileOffset())) {
                                 log.warn("Log record seems to be invalid: " + logRecord.toDebugString());
                             }
                             // Seems to be the end of valid records for this page
@@ -256,7 +256,7 @@ public class LogFile {
      */
     private long getNextRecordOffset(LogRecord logRecord, long recordOffset) {
         if (logRecord.isValid()) {
-            return recordOffset + LogRecord.LENGTH_CALCULATION_OFFSET + (int) logRecord.getClientDataLength();
+            return recordOffset + LogRecord.LENGTH_CALCULATION_OFFSET + logRecord.getClientDataLength();
         } else {
             // Seems to be the end of valid records for this page
             return restartArea.getLogPageDataOffset();

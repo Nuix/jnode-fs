@@ -20,6 +20,8 @@
  
 package org.jnode.fs.ntfs;
 
+import java.io.IOException;
+
 /**
  * @author Chira
  * @author Ewout Prangsma (epr@users.sourceforge.net)
@@ -74,12 +76,13 @@ public final class BootRecord extends NTFSStructure {
      * Initialize this instance.
      *
      * @param buffer the byte buffer to base this instance from.
+     * @throws IOException if the volume header does not describe a usable geometry.
      */
-    public BootRecord(byte[] buffer) {
+    public BootRecord(byte[] buffer) throws IOException {
         super(buffer, 0);
         this.systemID = new String(buffer, 0x03, 8);
         this.bytesPerSector = getUInt16(0x0B);
-        this.sectorsPerCluster = getUInt8(0x0D);
+        this.sectorsPerCluster = decodeSectorsPerCluster(getUInt8(0x0D));
         this.mediaDescriptor = getUInt8(0x15);
         this.sectorsPerTrack = getUInt16(0x18);
         this.totalSectors = getInt64(0x28);
@@ -92,6 +95,17 @@ public final class BootRecord extends NTFSStructure {
         this.clusterSize = sectorsPerCluster * bytesPerSector;
         this.fileRecordSize = calcByteSize(clustersPerMFTRecord);
         this.indexRecordSize = calcByteSize(clustersPerIndexRecord);
+
+        // These are divisors and array sizes further in, so a degenerate value has to be rejected here rather than
+        // surfacing as a division by zero or an empty MFT buffer somewhere deep in the record code.
+        if (clusterSize <= 0) {
+            throw new IOException(String.format(
+                "Invalid NTFS volume header: %d bytes per sector and %d sectors per cluster give a cluster size of %d",
+                bytesPerSector, sectorsPerCluster, clusterSize));
+        }
+
+        checkRecordSize("file", fileRecordSize, clustersPerMFTRecord);
+        checkRecordSize("index", indexRecordSize, clustersPerIndexRecord);
 
         log.debug("ClusterSize     = {}", clusterSize);
         log.debug("FileRecordSize  = {}", fileRecordSize);
@@ -207,8 +221,58 @@ public final class BootRecord extends NTFSStructure {
         return clusterSize;
     }
 
+    /**
+     * Decodes the sectors per cluster block value stored at offset 0x0d.
+     *
+     * <p>Values 0 to 128 are the number of sectors directly. Values 244 to 255 represent {@code 2^(256-n)} sectors,
+     * which is how cluster sizes above 128 sectors are stored - Windows 10 (1903) and mkntfs use this form for the
+     * 128 KiB to 2 MiB cluster sizes. Other values are not defined.</p>
+     *
+     * @param raw the raw byte value.
+     * @return the number of sectors per cluster block.
+     */
+    private static int decodeSectorsPerCluster(int raw) {
+        if (raw <= 128) {
+            return raw;
+        }
+
+        if (raw >= 244) {
+            return 1 << (256 - raw);
+        }
+
+        log.warn("Undefined sectors per cluster block value: {}, using it as-is", raw);
+        return raw;
+    }
+
+    /**
+     * Rejects a record size that cannot be real.
+     *
+     * <p>Records are fixed up in 512 byte strides and never formatted larger than 64 KiB. A plain zero check is not
+     * enough: Java masks the shift count, so a stored exponent below -31 gives a size of 1 or 2.</p>
+     *
+     * @param name   the kind of record, for the message.
+     * @param size   the decoded size in bytes.
+     * @param stored the raw signed byte it was decoded from.
+     * @throws IOException if the size is unusable.
+     */
+    private static void checkRecordSize(String name, int size, int stored) throws IOException {
+        if (size < 512 || size > 65536 || Integer.bitCount(size) != 1) {
+            throw new IOException(String.format(
+                "Invalid NTFS volume header: %s record size is %d (stored value %d)", name, size, stored));
+        }
+    }
+
+    /**
+     * Converts an MFT entry or index entry size, as stored in the volume header, into bytes.
+     *
+     * <p>Values 0 to 127 are a number of cluster blocks. Values 128 to 255, i.e. negative when read as a signed
+     * byte, represent {@code 2^(-n)} bytes.</p>
+     *
+     * @param clusters the raw signed byte value.
+     * @return the size in bytes.
+     */
     private int calcByteSize(int clusters) {
-        if (clusters > 0) {
+        if (clusters >= 0) {
             return clusters * clusterSize;
         } else {
             return (1 << -clusters);

@@ -21,7 +21,6 @@
 package org.jnode.fs.ntfs.attribute;
 
 import lombok.Getter;
-import org.jetbrains.annotations.TestOnly;
 import org.jnode.fs.ntfs.FileNameAttribute;
 import org.jnode.fs.ntfs.FileRecord;
 import org.jnode.fs.ntfs.NTFSStructure;
@@ -99,6 +98,31 @@ public abstract class NTFSAttribute extends NTFSStructure {
         }
     }
 
+    /**
+     * The length of the part of the attribute header that resident and non-resident attributes share.
+     */
+    public static final int COMMON_HEADER_LENGTH = 0x10;
+
+    /**
+     * The length of a resident attribute's header.
+     */
+    public static final int RESIDENT_HEADER_LENGTH = 0x18;
+
+    /**
+     * The length of a non-resident attribute's header.
+     */
+    public static final int NON_RESIDENT_HEADER_LENGTH = 0x40;
+
+    /**
+     * The length of a compressed non-resident attribute's header, which carries the compressed size as well.
+     */
+    public static final int COMPRESSED_NON_RESIDENT_HEADER_LENGTH = 0x48;
+
+    /**
+     * The attribute flag for a compressed attribute.
+     */
+    public static final int FLAG_COMPRESSED = 0x0001;
+
     private final Types type;
 
     /**
@@ -123,14 +147,6 @@ public abstract class NTFSAttribute extends NTFSStructure {
         this.flags = getUInt16(0x0C);
     }
 
-    @TestOnly
-    public NTFSAttribute(NTFSStructure ntfsStructure, int offset) {
-        super(ntfsStructure, offset);
-        this.fileRecord = null;
-        this.type = Types.fromValue(getUInt32AsInt(0));
-        this.flags = getUInt16(0x0C);
-    }
-
     /**
      * @return Returns the attributeType.
      */
@@ -144,7 +160,17 @@ public abstract class NTFSAttribute extends NTFSStructure {
      * @return {@code true} if the attribute contains compressed runs, {@code false} otherwise.
      */
     public boolean isCompressedAttribute() {
-        return (getFlags() & 0x0001) != 0;
+        return isCompressed(getFlags());
+    }
+
+    /**
+     * Checks the compressed flag of an attribute's flags.
+     *
+     * @param flags the attribute flags.
+     * @return {@code true} if the attribute is compressed.
+     */
+    public static boolean isCompressed(int flags) {
+        return (flags & FLAG_COMPRESSED) != 0;
     }
 
     /**
@@ -219,6 +245,25 @@ public abstract class NTFSAttribute extends NTFSStructure {
      * @return the debug string.
      */
     public abstract String toDebugString();
+
+    /**
+     * Gets the number of bytes the header of the attribute at a given offset occupies.
+     *
+     * <p>Callers use this to check that a whole header is present before building the attribute, so only the first
+     * {@link #COMMON_HEADER_LENGTH} bytes need to be readable to call it.</p>
+     *
+     * @param fileRecord the containing file record.
+     * @param offset     the offset to the attribute.
+     * @return the length of the header in bytes.
+     */
+    public static int getHeaderLength(FileRecord fileRecord, int offset) {
+        if (fileRecord.getUInt8(offset + 0x08) == 0) {
+            return RESIDENT_HEADER_LENGTH;
+        }
+
+        return isCompressed(fileRecord.getUInt16(offset + 0x0C))
+            ? COMPRESSED_NON_RESIDENT_HEADER_LENGTH : NON_RESIDENT_HEADER_LENGTH;
+    }
 
     /**
      * Create an NTFSAttribute instance suitable for the given attribute data.

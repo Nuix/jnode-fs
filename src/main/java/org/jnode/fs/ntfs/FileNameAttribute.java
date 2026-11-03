@@ -20,7 +20,7 @@
  
 package org.jnode.fs.ntfs;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import org.jnode.fs.ntfs.attribute.NTFSResidentAttribute;
 
 /**
@@ -198,12 +198,7 @@ public final class FileNameAttribute extends NTFSResidentAttribute {
          */
         public String getFileName() {
             if (name == null) {
-                try {
-                    //XXX: For Java 6, should use the version that accepts a Charset.
-                    name = new String(getFileNameAsByteArray(), "UTF-16LE");
-                } catch (UnsupportedEncodingException e) {
-                    throw new IllegalStateException("UTF-16LE charset missing from JRE", e);
-                }
+                name = new String(getFileNameAsByteArray(), StandardCharsets.UTF_16LE);
             }
             return name;
         }

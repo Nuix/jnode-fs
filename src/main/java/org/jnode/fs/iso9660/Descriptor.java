@@ -20,7 +20,7 @@
  
 package org.jnode.fs.iso9660;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 
 import org.jnode.util.BigEndian;
 import org.jnode.util.LittleEndian;
@@ -154,8 +154,7 @@ public abstract class Descriptor implements ISO9660Constants {
      * @param encoding
      * @return the String representation
      */
-    protected static final String getAChars(byte[] buffer, int bp, int length, String encoding)
-        throws UnsupportedEncodingException {
+    protected static final String getAChars(byte[] buffer, int bp, int length, Charset encoding) {
         return new String(buffer, bp - 1, length, encoding).trim();
     }
 
@@ -167,8 +166,7 @@ public abstract class Descriptor implements ISO9660Constants {
      * @param length
      * @return the String representation
      */
-    protected static final String getDChars(byte[] buffer, int bp, int length, String encoding)
-        throws UnsupportedEncodingException {
+    protected static final String getDChars(byte[] buffer, int bp, int length, Charset encoding) {
         return new String(buffer, bp - 1, length, encoding).trim();
     }
 }

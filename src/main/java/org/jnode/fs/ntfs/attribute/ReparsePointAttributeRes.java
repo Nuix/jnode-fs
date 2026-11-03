@@ -1,8 +1,6 @@
 package org.jnode.fs.ntfs.attribute;
 
-import org.jetbrains.annotations.TestOnly;
 import org.jnode.fs.ntfs.FileRecord;
-import org.jnode.fs.ntfs.NTFSStructure;
 
 /**
  * A resident NTFS reparse point (symbolic link).
@@ -21,11 +19,6 @@ public class ReparsePointAttributeRes extends NTFSResidentAttribute implements R
         super(fileRecord, offset);
     }
 
-    @TestOnly
-    public ReparsePointAttributeRes(NTFSStructure ntfsStructure, int offset) {
-        super(ntfsStructure, offset);
-    }
-
     @Override
     public int getReparseTag() {
         return getInt32(getAttributeOffset());
@@ -33,6 +26,7 @@ public class ReparsePointAttributeRes extends NTFSResidentAttribute implements R
 
     @Override
     public int getReparseDataLength() {
-        return getUInt32AsInt(getAttributeOffset() + 0x4);
+        // 16-bit, followed by a 2 byte reserved field
+        return getUInt16(getAttributeOffset() + 0x4);
     }
 }

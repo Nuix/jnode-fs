@@ -102,20 +102,24 @@ public class AccessControlEntry extends NTFSStructure {
             this.name = name;
         }
         
+        /**
+         * Gets the name for the given ACE type. Note the type is a plain value, not a set of flags, so at most one
+         * name is ever returned.
+         *
+         * @param type the type to look up.
+         * @return a single element list holding the name, or the unknown-type placeholder.
+         */
         public static List<String> namesForType(int type) {
             List<String> names = new ArrayList<String>();
 
             for (Type aceType : values()) {
-                if ((aceType.type & type) == aceType.type) {
-                    type -= aceType.type;
+                if (aceType.type == type) {
                     names.add(aceType.name);
+                    return names;
                 }
             }
 
-            if (type != 0) {
-                names.add(String.format("Unknown Type: 0x%x", type));
-            }
-
+            names.add(String.format("Unknown Type: 0x%x", type));
             return names;
         }
     }

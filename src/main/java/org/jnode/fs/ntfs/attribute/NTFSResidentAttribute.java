@@ -20,9 +20,7 @@
  
 package org.jnode.fs.ntfs.attribute;
 
-import org.jetbrains.annotations.TestOnly;
 import org.jnode.fs.ntfs.FileRecord;
-import org.jnode.fs.ntfs.NTFSStructure;
 
 /**
  * An NTFS file attribute that has its data stored inside the attribute.
@@ -39,11 +37,6 @@ public class NTFSResidentAttribute extends NTFSAttribute {
      */
     public NTFSResidentAttribute(FileRecord fileRecord, int offset) {
         super(fileRecord, offset);
-    }
-
-    @TestOnly
-    public NTFSResidentAttribute(NTFSStructure ntfsStructure, int offset) {
-        super(ntfsStructure, offset);
     }
 
     public int getAttributeLength() {

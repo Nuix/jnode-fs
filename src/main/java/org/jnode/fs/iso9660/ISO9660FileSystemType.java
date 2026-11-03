@@ -22,6 +22,7 @@ package org.jnode.fs.iso9660;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 import org.jnode.driver.Device;
 import org.jnode.driver.block.FSBlockDeviceAPI;
@@ -53,7 +54,7 @@ public class ISO9660FileSystemType implements BlockDeviceFileSystemType<ISO9660F
                 final ByteBuffer data = ByteBuffer.allocate(blockSize);
                 devApi.read(offset, data);
 
-                final String id = new String(data.array(), 1, 5, "US-ASCII");
+                final String id = new String(data.array(), 1, 5, StandardCharsets.US_ASCII);
                 //System.out.println("id=" + id);
                 return id.equals("CD001");
             } catch (IOException ex) {

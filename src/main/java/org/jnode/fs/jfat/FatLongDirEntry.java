@@ -21,8 +21,8 @@
 package org.jnode.fs.jfat;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import org.jnode.util.NumberUtils;
-
 
 /**
  * @author gvt
@@ -35,8 +35,6 @@ public class FatLongDirEntry extends FatDirEntry {
     private static final int LONG_ENTRY_MASK = 0x3F;
     private static final int LONG_ENTRY_MIN = 0x01;
     private static final int LONG_ENTRY_MAX = 0x7F;
-
-    private static final String charsetName = "UTF-16LE";
 
     /*
      * encoded side
@@ -101,7 +99,7 @@ public class FatLongDirEntry extends FatDirEntry {
         entry.setUInt8(0, lOrd);
     }
 
-    private void decodeComponent() throws IOException {
+    private void decodeComponent() {
         lName = new byte[UNAMELENGTH];
 
         entry.getBytes(1, 10, 0, lName);
@@ -139,15 +137,15 @@ public class FatLongDirEntry extends FatDirEntry {
          * game is over ...
          */
 
-        component = new String(lName, 0, 2 * l, charsetName);
+        component = new String(lName, 0, 2 * l, StandardCharsets.UTF_16LE);
     }
 
-    private void encodeComponent() throws IOException {
+    private void encodeComponent() {
         lName = new byte[UNAMELENGTH];
         int l;
         int m = lName.length / 2;
 
-        byte[] componentArray = component.getBytes(charsetName);
+        byte[] componentArray = component.getBytes(StandardCharsets.UTF_16LE);
 
         l = componentArray.length;
 

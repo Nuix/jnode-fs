@@ -71,7 +71,7 @@ public class UsnRecordV4 extends NTFSStructure implements UsnRecordCommonHeader<
      * @return the USN.
      */
     public long getUsn() {
-        return getInt64(0x20);
+        return getInt64(0x28);
     }
 
     /**
@@ -80,7 +80,7 @@ public class UsnRecordV4 extends NTFSStructure implements UsnRecordCommonHeader<
      * @return the reason.
      */
     public long getReason() {
-        return getUInt32(0x28);
+        return getUInt32(0x30);
     }
 
     /**
