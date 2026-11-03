@@ -454,7 +454,7 @@ public class FileRecord extends NTFSRecord {
                                    : mft.getRecord(referenceNumber);
                         });
                     }
-                    attributeList.addAll(attributeListAttributes);
+                    attributeList = new ArrayList<>(attributeListAttributes);
                 }
 
                 if (log.isDebugEnabled()) {
@@ -628,9 +628,7 @@ public class FileRecord extends NTFSRecord {
             return null;
         }
 
-        // WOF_EXTERNAL_INFO {version, provider}, then the file provider's {version, format}. Read from the attribute
-        // itself rather than through readData(), which rejects a resident attribute in a record with an attribute
-        // list, as the base record's attributes are listed twice there.
+        // WOF_EXTERNAL_INFO {version, provider}, then the file provider's {version, format}
         byte[] value = ((ReparsePointAttribute) reparsePoint).getReparseData();
         if (value.length < WOF_REPARSE_DATA_SIZE) {
             throw new IOException("the reparse point holds " + value.length + " bytes, too few for WOF");
@@ -794,7 +792,9 @@ public class FileRecord extends NTFSRecord {
     }
 
     /**
-     * Reads in all attributes referenced by the attribute-list attribute.
+     * Reads in all attributes referenced by the attribute-list attribute, merging the fragments of each split
+     * attribute into its first. The list names this record's attributes too, so the result also holds those, and
+     * any attributes stored here that the list does not name, such as the attribute list itself, come first.
      *
      * @param recordSupplier the FILE record supplier.
      * @return the list of attributes.
@@ -812,6 +812,7 @@ public class FileRecord extends NTFSRecord {
         }
 
         AttributeListBuilder attributeListBuilder = new AttributeListBuilder();
+        Set<NTFSAttribute> listedHere = new LinkedHashSet<>();
 
         while (entryIterator.hasNext()) {
             AttributeListEntry entry = entryIterator.next();
@@ -822,6 +823,9 @@ public class FileRecord extends NTFSRecord {
                 NTFSAttribute attribute;
                 if (entry.getFileReferenceNumber() == referenceNumber) {
                     attribute = findStoredAttributeByID(entry.getAttributeID());
+                    if (attribute != null) {
+                        listedHere.add(attribute);
+                    }
                     attributeListBuilder.add(attribute);
                 } else {
                     if (entry.getFileReferenceNumber() == 0) {
@@ -854,7 +858,14 @@ public class FileRecord extends NTFSRecord {
             }
         }
 
-        return attributeListBuilder.toList();
+        List<NTFSAttribute> attributes = new ArrayList<>();
+        for (NTFSAttribute attribute : getAllStoredAttributes()) {
+            if (attribute != null && !listedHere.contains(attribute)) {
+                attributes.add(attribute);
+            }
+        }
+        attributes.addAll(attributeListBuilder.toList());
+        return attributes;
     }
 
     /**
