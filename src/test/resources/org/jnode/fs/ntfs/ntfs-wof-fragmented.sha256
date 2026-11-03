@@ -1,0 +1,5 @@
+# Generated from ntfs-wof-fragmented.manifest.json: sha256, size, WOF format ('-' if not WOF compressed), path[:stream].
+# Hashes are what Windows read back through WOF; see the volume's SOURCE.md.
+68f14258b515c2c19cfd4f84326bd55b7da225b500b4497d3ba6f9f9bd7c7c27 2101473 XPRESS4K frag/mixed-xpress4k.bin
+cbe09020a466e16ae796ffccff3f55e4177ef36697db4f02029fca9d089ecbbb 1049575 LZX frag/mixed-lzx.bin
+1a735f024f525214661764f061e91b6c97915558e648d9b3431a96fdfadf874f 3145733 XPRESS8K frag/text-xpress8k.txt

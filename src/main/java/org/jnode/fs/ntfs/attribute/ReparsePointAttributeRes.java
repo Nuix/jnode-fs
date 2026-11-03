@@ -10,6 +10,11 @@ import org.jnode.fs.ntfs.FileRecord;
 public class ReparsePointAttributeRes extends NTFSResidentAttribute implements ReparsePointAttribute {
 
     /**
+     * The tag, the data length and a reserved field.
+     */
+    private static final int REPARSE_HEADER_SIZE = 8;
+
+    /**
      * Constructs the attribute.
      *
      * @param fileRecord the containing file record.
@@ -28,5 +33,13 @@ public class ReparsePointAttributeRes extends NTFSResidentAttribute implements R
     public int getReparseDataLength() {
         // 16-bit, followed by a 2 byte reserved field
         return getUInt16(getAttributeOffset() + 0x4);
+    }
+
+    @Override
+    public byte[] getReparseData() {
+        int available = Math.max(getAttributeLength() - REPARSE_HEADER_SIZE, 0);
+        byte[] data = new byte[Math.min(getReparseDataLength(), available)];
+        getData(getAttributeOffset() + REPARSE_HEADER_SIZE, data, 0, data.length);
+        return data;
     }
 }

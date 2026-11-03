@@ -15,6 +15,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ReparsePointAttributeNonRes extends NTFSNonResidentAttribute implements ReparsePointAttribute {
 
     /**
+     * The tag, the data length and a reserved field.
+     */
+    private static final int REPARSE_HEADER_SIZE = 8;
+
+    /**
      * Whether the non-resident cluster, which contains the actual data, has been read out.
      */
     AtomicBoolean isActualClusterReadOut = new AtomicBoolean(false);
@@ -68,5 +73,15 @@ public class ReparsePointAttributeNonRes extends NTFSNonResidentAttribute implem
 
         // 16-bit, followed by a 2 byte reserved field
         return getUInt16(0x4);
+    }
+
+    @Override
+    public byte[] getReparseData() {
+        readActualCluster(); // Lazy load the actual cluster.
+
+        int available = Math.max(getBuffer().length - getOffset() - REPARSE_HEADER_SIZE, 0);
+        byte[] data = new byte[Math.min(getReparseDataLength(), available)];
+        getData(REPARSE_HEADER_SIZE, data, 0, data.length);
+        return data;
     }
 }

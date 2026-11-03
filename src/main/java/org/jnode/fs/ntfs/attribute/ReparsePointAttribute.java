@@ -23,6 +23,14 @@ public interface ReparsePointAttribute {
     int getReparseDataLength();
 
     /**
+     * Gets the reparse data: the {@link #getReparseDataLength()} bytes after the tag and length, cut short if the
+     * attribute does not hold that many. Windows caps reparse data at 16 KiB ({@code MAXIMUM_REPARSE_DATA_BUFFER_SIZE}).
+     *
+     * @return the data.
+     */
+    byte[] getReparseData();
+
+    /**
      * Gets the attribute's file record.
      *
      * @return the file record.
