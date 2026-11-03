@@ -21,6 +21,7 @@
 package org.jnode.fs.ntfs;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -107,11 +108,15 @@ public class FileRecord extends NTFSRecord {
     private List<FileNameAttribute> fileNameAttributes;
 
     /**
-     * The WOF compressed form of the file data, if it has one; only meaningful once {@link #wofStreamChecked}.
+     * The outcome of looking for WOF compressed data, once looked for. Volatile so that reads after the first,
+     * including every MFT record fetch, need no lock.
      */
-    private WofCompressedStream wofStream;
+    private volatile WofLookup wofLookup;
 
-    private boolean wofStreamChecked;
+    /**
+     * Why the attribute list could not be read, if it could not, leaving only the attributes stored here.
+     */
+    private Exception attributeListFailure;
 
     /**
      * Initialize this instance.
@@ -462,6 +467,7 @@ public class FileRecord extends NTFSRecord {
                 }
             } catch (Exception e) {
                 log.error("Error getting attributes for file record: {}, returning stored attributes", referenceNumber, e);
+                attributeListFailure = e;
             }
         }
 
@@ -609,22 +615,48 @@ public class FileRecord extends NTFSRecord {
      * @return the stream, or {@code null} if the data is not WOF compressed.
      * @throws IOException if the data is WOF compressed in a form that cannot be read.
      */
-    public synchronized WofCompressedStream getWofCompressedStream() throws IOException {
-        if (!wofStreamChecked) {
-            try {
-                wofStream = findWofCompressedStream();
-            } catch (IOException e) {
-                throw new IOException("Cannot read the WOF compressed data of " + this + ": " + e.getMessage(), e);
+    public WofCompressedStream getWofCompressedStream() throws IOException {
+        WofLookup lookup = wofLookup;
+        if (lookup == null) {
+            synchronized (this) {
+                lookup = wofLookup;
+                if (lookup == null) {
+                    try {
+                        lookup = new WofLookup(findWofCompressedStream(), null);
+                    } catch (IOException e) {
+                        // Kept, so that each read of a file that cannot be read fails without looking again
+                        lookup = new WofLookup(null, new IOException(
+                            "Cannot read the WOF compressed data of " + this + ": " + e.getMessage(), e));
+                    }
+                    wofLookup = lookup;
+                }
             }
-            wofStreamChecked = true;
         }
-        return wofStream;
+        return lookup.get();
     }
 
     private WofCompressedStream findWofCompressedStream() throws IOException {
         NTFSAttribute reparsePoint = findAttributeByType(NTFSAttribute.Types.REPARSE_POINT);
-        if (!(reparsePoint instanceof ReparsePointAttribute) ||
-            ((ReparsePointAttribute) reparsePoint).getReparseTag() != ReparsePointTags.IO_REPARSE_TAG_WOF) {
+        if (reparsePoint == null && attributeListFailure != null && isFlaggedAsReparsePoint()) {
+            throw new IOException("the reparse point may be in an extension record, but the attribute list could " +
+                "not be read", attributeListFailure);
+        }
+        if (!(reparsePoint instanceof ReparsePointAttribute)) {
+            return null;
+        }
+
+        int tag;
+        try {
+            tag = ((ReparsePointAttribute) reparsePoint).getReparseTag();
+        } catch (UncheckedIOException e) {
+            // Without the tag there is no telling whether this is WOF. Without the stream it could not be read as
+            // WOF either way, so leave it to read as any other reparse point does.
+            if (!findAttributesByTypeAndName(NTFSAttribute.Types.DATA, WOF_STREAM_NAME).hasNext()) {
+                return null;
+            }
+            throw e.getCause();
+        }
+        if (tag != ReparsePointTags.IO_REPARSE_TAG_WOF) {
             return null;
         }
 
@@ -655,6 +687,32 @@ public class FileRecord extends NTFSRecord {
             getAttributeTotalSize(NTFSAttribute.Types.DATA, WOF_STREAM_NAME),
             getAttributeTotalSize(NTFSAttribute.Types.DATA, null),
             format);
+    }
+
+    private boolean isFlaggedAsReparsePoint() {
+        StandardInformationAttribute standardInformation = getStandardInformationAttribute();
+        return standardInformation != null &&
+            StandardInformationAttribute.Flags.REPARSE_POINT.isSet(standardInformation.getFlags());
+    }
+
+    /**
+     * The outcome of looking for WOF compressed data: the stream, none, or why it cannot be read.
+     */
+    private static final class WofLookup {
+        private final WofCompressedStream stream;
+        private final IOException failure;
+
+        WofLookup(WofCompressedStream stream, IOException failure) {
+            this.stream = stream;
+            this.failure = failure;
+        }
+
+        WofCompressedStream get() throws IOException {
+            if (failure != null) {
+                throw new IOException(failure.getMessage(), failure);
+            }
+            return stream;
+        }
     }
 
     /**

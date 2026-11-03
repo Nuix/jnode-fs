@@ -162,10 +162,17 @@ public class NTFSFile implements FSFile, FSFileSlackSpace, FSFileStreams {
         this.fileRecord = fileRecord;
     }
 
+    /**
+     * Gets the slack space after the file data in its last cluster. For a WOF compressed file that is the slack
+     * after the {@value FileRecord#WOF_STREAM_NAME} stream, as the unnamed data attribute holds no clusters.
+     */
     @Override
     public byte[] getSlackSpace() throws IOException {
-        Iterator<NTFSAttribute> dataAttributes = getFileRecord().findAttributesByTypeAndName(
-            NTFSAttribute.Types.DATA, null);
+        FileRecord record = getFileRecord();
+        String streamName = record.getWofCompressedStream() == null ? null : FileRecord.WOF_STREAM_NAME;
+
+        Iterator<NTFSAttribute> dataAttributes = record.findAttributesByTypeAndName(NTFSAttribute.Types.DATA,
+            streamName);
         NTFSAttribute attribute = dataAttributes.hasNext() ? dataAttributes.next() : null;
 
         if (attribute == null || attribute.isResident()) {
@@ -175,15 +182,16 @@ public class NTFSFile implements FSFile, FSFileSlackSpace, FSFileStreams {
         }
 
         int clusterSize = ((NTFSFileSystem) getFileSystem()).getNTFSVolume().getClusterSize();
+        long length = record.getAttributeTotalSize(NTFSAttribute.Types.DATA, streamName);
 
-        int slackSpaceSize = clusterSize - (int) (getLength() % clusterSize);
+        int slackSpaceSize = clusterSize - (int) (length % clusterSize);
 
         if (slackSpaceSize == clusterSize) {
             slackSpaceSize = 0;
         }
 
         byte[] slackSpace = new byte[slackSpaceSize];
-        getFileRecord().readData(NTFSAttribute.Types.DATA, null, getLength(), slackSpace, 0, slackSpace.length, false);
+        record.readData(NTFSAttribute.Types.DATA, streamName, length, slackSpace, 0, slackSpace.length, false);
 
         return slackSpace;
     }

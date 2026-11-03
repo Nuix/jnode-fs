@@ -13,6 +13,8 @@ import org.jnode.fs.ntfs.NTFSFileSystemType;
 import org.jnode.fs.ntfs.attribute.NTFSAttribute;
 import org.junit.Test;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertThrows;
 
@@ -55,6 +57,27 @@ public class WofDecompressorTest {
         byte[] expected = new byte[32];
         putCall(expected, 0, 0x00e80000);
         assertArrayEquals(expected, data);
+    }
+
+    /**
+     * The length repeated by a precode run (symbol 19) is a delta of 0 to 16; 17 and 18 are run codes, not deltas.
+     */
+    @Test
+    public void testLzxRunWithANonDeltaSymbolIsRejected() {
+        BitWriter bits = new BitWriter();
+        bits.write(1, 3);                       // verbatim block
+        bits.write(1, 1);                       // of the default size
+        for (int symbol = 0; symbol < 20; symbol++) {
+            bits.write(symbol == 17 || symbol == 19 ? 1 : 0, 4);     // precode: 17 is '0', 19 is '1'
+        }
+        bits.write(1, 1);                       // 19: a run of a repeated length...
+        bits.write(0, 1);                       // ...of four
+        bits.write(0, 1);                       // with delta 17, which is not a delta
+
+        byte[] chunk = bits.toByteArray(64);
+        IOException e = assertThrows(IOException.class,
+            () -> new LzxDecompressor().decompress(chunk, 0, chunk.length, new byte[32768], 32768));
+        assertThat(e.getMessage(), containsString("in a run: 17"));
     }
 
     @Test
@@ -140,6 +163,34 @@ public class WofDecompressorTest {
             byte[] chunk = new byte[length];
             record.readData(NTFSAttribute.Types.DATA, FileRecord.WOF_STREAM_NAME, tableSize, chunk, 0, length, true);
             return chunk;
+        }
+    }
+
+    /**
+     * Writes bits most significant first into little-endian 16-bit words, as LZX reads them.
+     */
+    private static class BitWriter {
+        private final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        private int word;
+        private int count;
+
+        void write(int value, int bits) {
+            for (int i = bits - 1; i >= 0; i--) {
+                word = word << 1 | (value >>> i & 1);
+                if (++count == 16) {
+                    out.write(word);
+                    out.write(word >>> 8);
+                    word = 0;
+                    count = 0;
+                }
+            }
+        }
+
+        byte[] toByteArray(int length) {
+            while (count != 0) {
+                write(0, 1);
+            }
+            return java.util.Arrays.copyOf(out.toByteArray(), length);
         }
     }
 

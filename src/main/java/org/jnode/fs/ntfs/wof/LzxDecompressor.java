@@ -165,7 +165,7 @@ final class LzxDecompressor implements WofDecompressor {
             } else {
                 run = 4 + bits.readBits(1);
                 int delta = precode.decode(bits);
-                if (delta > 17) {
+                if (delta > 16) {
                     throw new IOException("Invalid LZX precode symbol in a run: " + delta);
                 }
                 length = deltaLength(lengths[position], delta);

@@ -1,5 +1,7 @@
 package org.jnode.fs.ntfs.attribute;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import org.jnode.fs.ntfs.FileRecord;
 
 /**
@@ -8,11 +10,6 @@ import org.jnode.fs.ntfs.FileRecord;
  * @author Luke Quinane
  */
 public class ReparsePointAttributeRes extends NTFSResidentAttribute implements ReparsePointAttribute {
-
-    /**
-     * The tag, the data length and a reserved field.
-     */
-    private static final int REPARSE_HEADER_SIZE = 8;
 
     /**
      * Constructs the attribute.
@@ -26,20 +23,35 @@ public class ReparsePointAttributeRes extends NTFSResidentAttribute implements R
 
     @Override
     public int getReparseTag() {
+        checkHeader();
         return getInt32(getAttributeOffset());
     }
 
     @Override
     public int getReparseDataLength() {
+        checkHeader();
+
         // 16-bit, followed by a 2 byte reserved field
         return getUInt16(getAttributeOffset() + 0x4);
     }
 
     @Override
-    public byte[] getReparseData() {
-        int available = Math.max(getAttributeLength() - REPARSE_HEADER_SIZE, 0);
-        byte[] data = new byte[Math.min(getReparseDataLength(), available)];
-        getData(getAttributeOffset() + REPARSE_HEADER_SIZE, data, 0, data.length);
-        return data;
+    public byte[] getReparseData() throws IOException {
+        return ReparsePointValue.getData(this, getAttributeOffset(), getValueLength());
+    }
+
+    private void checkHeader() {
+        try {
+            ReparsePointValue.checkHeader(this, getAttributeOffset(), getValueLength());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e.getMessage() + ", file record = " + getFileRecord(), e);
+        }
+    }
+
+    /**
+     * Gets the length of the value, cut short where it would run past the end of the attribute.
+     */
+    private int getValueLength() {
+        return Math.max(Math.min(getAttributeLength(), getSize() - getAttributeOffset()), 0);
     }
 }

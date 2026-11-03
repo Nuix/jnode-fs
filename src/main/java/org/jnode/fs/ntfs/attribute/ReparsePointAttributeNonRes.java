@@ -1,11 +1,8 @@
 package org.jnode.fs.ntfs.attribute;
 
-import org.jnode.fs.ntfs.FileRecord;
-import org.jnode.fs.util.FSUtils;
-
 import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.io.UncheckedIOException;
+import org.jnode.fs.ntfs.FileRecord;
 
 /**
  * A non-resident NTFS reparse point (symbolic link).
@@ -15,14 +12,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ReparsePointAttributeNonRes extends NTFSNonResidentAttribute implements ReparsePointAttribute {
 
     /**
-     * The tag, the data length and a reserved field.
+     * The largest value the 16-bit data length allows, past which the attribute size cannot be right.
      */
-    private static final int REPARSE_HEADER_SIZE = 8;
+    private static final int MAX_VALUE_LENGTH = REPARSE_HEADER_SIZE + 0xffff;
 
     /**
-     * Whether the non-resident cluster, which contains the actual data, has been read out.
+     * Whether the value has been read out of the attribute's clusters into this structure's buffer.
      */
-    AtomicBoolean isActualClusterReadOut = new AtomicBoolean(false);
+    private boolean valueRead;
+
+    /**
+     * Why the value could not be read, if it could not.
+     */
+    private IOException readFailure;
 
     /**
      * Constructs the attribute.
@@ -34,54 +36,61 @@ public class ReparsePointAttributeNonRes extends NTFSNonResidentAttribute implem
         super(fileRecord, offset);
     }
 
-    private void readActualCluster() {
-        if (isActualClusterReadOut.get()) {
+    /**
+     * Reads the value out of the attribute's clusters and points this structure at it, so the value's fields read
+     * from offset zero. A failure is kept and raised again, as the structure would otherwise still point at the
+     * attribute header and the reparse getters would read that as the value.
+     */
+    private synchronized void readValue() throws IOException {
+        if (readFailure != null) {
+            throw new IOException(readFailure.getMessage(), readFailure);
+        }
+        if (valueRead) {
             return;
         }
 
         try {
-            List<NTFSAttribute> ntfsAttributes = getFileRecord().readStoredAttributes();
-            for (NTFSAttribute ntfsAttribute : ntfsAttributes) {
-                if (ntfsAttribute instanceof ReparsePointAttributeNonRes) {
-
-                    long length = getFileRecord().getAttributeTotalSize(NTFSAttribute.Types.REPARSE_POINT, null);
-                    byte[] tempBuffer = new byte[FSUtils.checkedCast(length)];
-                    getFileRecord().readData(NTFSAttribute.Types.REPARSE_POINT, null, 0, tempBuffer, 0, (int) length, true);
-
-                    // reset the data runs that contains the actual attribute data.
-                    reset(tempBuffer, 0);
-
-                    break;
-                }
+            long length = getFileRecord().getAttributeTotalSize(NTFSAttribute.Types.REPARSE_POINT, null);
+            if (length < REPARSE_HEADER_SIZE || length > MAX_VALUE_LENGTH) {
+                throw new IOException("Non-resident reparse point has an invalid size: " + length);
             }
+
+            byte[] value = new byte[(int) length];
+            getFileRecord().readData(NTFSAttribute.Types.REPARSE_POINT, null, 0, value, 0, value.length, true);
+            reset(value, 0);
+            valueRead = true;
+        } catch (IOException | RuntimeException e) {
+            readFailure = new IOException("Failed to read the non-resident reparse point of " + getFileRecord() +
+                ": " + e.getMessage(), e);
+            throw readFailure;
+        }
+    }
+
+    private void readValueUnchecked() {
+        try {
+            readValue();
         } catch (IOException e) {
-            log.error("Failed to read stored attributes", e);
-        } finally {
-            isActualClusterReadOut.set(true);
+            throw new UncheckedIOException(e.getMessage(), e);
         }
     }
 
     @Override
     public int getReparseTag() {
-        readActualCluster(); // Lazy load the actual cluster.
+        readValueUnchecked();
         return getInt32(0);
     }
 
     @Override
     public int getReparseDataLength() {
-        readActualCluster(); // Lazy load the actual cluster.
+        readValueUnchecked();
 
         // 16-bit, followed by a 2 byte reserved field
         return getUInt16(0x4);
     }
 
     @Override
-    public byte[] getReparseData() {
-        readActualCluster(); // Lazy load the actual cluster.
-
-        int available = Math.max(getBuffer().length - getOffset() - REPARSE_HEADER_SIZE, 0);
-        byte[] data = new byte[Math.min(getReparseDataLength(), available)];
-        getData(REPARSE_HEADER_SIZE, data, 0, data.length);
-        return data;
+    public byte[] getReparseData() throws IOException {
+        readValue();
+        return ReparsePointValue.getData(this, 0, getBuffer().length);
     }
 }

@@ -16,6 +16,8 @@ import org.jnode.fs.FSDirectory;
 import org.jnode.fs.FSEntry;
 import org.jnode.fs.FSFile;
 import org.jnode.fs.FileSystemTestUtils;
+import org.jnode.fs.ntfs.attribute.NTFSAttribute;
+import org.jnode.fs.ntfs.attribute.ReparsePointAttributeRes;
 import org.jnode.fs.ntfs.wof.WofCompressedStream;
 import org.jnode.fs.ntfs.wof.WofCompressionFormat;
 import org.jnode.fs.service.FileSystemService;
@@ -115,6 +117,42 @@ public class NTFSWofImageTest {
 
             IOException e = assertThrows(IOException.class, () -> file.read(0, ByteBuffer.allocate(16)));
             assertThat(e.getMessage(), containsString("unsupported WOF version 1 provider 1"));
+        }
+    }
+
+    /**
+     * A failed lookup is kept: the file still fails once the reparse point would parse, as it is not looked at again.
+     */
+    @Test
+    public void testFailedLookupIsCached() throws Exception {
+        try (TestImageDevice device = FileSystemTestUtils.openImage("org/jnode/fs/ntfs/ntfs-wof.raw")) {
+            FileRecord record = getFile(createFileSystem(device), "xpress4k/text-4097.txt").getFileRecord();
+            ReparsePointAttributeRes reparsePoint =
+                (ReparsePointAttributeRes) record.findAttributeByType(NTFSAttribute.Types.REPARSE_POINT);
+            int provider = reparsePoint.getOffset() + reparsePoint.getAttributeOffset() + 12;
+
+            reparsePoint.getBuffer()[provider] = 1;
+            assertThrows(IOException.class, record::getWofCompressedStream);
+
+            reparsePoint.getBuffer()[provider] = 2;
+            IOException e = assertThrows(IOException.class, record::getWofCompressedStream);
+            assertThat(e.getMessage(), containsString("provider 1"));
+        }
+    }
+
+    /**
+     * The slack of a WOF file is what follows its compressed stream, as the unnamed data attribute has no clusters.
+     */
+    @Test
+    public void testSlackSpaceFollowsTheCompressedStream() throws Exception {
+        try (TestImageDevice device = FileSystemTestUtils.openImage("org/jnode/fs/ntfs/ntfs-wof.raw")) {
+            NTFSFileSystem fs = createFileSystem(device);
+
+            // A 6723 byte stream in 4 KiB clusters
+            assertThat(getFile(fs, "lzx/text-1m-plus-7.txt").getSlackSpace().length, is(4096 - 6723 % 4096));
+
+            // A resident stream, which has no slack of its own
+            assertThat(getFile(fs, "xpress4k/text-4097.txt").getSlackSpace().length, is(0));
         }
     }
 
