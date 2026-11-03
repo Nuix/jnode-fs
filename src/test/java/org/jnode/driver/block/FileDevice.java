@@ -40,9 +40,9 @@ public class FileDevice extends Device implements FSBlockDeviceAPI, Closeable
     @Override
     public void read(long devOffset, ByteBuffer dest) throws IOException
     {
-        byte[] buffer = dest.array();
+        // honour the buffer's window: a driver may hand in a slice of a larger array
         randomAccessFile.seek(devOffset);
-        randomAccessFile.read(buffer, 0, buffer.length);
+        randomAccessFile.read(dest.array(), dest.arrayOffset() + dest.position(), dest.remaining());
     }
 
     @Override

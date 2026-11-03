@@ -44,6 +44,14 @@
             <version>31.1-jre</version>
             <scope>compile</scope>
         </dependency>
+        <!-- Pure-Java (no native), Apache-2.0, Java-8 codec library. Supplies the btrfs reader's
+             zstd and lzo decompressors (2.0.x still targets Java 8; the aircompressor-v3 artifact needs Java 22). -->
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>aircompressor</artifactId>
+            <version>2.0.3</version>
+            <scope>compile</scope>
+        </dependency>
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
