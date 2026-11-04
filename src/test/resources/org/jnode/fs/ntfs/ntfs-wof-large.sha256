@@ -1,0 +1,4 @@
+# Generated from ntfs-wof-large.manifest.json: sha256, size, WOF format ('-' if not WOF compressed), path[:stream].
+# Hashes are what Windows read back through WOF; see the volume's SOURCE.md.
+262c8eec53e5f9517f282d12d157d883a829f41743e8eac6f519ea5069815307 4294979641 XPRESS16K large/text-4g-plus-12345-xpress16k.txt
+e2743d66024bf9c87eb771ba1f945eaecfacc1daeeede03590ed2bef6e7b3f0d 4294979641 LZX large/text-4g-plus-12345-lzx.txt
