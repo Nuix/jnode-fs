@@ -127,6 +127,12 @@ public class FileRecord extends NTFSRecord {
     private Exception storedAttributeFailure;
 
     /**
+     * Whether an attribute list entry was left out because its holding record couldn't be found, didn't hold the
+     * attribute, or belongs to another file.
+     */
+    private volatile boolean attributeListIncomplete;
+
+    /**
      * Initialize this instance.
      *
      * @param volume          reference to the NTFS volume.
@@ -451,21 +457,32 @@ public class FileRecord extends NTFSRecord {
      *
      * @return a collection of all attributes.
      */
-    public synchronized List<NTFSAttribute> getAllAttributes() {
+    public List<NTFSAttribute> getAllAttributes() {
+        return getAllAttributes(referenceNumber -> {
+            // When reading the MFT itself don't attempt to check the index is in range
+            // (we won't know the total MFT length yet)
+            MasterFileTable mft = getVolume().getMFT();
+            return getReferenceNumber() == MasterFileTable.SystemFiles.MFT
+                   ? mft.getRecordUnchecked(referenceNumber)
+                   : mft.getRecord(referenceNumber);
+        });
+    }
+
+    /**
+     * Gets all attributes in this file record, looking up the records an $ATTRIBUTE_LIST names with the given
+     * supplier.
+     *
+     * @param recordSupplier supplies the records holding listed attributes.
+     * @return a collection of all attributes.
+     */
+    synchronized List<NTFSAttribute> getAllAttributes(FileRecordSupplier recordSupplier) {
         if (attributeList == null) {
             try {
                 attributeList = new ArrayList<>(getAllStoredAttributes());
                 if (getAttributeListAttribute() != null) {
                     log.debug("Attributes in attribute list ({})", referenceNumber);
                     if (attributeListAttributes == null) {
-                        attributeListAttributes = readAttributeListAttributes(referenceNumber -> {
-                            // When reading the MFT itself don't attempt to check the index is in range
-                            // (we won't know the total MFT length yet)
-                            MasterFileTable mft = getVolume().getMFT();
-                            return getReferenceNumber() == MasterFileTable.SystemFiles.MFT
-                                   ? mft.getRecordUnchecked(referenceNumber)
-                                   : mft.getRecord(referenceNumber);
-                        });
+                        attributeListAttributes = readAttributeListAttributes(recordSupplier);
                     }
                     attributeList = new ArrayList<>(attributeListAttributes);
                 }
@@ -476,6 +493,7 @@ public class FileRecord extends NTFSRecord {
             } catch (Exception e) {
                 log.error("Error getting attributes for file record: {}, returning stored attributes", referenceNumber, e);
                 attributeListFailure = e;
+                attributeListIncomplete = true;
                 attributeList = storedAttributeList != null
                     ? new ArrayList<>(storedAttributeList)
                     : new ArrayList<NTFSAttribute>();
@@ -982,6 +1000,12 @@ public class FileRecord extends NTFSRecord {
                     FileRecord holdingRecord = recordSupplier.getRecord(entry.getFileReferenceNumber());
                     if (holdingRecord == null) {
                         log.error("Failed to look up holding record {} for entry '{}'", referenceNumber, entry);
+                        attributeListIncomplete = true;
+                    } else if (!holds(holdingRecord, entry)) {
+                        log.info("{}:Skipping entry '{}': record {} (base {}, sequence {}) belongs to another file",
+                            referenceNumber, entry, entry.getFileReferenceNumber(),
+                            holdingRecord.getBaseReferenceNumber(), holdingRecord.getSequenceNumber());
+                        attributeListIncomplete = true;
                     } else {
                         attribute = holdingRecord.findStoredAttributeByID(entry.getAttributeID());
 
@@ -989,6 +1013,7 @@ public class FileRecord extends NTFSRecord {
                             if (isInUse()) {
                                 log.error("Failed to find an attribute matching entry '{}' in the holding record, ref={}", entry, referenceNumber);
                             }
+                            attributeListIncomplete = true;
                         } else {
                             attributeListBuilder.add(attribute);
                         }
@@ -1008,6 +1033,45 @@ public class FileRecord extends NTFSRecord {
         }
         attributes.addAll(attributeListBuilder.toList());
         return attributes;
+    }
+
+    /**
+     * Checks that a record named by an attribute list entry is still this file's extension record. Once a file is
+     * deleted its extension records can be reused by another file, whose attributes would otherwise be taken as this
+     * one's.
+     *
+     * <p>Freeing a record increments its sequence number, so the extension records of a deleted file are one past
+     * the sequence its list recorded. The $MFT's extension records have base reference 0, like every base record,
+     * so for the $MFT only the sequence tells them apart.</p>
+     *
+     * @param holdingRecord the record the entry names.
+     * @param entry         the entry.
+     * @return {@code true} if the record belongs to this file.
+     */
+    private boolean holds(FileRecord holdingRecord, AttributeListEntry entry) {
+        if (holdingRecord.getBaseReferenceNumber() != referenceNumber) {
+            return false;
+        }
+
+        int listed = (int) entry.getFileSequenceNumber();
+        int actual = holdingRecord.getSequenceNumber();
+        if (actual == listed) {
+            return true;
+        }
+
+        int freed = (listed + 1) & 0xFFFF;
+        return !isInUse() && !holdingRecord.isInUse() && actual == (freed == 0 ? 1 : freed);
+    }
+
+    /**
+     * Checks whether attributes named by the $ATTRIBUTE_LIST were left out of {@link #getAllAttributes()}: their
+     * holding record couldn't be read, didn't hold the attribute, or now belongs to another file.
+     *
+     * @return {@code true} if the attribute list couldn't be followed in full.
+     */
+    public boolean isAttributeListIncomplete() {
+        getAllAttributes();
+        return attributeListIncomplete;
     }
 
     /**
