@@ -360,4 +360,11 @@ public class NTFSUsnRecordTest {
         assertThat(UsnJournal.Reason.lookupReasons(0x100), contains("fs-entry-created"));
         assertThat(UsnJournal.Reason.lookupReasons(0x102), contains("data-extend", "fs-entry-created"));
     }
+
+    @Test
+    public void testDesiredStorageClassChangeIsNamed() {
+        assertThat(UsnJournal.Reason.lookupReasons(0x01000000L), contains("desired-storage-class-change"));
+        assertThat(UsnJournal.Reason.lookupReasons(0x81000000L),
+            containsInAnyOrder("desired-storage-class-change", "fs-entry-closed"));
+    }
 }

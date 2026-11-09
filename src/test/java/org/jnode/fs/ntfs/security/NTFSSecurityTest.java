@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.jnode.util.LittleEndian;
 import org.junit.Test;
 
 import static org.hamcrest.MatcherAssert.*;
@@ -23,7 +24,51 @@ public class NTFSSecurityTest {
         assertThat(AccessControlEntry.Type.namesForType(0), contains("Allow"));
         assertThat(AccessControlEntry.Type.namesForType(1), contains("Deny"));
         assertThat(AccessControlEntry.Type.namesForType(2), contains("Audit"));
-        assertThat(AccessControlEntry.Type.namesForType(9), contains("Unknown Type: 0x9"));
+        assertThat(AccessControlEntry.Type.namesForType(9), contains("Allow Callback"));
+        assertThat(AccessControlEntry.Type.namesForType(0x11), contains("Mandatory Label"));
+        assertThat(AccessControlEntry.Type.namesForType(0x12), contains("Resource Attribute"));
+        assertThat(AccessControlEntry.Type.namesForType(0x14), contains("Process Trust Label"));
+        assertThat(AccessControlEntry.Type.namesForType(0x16), contains("Unknown Type: 0x16"));
+    }
+
+    /**
+     * Builds an ACL holding one ACE with a one sub-authority SID.
+     */
+    private static AccessControlEntry ace(int type, int mask) {
+        byte[] buffer = new byte[0x14 + 8 + 0x14];
+        int acl = 0x14;
+        buffer[acl] = 2;
+        LittleEndian.setInt16(buffer, acl + 2, 8 + 0x14);
+        LittleEndian.setInt16(buffer, acl + 4, 1);
+
+        int ace = acl + 8;
+        buffer[ace] = (byte) type;
+        LittleEndian.setInt16(buffer, ace + 2, 0x14);
+        LittleEndian.setInt32(buffer, ace + 4, mask);
+        buffer[ace + 8] = 1;
+        buffer[ace + 9] = 1;
+        buffer[ace + 15] = 16;
+        LittleEndian.setInt32(buffer, ace + 16, 0x2000);
+
+        SecurityDescriptor descriptor = new SecurityDescriptor(buffer, 0);
+        return new AccessControlList(descriptor, acl).getAces().get(0);
+    }
+
+    /**
+     * A mandatory label's mask is the integrity policy, not file access rights: 0x1 is "No Write Up", not "Read".
+     */
+    @Test
+    public void testMandatoryLabelMaskIsNamedAsAPolicy() {
+        assertThat(ace(0x11, 0x1).getAccessMaskNames(false), contains("No Write Up"));
+        assertThat(ace(0x11, 0x7).getAccessMaskNames(false), contains("No Write Up", "No Read Up", "No Execute Up"));
+        assertThat(ace(0x11, 0x9).getAccessMaskNames(false), contains("No Write Up", "Unknown Mandatory Policy: 0x8"));
+    }
+
+    @Test
+    public void testOtherMasksAreNamedAsBefore() {
+        assertThat(ace(0x00, 0x1).getAccessMaskNames(false), contains("Read"));
+        assertThat(ace(0x00, 0x1).getAccessMaskNames(true), contains("List Contents"));
+        assertThat(ace(0x14, 0x1).getAccessMaskNames(false), contains("Access Mask: 0x1"));
     }
 
     /**
