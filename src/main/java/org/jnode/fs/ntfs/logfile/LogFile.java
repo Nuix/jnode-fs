@@ -5,19 +5,28 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import org.jnode.fs.ntfs.FileRecord;
 import org.jnode.fs.ntfs.attribute.NTFSAttribute;
-import org.jnode.fs.util.FSUtils;
 import org.jnode.util.LittleEndian;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * $LogFile
+ *
+ * <p>Records are found by scanning every record page on its own, not by following record lengths from page to page.
+ * A record's LSN encodes the file offset it was written at: {@code (lsn << seqBits) >>> (seqBits - 3)}. A position
+ * is accepted as a record only when the LSN there encodes that position, the record type is 1 or 2 and the length is
+ * less than the log. One garbage length can then only affect the rest of its own page.</p>
+ *
+ * <p>Logs written by Windows 8 and later keep a buffer of page copies in pages 2-33; older logs keep two tail copies
+ * in pages 2-3. A copy holds records whose LSNs encode a page in the circular area. They are reported at that home
+ * offset (see {@link LogRecord#getHomeOffset()}), and a record found both in a copy and at home is reported once. A
+ * record that crosses into the next page continues in a copy of the next home page written in the same pass through
+ * the log; when no such copy exists the record is incomplete, so it is dropped.</p>
  *
  * @author Luke Quinane
  */
@@ -29,9 +38,19 @@ public class LogFile {
     protected static final Logger log = LoggerFactory.getLogger(LogFile.class);
 
     /**
-     * The start of the normal area (in pages).
+     * The start of the normal area (in pages) on logs that only keep two tail copies.
      */
     public static final int NORMAL_AREA_START = 4;
+
+    /**
+     * The first page past the page-copy buffer on logs written by Windows 8 and later.
+     */
+    static final int BUFFER_AREA_END = 34;
+
+    /**
+     * The first page that can hold record pages; pages 0 and 1 are the restart pages.
+     */
+    private static final int FIRST_RECORD_PAGE = 2;
 
     /**
      * The list of open log clients.
@@ -39,17 +58,12 @@ public class LogFile {
     private final List<LogClientRecord> logClients = new ArrayList<LogClientRecord>();
 
     /**
-     * The offset to the oldest page.
+     * The record page headers, indexed by page number. {@code null} for a page without the RCRD magic.
      */
-    private final int oldestPageOffset;
+    private final RecordPageHeader[] pageHeaders;
 
     /**
-     * The map of offset to record page headers.
-     */
-    private Map<Integer, RecordPageHeader> offsetPageMap = new LinkedHashMap<Integer, RecordPageHeader>();
-
-    /**
-     * The map of LSN to log record.
+     * The map of LSN to log record, in LSN order.
      */
     private Map<Long, LogRecord> lsnLogRecordMap;
 
@@ -90,10 +104,20 @@ public class LogFile {
      * @throws IOException if an error occurs.
      */
     public LogFile(FileRecord fileRecord) throws IOException {
-        // Read in the log file data
-        logFileLength = fileRecord.getAttributeTotalSize(NTFSAttribute.Types.DATA, null);
-        logFileBuffer = new byte[(int) logFileLength];
-        fileRecord.readData(0, logFileBuffer, 0, (int) logFileLength);
+        this(readLogFile(fileRecord));
+    }
+
+    /**
+     * Creates a new instance from the contents of a $LogFile.
+     *
+     * <p>Fix-ups are applied to the buffer in place.</p>
+     *
+     * @param logFileBuffer the $LogFile data.
+     * @throws IOException if an error occurs.
+     */
+    public LogFile(byte[] logFileBuffer) throws IOException {
+        this.logFileBuffer = logFileBuffer;
+        logFileLength = logFileBuffer.length;
 
         // Read in the restart area info
         restartPageHeader = getNewestRestartPageHeader(logFileBuffer);
@@ -125,7 +149,40 @@ public class LogFile {
             }
         }
 
-        oldestPageOffset = findOldestPageOffset();
+        pageHeaders = readPageHeaders();
+    }
+
+    /**
+     * Reads the $DATA of the $LogFile file record.
+     *
+     * @param fileRecord the file record.
+     * @return the data.
+     * @throws IOException if an error occurs.
+     */
+    private static byte[] readLogFile(FileRecord fileRecord) throws IOException {
+        int length = (int) fileRecord.getAttributeTotalSize(NTFSAttribute.Types.DATA, null);
+        byte[] buffer = new byte[length];
+        fileRecord.readData(0, buffer, 0, length);
+        return buffer;
+    }
+
+    /**
+     * Reads the header of every record page, which also applies each page's fix-up.
+     *
+     * @return the headers, indexed by page number.
+     * @throws IOException if an error occurs.
+     */
+    private RecordPageHeader[] readPageHeaders() throws IOException {
+        RecordPageHeader[] headers = new RecordPageHeader[(int) (logFileLength / logPageSize)];
+
+        for (int page = FIRST_RECORD_PAGE; page < headers.length; page++) {
+            int offset = page * logPageSize;
+            if (LittleEndian.getInt32(logFileBuffer, offset) == RecordPageHeader.Magic.RCRD) {
+                headers[page] = new RecordPageHeader(logFileBuffer, offset);
+            }
+        }
+
+        return headers;
     }
 
     /**
@@ -137,167 +194,306 @@ public class LogFile {
             return;
         }
 
-        lsnLogRecordMap = new LinkedHashMap<Long, LogRecord>();
+        lsnLogRecordMap = new TreeMap<Long, LogRecord>();
 
-        // The first whole record in the oldest page can start mid-page, so just skip all records in the first page and
-        // use the last record to calculate the offset to the first record in the next page.
-        int offset = oldestPageOffset;
-        RecordPageHeader oldestPage = offsetPageMap.get(offset);
-        long recordOffset = oldestPage.getNextRecordOffset();
-        recordOffset = FSUtils.roundUpToBoundary(8, recordOffset);
-        LogRecord lastRecordOnFirstPage;
-        long lastRecordLength;
-        if (recordOffset + LogRecord.LENGTH_CALCULATION_OFFSET > logPageSize) {
-            // The first record we hit has overflowed to the next page
-            offset += logPageSize;
-            recordOffset = restartArea.getLogPageDataOffset();
-            lastRecordOnFirstPage = new LogRecord(logFileBuffer, (int) (offset + recordOffset), logPageSize,
-                restartArea.getLogPageDataOffset());
-            lastRecordLength = lastRecordOnFirstPage.getClientDataLength();
-        } else {
-            // Last record on this page with no overflow
-            lastRecordOnFirstPage = new LogRecord(logFileBuffer, (int) (offset + recordOffset), logPageSize,
-                restartArea.getLogPageDataOffset());
-            lastRecordLength = lastRecordOnFirstPage.getClientDataLength();
-            offset += logPageSize;
-            lastRecordLength -= logPageSize - restartArea.getLogPageDataOffset();
+        long seqBits = restartArea.getSequenceNumberBits();
+        if (seqBits < 3 || seqBits > 63) {
+            log.warn("$LogFile restart area has an invalid sequence number bits value: " + seqBits);
+            return;
         }
 
-        recordOffset = getNextRecordOffset(lastRecordOnFirstPage, recordOffset);
-        long lastLsn = offsetPageMap.get(offset).getLastLsnOrFileOffset();
+        PageScan scan = new PageScan((int) seqBits);
+        scan.scanPages();
 
-        int logPageCount = (int) ((logFileLength - NORMAL_AREA_START * logPageSize) / logPageSize);
-
-        // Read in each log page
-        for (int pageNumber = 1; pageNumber < logPageCount; pageNumber++) {
-            RecordPageHeader pageHeader = offsetPageMap.get(offset);
-
-            if (pageHeader != null && pageHeader.isValid()) {
-                if (pageHeader.getLastLsnOrFileOffset() < lastLsn ||
-                    pageHeader.getLastLsnOrFileOffset() - lastLsn > 0x8000) {
-                    // This page doesn't seem to continue on from the last page, so reset the offsets
-                    log.info(String.format("$LogFile discontinuous at 0x%x [%d -> %d]", offset, lastLsn,
-                        pageHeader.getLastLsnOrFileOffset()));
-                    recordOffset = 0;
-                    lastRecordLength = 0;
-                }
-
-                // Check if this page is filled with data from a previous record
-                if (lastRecordLength > logPageSize - restartArea.getLogPageDataOffset()) {
-                    recordOffset -= logPageSize - restartArea.getLogPageDataOffset();
-                    lastRecordLength -= logPageSize - restartArea.getLogPageDataOffset();
-                } else {
-                    // Ensure that the record offset is within the page and beyond the page header
-                    if (recordOffset < logPageSize) {
-                        recordOffset = restartArea.getLogPageDataOffset();
-                    } else {
-                        recordOffset = recordOffset % logPageSize;
-                        recordOffset += restartArea.getLogPageDataOffset();
-                    }
-
-                    long lastRecordInPage = Math.min(pageHeader.getNextRecordOffset(), logPageSize);
-                    if (lastRecordInPage == 0) {
-                        lastRecordInPage = logPageSize;
-                    }
-
-                    // Read in the page's log records
-                    while (recordOffset <= lastRecordInPage) {
-                        if (recordOffset + LogRecord.LENGTH_CALCULATION_OFFSET > logPageSize) {
-                            // No more room for records in this page, move to the next page
-                            recordOffset = 0;
-                            break;
-                        }
-
-                        // Get the offset to the next record in the buffer rounded up to an 8-byte boundary
-                        recordOffset = FSUtils.roundUpToBoundary(8, recordOffset);
-                        LogRecord logRecord = new LogRecord(logFileBuffer, (int) (offset + recordOffset), logPageSize,
-                            restartArea.getLogPageDataOffset());
-
-                        recordOffset = getNextRecordOffset(logRecord, recordOffset);
-                        long lsn = logRecord.isInBuffer() ? logRecord.getLsn() : 0;
-
-                        if (logRecord.isValid() && lsn > 0 && lsn <= pageHeader.getLastLsnOrFileOffset()) {
-                            lsnLogRecordMap.put(lsn, logRecord);
-                            lastRecordLength = logRecord.getClientDataLength();
-
-                            // Account for the portion of the record on this page
-                            int start = (logRecord.getOffset()  % logPageSize) + LogRecord.LENGTH_CALCULATION_OFFSET;
-                            lastRecordLength -= logPageSize - start;
-                        } else {
-                            if (logRecord.isInBuffer() && (lsn <= 0 || lsn > pageHeader.getLastLsnOrFileOffset())) {
-                                log.warn("Log record seems to be invalid: " + logRecord.toDebugString());
-                            }
-                            // Seems to be the end of valid records for this page
-                            lastRecordLength = 0;
-                            break;
-                        }
-                    }
-                }
-
-                lastLsn = pageHeader.getLastLsnOrFileOffset();
+        int dropped = 0;
+        for (Map.Entry<Long, Placement> entry : scan.placements.entrySet()) {
+            LogRecord record = scan.toLogRecord(entry.getKey(), entry.getValue());
+            if (record == null) {
+                dropped++;
             } else {
-                lastLsn = 0;
+                lsnLogRecordMap.put(entry.getKey(), record);
             }
+        }
 
-            offset += logPageSize;
-            if (offset >= logFileLength) {
-                // Wrap around to the start of the 'normal' area.
-                offset = NORMAL_AREA_START * logPageSize;
-            }
+        if (dropped > 0) {
+            log.info(String.format("Dropped %d $LogFile records whose continuation was overwritten", dropped));
         }
     }
 
     /**
-     * Gets the next record offset.
-     *
-     * @param logRecord the current log record.
-     * @param recordOffset the offset to the current record.
-     * @return the offset to the next record.
+     * Where a record was found.
      */
-    private long getNextRecordOffset(LogRecord logRecord, long recordOffset) {
-        if (logRecord.isValid()) {
-            return recordOffset + LogRecord.LENGTH_CALCULATION_OFFSET + logRecord.getClientDataLength();
-        } else {
-            // Seems to be the end of valid records for this page
-            return restartArea.getLogPageDataOffset();
+    private static final class Placement {
+        /**
+         * The position of the record's bytes in the buffer.
+         */
+        final int position;
+
+        /**
+         * The offset its LSN encodes.
+         */
+        final long homeOffset;
+
+        Placement(int position, long homeOffset) {
+            this.position = position;
+            this.homeOffset = homeOffset;
+        }
+
+        boolean isAtHome() {
+            return position == homeOffset;
         }
     }
 
     /**
-     * Finds the offset to the oldest page, i.e. the one with the lowest LSN.
-     *
-     * @return the offset to the oldest page.
-     * @throws IOException if an error occurs.
+     * One pass over the record pages.
      */
-    private int findOldestPageOffset() throws IOException {
-        TreeMap<Long, RecordPageHeader> lsnPageMap = new TreeMap<Long, RecordPageHeader>();
-        Map<RecordPageHeader, Integer> pageOffsetMap = new HashMap<RecordPageHeader, Integer>();
+    private final class PageScan {
 
-        // Read in all the page header records. The first two pages are the restart area, and the next two pages are the
-        // buffer page area, so start reading in page headers from the fifth page. This is the start of the 'normal
-        // area'.
+        private final int seqBits;
 
-        for (int offset = 4 * logPageSize; offset < logFileLength; offset += logPageSize) {
-            int magic = LittleEndian.getInt32(logFileBuffer, offset);
+        /**
+         * The LSN increment from one lap of the circular area to the next.
+         */
+        private final long lapLength;
 
-            if (magic != RecordPageHeader.Magic.RCRD) {
-                // Bad page magic, possibly an uninitialised page
-                continue;
+        private final int pageCount;
+
+        private final int dataOffset;
+
+        /**
+         * The page the circular area wraps back to: 34 when pages 4-33 are a buffer, otherwise 4.
+         */
+        private final int firstCircularPage;
+
+        final Map<Long, Placement> placements = new HashMap<Long, Placement>();
+
+        /**
+         * The pages holding copies of each home page, other than the home page itself.
+         */
+        private final Map<Integer, List<Integer>> copiesByHomePage = new HashMap<Integer, List<Integer>>();
+
+        PageScan(int seqBits) {
+            this.seqBits = seqBits;
+            lapLength = 1L << (64 - seqBits);
+            pageCount = pageHeaders.length;
+            dataOffset = restartArea.getLogPageDataOffset();
+            firstCircularPage = findFirstCircularPage();
+        }
+
+        /**
+         * Gets the offset into the log file that an LSN encodes.
+         */
+        long homeOffset(long lsn) {
+            return (lsn << seqBits) >>> (seqBits - 3);
+        }
+
+        /**
+         * Decides whether pages 4-33 are a buffer of page copies. A copy's first record is away from its home, while
+         * a circular-area page's first record is at home. The restart area version doesn't tell: cleanly unmounted
+         * Windows 8+ volumes write v1.1 and still use the buffer.
+         */
+        private int findFirstCircularPage() {
+            int atHome = 0;
+            int away = 0;
+
+            for (int page = NORMAL_AREA_START; page < Math.min(BUFFER_AREA_END, pageCount); page++) {
+                if (pageHeaders[page] == null) {
+                    continue;
+                }
+
+                int pageStart = page * logPageSize;
+                long lastLsn = pageHeaders[page].getLastLsnOrFileOffset();
+
+                for (int pos = dataOffset; pos + LogRecord.LENGTH_CALCULATION_OFFSET <= logPageSize; pos += 8) {
+                    long lsn = LittleEndian.getInt64(logFileBuffer, pageStart + pos);
+                    long home = homeOffset(lsn);
+
+                    if (lsn > 0 && lsn <= lastLsn && home % logPageSize == pos
+                        && isRecordType(LittleEndian.getUInt32(logFileBuffer, pageStart + pos + 0x20))) {
+                        if (home / logPageSize == page) {
+                            atHome++;
+                        } else {
+                            away++;
+                        }
+                        break;
+                    }
+                }
             }
 
-            RecordPageHeader pageHeader = new RecordPageHeader(logFileBuffer, offset);
-            offsetPageMap.put(offset, pageHeader);
+            return away > atHome ? BUFFER_AREA_END : NORMAL_AREA_START;
+        }
 
-            // If the last-end-LSN is zero then the page only contains data from the log record on the last page. I.e.
-            // it has no new entries, so skip it
-            if (pageHeader.isValid() && pageHeader.getLastEndLsn() != 0) {
-                lsnPageMap.put(pageHeader.getLastEndLsn(), pageHeader);
-                pageOffsetMap.put(pageHeader, offset);
+        void scanPages() {
+            for (int page = FIRST_RECORD_PAGE; page < pageCount; page++) {
+                if (pageHeaders[page] != null) {
+                    scanPage(page);
+                }
             }
         }
 
-        RecordPageHeader oldestPage = lsnPageMap.firstEntry().getValue();
-        return pageOffsetMap.get(oldestPage);
+        /**
+         * Scans one page for records at every 8-byte position from the data offset.
+         *
+         * <p>In the circular area a record must sit exactly at the offset its LSN encodes. In pages 2-33 the first
+         * record may be a copy from elsewhere, as long as its in-page position matches; the rest of the page must then
+         * belong to the same home page.</p>
+         */
+        private void scanPage(int page) {
+            int pageStart = page * logPageSize;
+            long lastLsn = pageHeaders[page].getLastLsnOrFileOffset();
+            boolean mayBeCopy = page < NORMAL_AREA_START || (page < BUFFER_AREA_END && !hasRecordAtHome(page));
+            int homePage = -1;
+            int pos = dataOffset;
+
+            while (pos + LogRecord.LENGTH_CALCULATION_OFFSET <= logPageSize) {
+                int position = pageStart + pos;
+                long lsn = LittleEndian.getInt64(logFileBuffer, position);
+
+                if (lsn > 0 && lsn <= lastLsn) {
+                    long home = homeOffset(lsn);
+                    boolean placed;
+                    if (homePage < 0) {
+                        placed = home == position
+                            || (mayBeCopy && home % logPageSize == pos
+                            && home >= (long) NORMAL_AREA_START * logPageSize && home < logFileLength);
+                    } else {
+                        placed = home / logPageSize == homePage && home % logPageSize == pos;
+                    }
+
+                    long recordType = LittleEndian.getUInt32(logFileBuffer, position + 0x20);
+                    long clientDataLength = LittleEndian.getUInt32(logFileBuffer, position + 0x18);
+
+                    if (placed && isRecordType(recordType) && clientDataLength < logFileLength) {
+                        homePage = (int) (home / logPageSize);
+
+                        Placement previous = placements.get(lsn);
+                        if (previous == null || (!previous.isAtHome() && position == home)) {
+                            placements.put(lsn, new Placement(position, home));
+                        }
+
+                        long end = pos + LogRecord.LENGTH_CALCULATION_OFFSET + clientDataLength;
+                        if (end > logPageSize) {
+                            // The record runs on to the next page, so nothing else starts on this one
+                            break;
+                        }
+
+                        pos = (int) ((end + 7) & ~7L);
+                        continue;
+                    }
+                }
+
+                pos += 8;
+            }
+
+            if (homePage >= 0 && homePage != page) {
+                List<Integer> copies = copiesByHomePage.get(homePage);
+                if (copies == null) {
+                    copies = new ArrayList<Integer>();
+                    copiesByHomePage.put(homePage, copies);
+                }
+                copies.add(page);
+            }
+        }
+
+        /**
+         * Checks whether a page holds a record at the offset its LSN encodes. A copy never does, since its records'
+         * home is another page, so such a page in 4-33 is part of the circular area. Before its first record it can
+         * hold the end of a record from the previous page, whose bytes must not be taken for a copy.
+         */
+        private boolean hasRecordAtHome(int page) {
+            int pageStart = page * logPageSize;
+            long lastLsn = pageHeaders[page].getLastLsnOrFileOffset();
+
+            for (int pos = dataOffset; pos + LogRecord.LENGTH_CALCULATION_OFFSET <= logPageSize; pos += 8) {
+                int position = pageStart + pos;
+                long lsn = LittleEndian.getInt64(logFileBuffer, position);
+                if (lsn > 0 && lsn <= lastLsn && homeOffset(lsn) == position
+                    && isRecordType(LittleEndian.getUInt32(logFileBuffer, position + 0x20))
+                    && LittleEndian.getUInt32(logFileBuffer, position + 0x18) < logFileLength) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /**
+         * Builds the log record for a placement, resolving the pages a crossing record continues in.
+         *
+         * @return the record, or {@code null} if a continuation page was overwritten in a later lap.
+         */
+        LogRecord toLogRecord(long lsn, Placement placement) {
+            int posInPage = placement.position % logPageSize;
+            long clientDataLength = LittleEndian.getUInt32(logFileBuffer, placement.position + 0x18);
+            long remaining = posInPage + LogRecord.LENGTH_CALCULATION_OFFSET + clientDataLength - logPageSize;
+
+            List<Integer> continuation = new ArrayList<Integer>();
+            int homePage = (int) (placement.homeOffset / logPageSize);
+
+            while (remaining > 0) {
+                homePage++;
+                if (homePage >= pageCount) {
+                    homePage = firstCircularPage;
+                }
+
+                int copy = findSameLapCopy(homePage, lsn);
+                if (copy < 0) {
+                    log.debug(String.format("$LogFile record %d continues in page %d, which is from another lap",
+                        lsn, homePage));
+                    return null;
+                }
+
+                continuation.add(copy * logPageSize);
+                remaining -= logPageSize - dataOffset;
+            }
+
+            int[] continuationPages = new int[continuation.size()];
+            for (int i = 0; i < continuationPages.length; i++) {
+                continuationPages[i] = continuation.get(i);
+            }
+
+            return new LogRecord(logFileBuffer, placement.position, logPageSize, dataOffset, placement.homeOffset,
+                continuationPages);
+        }
+
+        /**
+         * Finds the newest copy of a home page written in the same pass as a record. One pass through the circular
+         * area advances the LSN by exactly one lap, so such a copy has a last LSN from the record's LSN to less than
+         * a lap past it, including across the wrap. A copy rewritten in the next pass is more than a lap past it.
+         *
+         * @return the page number, or -1 if there is none.
+         */
+        private int findSameLapCopy(int homePage, long lsn) {
+            List<Integer> candidates = new ArrayList<Integer>();
+            candidates.add(homePage);
+            List<Integer> copies = copiesByHomePage.get(homePage);
+            if (copies != null) {
+                candidates.addAll(copies);
+            }
+
+            int best = -1;
+            long bestLastLsn = Long.MIN_VALUE;
+            for (int page : candidates) {
+                if (pageHeaders[page] == null) {
+                    continue;
+                }
+
+                long lastLsn = pageHeaders[page].getLastLsnOrFileOffset();
+                if (lastLsn >= lsn && lastLsn - lsn < lapLength && lastLsn > bestLastLsn) {
+                    best = page;
+                    bestLastLsn = lastLsn;
+                }
+            }
+
+            return best;
+        }
+    }
+
+    /**
+     * Checks for the two record types: a client record (1) or a checkpoint (2).
+     */
+    private static boolean isRecordType(long recordType) {
+        return recordType == 1 || recordType == LogRecord.RECORD_TYPE_CHECKPOINT;
     }
 
     /**
@@ -345,7 +541,7 @@ public class LogFile {
     }
 
     /**
-     * Gets the log file records for this log file.
+     * Gets the log file records for this log file, in LSN order.
      *
      * @return the records.
      */
@@ -355,7 +551,7 @@ public class LogFile {
     }
 
     /**
-     * Gets a mapping of LSN to log record.
+     * Gets a mapping of LSN to log record, in LSN order.
      *
      * @return the map.
      */

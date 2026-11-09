@@ -46,17 +46,57 @@ public class LogRecord extends NTFSStructure {
     private final int logPageDataOffset;
 
     /**
-     * Creates a new log file record.
+     * The offset in the $LogFile that the record's LSN encodes.
+     */
+    private final long homeOffset;
+
+    /**
+     * The buffer positions of the pages the record continues in, in order, or {@code null} to take the physically
+     * next pages.
+     */
+    private final int[] continuationPages;
+
+    /**
+     * Creates a new log file record which continues in the physically next pages.
      *  @param buffer the buffer.
      * @param offset the offset in the buffer to create the record at.
      * @param pageSize the page size.
      * @param logPageDataOffset the offset in the page to the log record data.
      */
     public LogRecord(byte[] buffer, int offset, int pageSize, int logPageDataOffset) {
+        this(buffer, offset, pageSize, logPageDataOffset, offset, null);
+    }
+
+    /**
+     * Creates a new log file record.
+     *
+     * @param buffer the buffer.
+     * @param offset the offset in the buffer to create the record at.
+     * @param pageSize the page size.
+     * @param logPageDataOffset the offset in the page to the log record data.
+     * @param homeOffset the offset in the $LogFile that the record's LSN encodes.
+     * @param continuationPages the buffer positions of the pages the record continues in.
+     */
+    LogRecord(byte[] buffer, int offset, int pageSize, int logPageDataOffset, long homeOffset,
+              int[] continuationPages) {
         super(buffer, offset);
 
         this.pageSize = pageSize;
         this.logPageDataOffset = logPageDataOffset;
+        this.homeOffset = homeOffset;
+        this.continuationPages = continuationPages;
+    }
+
+    /**
+     * Gets the offset in the $LogFile that the record's LSN encodes.
+     *
+     * <p>This differs from {@link #getOffset()} for a record read from a page copy in pages 2-33: {@code getOffset()}
+     * is where its bytes are, this is where the log places it.</p>
+     *
+     * @return the offset.
+     */
+    public long getHomeOffset() {
+        return homeOffset;
     }
 
     /**
@@ -71,10 +111,8 @@ public class LogRecord extends NTFSStructure {
     /**
      * Checks whether the part of the record that is read in place lies inside the buffer.
      *
-     * <p>LogFile.parseRecords works the offset out as a long and narrows it, so a corrupt or unexpected page can put
-     * a record outside the buffer - or, once the narrowing overflows, before it. Only the fields up to
-     * {@link #LENGTH_CALCULATION_OFFSET} have to be contiguous; the rest of the header is read through the
-     * across-pages accessors, and on the last page it wraps around to the normal area.</p>
+     * <p>Only the fields up to {@link #LENGTH_CALCULATION_OFFSET} have to be contiguous; the rest of the header is
+     * read through the across-pages accessors.</p>
      *
      * @return {@code true} if the fixed part of the record can be read.
      */
@@ -162,33 +200,41 @@ public class LogRecord extends NTFSStructure {
      * header, so once the offset passes the page boundary the mapping is no longer a simple addition.</p>
      *
      * @param offset the offset to the field in this structure.
-     * @return the absolute position in the buffer.
+     * @return the absolute position in the buffer, or -1 if it is past the last page available, and the number of the
+     *     page it is on, counting the record's own page as 0.
      */
-    private int resolveAcrossPages(int offset) {
+    private int[] resolveAcrossPages(int offset) {
         int position = getOffset();
+        int page = 0;
         int remaining = offset;
 
         while (position >= 0) {
             int spaceLeftInPage = pageSize - position % pageSize;
 
             if (remaining < spaceLeftInPage) {
-                return position + remaining;
+                return new int[] { position + remaining, page };
             }
 
             remaining -= spaceLeftInPage;
-            position = nextPageDataStart(position);
+            page++;
+            position = nextPageDataStart(position, page);
         }
 
-        return -1;
+        return new int[] { -1, page };
     }
 
     /**
-     * Gets the absolute position of the data area of the page after the one holding a given position.
+     * Gets the absolute position of the data area of a page the record continues in.
      *
-     * @param position the absolute position in the buffer.
-     * @return the absolute position of the next page's data area.
+     * @param position the absolute position in the buffer of the previous page's data.
+     * @param page the number of the continuation page, from 1.
+     * @return the absolute position of that page's data area, or -1 if there is none.
      */
-    private int nextPageDataStart(int position) {
+    private int nextPageDataStart(int position, int page) {
+        if (continuationPages != null) {
+            return page <= continuationPages.length ? continuationPages[page - 1] + logPageDataOffset : -1;
+        }
+
         int nextPage = position - position % pageSize + pageSize;
 
         if (nextPage >= getBuffer().length) {
@@ -226,7 +272,7 @@ public class LogRecord extends NTFSStructure {
      * @return the value.
      */
     protected int getUInt16AcrossPages(int offset) {
-        if (!getCrossesPage()) {
+        if (!spansPages()) {
             return getUInt16(offset);
         }
 
@@ -240,7 +286,7 @@ public class LogRecord extends NTFSStructure {
      * @return the value.
      */
     protected long getUInt32AcrossPages(int offset) {
-        if (!getCrossesPage()) {
+        if (!spansPages()) {
             return getUInt32(offset);
         }
 
@@ -256,7 +302,7 @@ public class LogRecord extends NTFSStructure {
      * @param length the length.
      */
     public final void getDataAcrossPages(int offset, byte[] dst, int dstOffset, int length) {
-        if (!getCrossesPage()) {
+        if (!spansPages()) {
             getData(offset, dst, dstOffset, length);
             return;
         }
@@ -264,7 +310,9 @@ public class LogRecord extends NTFSStructure {
         // The positions worked out here are absolute in the buffer, not relative to this record, so the copies are
         // made against the buffer directly rather than through getData().
         final byte[] buffer = getBuffer();
-        int position = resolveAcrossPages(offset);
+        int[] resolved = resolveAcrossPages(offset);
+        int position = resolved[0];
+        int page = resolved[1];
 
         while (length > 0) {
             if (position < 0 || position >= buffer.length) {
@@ -280,8 +328,20 @@ public class LogRecord extends NTFSStructure {
             dstOffset += readLength;
 
             // Anything left continues in the data area of the next page, past its header
-            position = nextPageDataStart(position);
+            page++;
+            position = nextPageDataStart(position, page);
         }
+    }
+
+    /**
+     * Gets the record's bytes, header and client data, joined across the pages it spans without their page headers.
+     *
+     * @return the bytes.
+     */
+    public byte[] getRecordBytes() {
+        byte[] bytes = new byte[(int) (LENGTH_CALCULATION_OFFSET + getClientDataLength())];
+        getDataAcrossPages(0, bytes, 0, bytes.length);
+        return bytes;
     }
 
     /**
@@ -291,6 +351,15 @@ public class LogRecord extends NTFSStructure {
      */
     public boolean getCrossesPage() {
         return (getFlags() & FLAG_CROSSES_PAGE) == FLAG_CROSSES_PAGE;
+    }
+
+    /**
+     * Checks whether reads must follow the record onto later pages: either it is flagged as crossing, or its length
+     * runs past the end of its page.
+     */
+    private boolean spansPages() {
+        return getCrossesPage()
+            || getOffset() % pageSize + LENGTH_CALCULATION_OFFSET + getClientDataLength() > pageSize;
     }
 
     /**
