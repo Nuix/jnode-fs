@@ -22,3 +22,9 @@ JNode-fs contains the Filesystems and the various block device drivers which is 
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 ```
+
+## License
+
+jnode-fs is free software, licensed under the GNU Lesser General Public License, version 2.1 or (at your option) any later version. See [LICENSE.txt](LICENSE.txt) for the full text.
+
+Some files include third-party material under other compatible licenses; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
