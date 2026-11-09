@@ -109,16 +109,18 @@ public class NTFSNonResidentAttribute extends NTFSAttribute {
     /**
      * Gets the number of cluster blocks in a compression unit.
      *
-     * <p>Compressed attribute data with a stored compression unit size of 0 has been seen on Windows XP. The
-     * default of 16 cluster blocks is used in that case, since a unit of 1 would mean no data was ever
-     * decompressed.</p>
+     * <p>Windows stores a compression unit of 0 on the later extents of a compressed attribute. Those extents'
+     * runs are normally read into the first extent's decoder (see {@code AttributeListBuilder}), so the default of
+     * 16 cluster blocks only applies when a later extent is decoded on its own. On the extent that starts at VCN 0,
+     * a stored 0 is taken literally: a unit of one cluster, so the runs are read as plain data. ntfs-3g and TSK
+     * refuse such an attribute, and decoding it as 16-cluster LZNT1 makes up content.</p>
      *
      * @return the number of cluster blocks per compression unit.
      */
     private int getCompressionUnitSize() {
         int stored = getStoredCompressionUnitSize();
 
-        if (stored == 0 && isCompressedAttribute()) {
+        if (stored == 0 && isCompressedAttribute() && getStartVCN() != 0) {
             return DEFAULT_COMPRESSION_UNIT_SIZE;
         }
 
