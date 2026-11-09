@@ -119,6 +119,11 @@ public class FileRecord extends NTFSRecord {
     private Exception attributeListFailure;
 
     /**
+     * Why the walk of the attributes stored here stopped before the end marker, if it did.
+     */
+    private Exception storedAttributeFailure;
+
+    /**
      * Initialize this instance.
      *
      * @param volume          reference to the NTFS volume.
@@ -468,6 +473,9 @@ public class FileRecord extends NTFSRecord {
             } catch (Exception e) {
                 log.error("Error getting attributes for file record: {}, returning stored attributes", referenceNumber, e);
                 attributeListFailure = e;
+                attributeList = storedAttributeList != null
+                    ? new ArrayList<>(storedAttributeList)
+                    : new ArrayList<NTFSAttribute>();
             }
         }
 
@@ -640,6 +648,10 @@ public class FileRecord extends NTFSRecord {
         if (reparsePoint == null && attributeListFailure != null && isFlaggedAsReparsePoint()) {
             throw new IOException("the reparse point may be in an extension record, but the attribute list could " +
                 "not be read", attributeListFailure);
+        }
+        if (reparsePoint == null && storedAttributeFailure != null && isFlaggedAsReparsePoint()) {
+            throw new IOException("the reparse point may be past the attribute that could not be read",
+                storedAttributeFailure);
         }
         if (!(reparsePoint instanceof ReparsePointAttribute)) {
             return null;
@@ -927,26 +939,22 @@ public class FileRecord extends NTFSRecord {
     }
 
     /**
-     * Works out how far into the record the attribute walk is allowed to go.
+     * Works out how far into the record the attribute walk is allowed to go: the allocated size, bounded by what is
+     * in the buffer.
      *
-     * <p>The used entry size is preferred, since that is what the record itself says is in use. It is sanity
-     * checked against the allocated size and against what is actually in the buffer, so that a corrupt value
-     * cannot be used to read outside the record.</p>
+     * <p>The used size doesn't bound the walk. On deleted and some corrupt records it is stale and cuts through an
+     * attribute, while the chain past it is intact and ends on the marker within the allocated size. When the
+     * allocated size is implausible the buffer is the only bound, so a buffer holding several records must not be
+     * passed with a corrupt record in it.</p>
      *
      * @return the exclusive upper bound, relative to the start of the record.
      */
     private int getAttributeWalkLimit() {
-        int bufferLimit = getBuffer().length - getOffset();
-        int limit = bufferLimit;
+        int limit = getBuffer().length - getOffset();
 
         long allocatedSize = getAllocatedSize();
-        if (allocatedSize > 0 && allocatedSize < limit) {
+        if (allocatedSize >= getFirstAttributeOffset() + 8 && allocatedSize < limit) {
             limit = (int) allocatedSize;
-        }
-
-        long usedSize = getRealSize();
-        if (usedSize > 0 && usedSize < limit) {
-            limit = (int) usedSize;
         }
 
         return limit;
@@ -961,8 +969,8 @@ public class FileRecord extends NTFSRecord {
         AttributeListBuilder attributeListBuilder = new AttributeListBuilder();
         int offset = getFirstAttributeOffset();
 
-        // Attributes cannot extend past the part of the record that is in use. Without this bound a corrupt size
-        // walks straight into the neighbouring record in the shared buffer, or off the end of it.
+        // Attributes cannot extend past the record's allocated size. Without this bound a corrupt size walks off the
+        // end of the buffer.
         final int limit = getAttributeWalkLimit();
 
         while (true) {
@@ -985,7 +993,15 @@ public class FileRecord extends NTFSRecord {
                           "the walk", referenceNumber, offset, limit);
                 break;
             } else {
-                NTFSAttribute attribute = NTFSAttribute.getAttribute(FileRecord.this, offset);
+                NTFSAttribute attribute;
+                try {
+                    attribute = NTFSAttribute.getAttribute(FileRecord.this, offset);
+                } catch (RuntimeException e) {
+                    log.debug("{}:Attribute at offset {} could not be read, keeping the {} before it",
+                        referenceNumber, offset, attributeListBuilder.toList().size(), e);
+                    storedAttributeFailure = e;
+                    break;
+                }
 
                 if (attribute != null) {
                     if (log.isDebugEnabled()) {
@@ -1003,8 +1019,20 @@ public class FileRecord extends NTFSRecord {
                             offsetToNextOffset, limit);
                         break;
                     } else {
+                        try {
+                            attributeListBuilder.add(attribute);
+                        } catch (RuntimeException e) {
+                            log.debug("{}:Attribute at offset {} could not be read, keeping the {} before it",
+                                referenceNumber, offset, attributeListBuilder.toList().size(), e);
+                            storedAttributeFailure = e;
+                            break;
+                        }
+
+                        if (offset < getRealSize() && offset + offsetToNextOffset > getRealSize()) {
+                            log.debug("{}:Attribute at offset {} runs past the used size {}", referenceNumber, offset,
+                                getRealSize());
+                        }
                         offset += offsetToNextOffset;
-                        attributeListBuilder.add(attribute);
                     }
                 } else {
                     if (isInUse()) {

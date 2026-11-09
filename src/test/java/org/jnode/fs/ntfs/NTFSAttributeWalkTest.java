@@ -164,4 +164,116 @@ public class NTFSAttributeWalkTest {
         // Assert: it read what it could and stopped without throwing
         assertThat(attributes, hasSize(1));
     }
+
+    /**
+     * Starts a record with no fix-ups, the given used size and a full allocated size.
+     */
+    private static byte[] emptyRecord(int usedSize) {
+        byte[] buffer = new byte[RECORD_SIZE];
+        System.arraycopy("FILE".getBytes(java.nio.charset.StandardCharsets.US_ASCII), 0, buffer, 0, 4);
+        LittleEndian.setInt16(buffer, 0x04, 0x30);   // fix-up offset
+        LittleEndian.setInt16(buffer, 0x06, 1);      // no fix-ups
+        LittleEndian.setInt16(buffer, 0x14, FIRST_ATTRIBUTE_OFFSET);
+        LittleEndian.setInt32(buffer, 0x18, usedSize);
+        LittleEndian.setInt32(buffer, 0x1c, RECORD_SIZE);
+        return buffer;
+    }
+
+    private static void residentAttribute(byte[] buffer, int offset, int type, int length) {
+        LittleEndian.setInt32(buffer, offset, type);
+        LittleEndian.setInt32(buffer, offset + 0x04, length);
+        buffer[offset + 0x08] = 0;
+        LittleEndian.setInt32(buffer, offset + 0x10, length - 0x18);
+        LittleEndian.setInt16(buffer, offset + 0x14, 0x18);
+    }
+
+    private static void fileNameAttribute(byte[] buffer, int offset, int length, String name) {
+        residentAttribute(buffer, offset, 0x30, length);
+        LittleEndian.setInt32(buffer, offset + 0x10, 0x42 + 2 * name.length());
+        LittleEndian.setInt48(buffer, offset + 0x18, 5);
+        buffer[offset + 0x58] = (byte) name.length();
+        buffer[offset + 0x59] = 1;
+        for (int i = 0; i < name.length(); i++) {
+            LittleEndian.setInt16(buffer, offset + 0x5a + 2 * i, name.charAt(i));
+        }
+    }
+
+    private static void nonResidentAttribute(byte[] buffer, int offset, int type, long size, byte[] runs) {
+        LittleEndian.setInt32(buffer, offset, type);
+        LittleEndian.setInt32(buffer, offset + 0x04, 0x48);
+        buffer[offset + 0x08] = 1;
+        LittleEndian.setInt16(buffer, offset + 0x0a, 0x40);
+        LittleEndian.setInt64(buffer, offset + 0x18, 8);           // last VCN
+        LittleEndian.setInt16(buffer, offset + 0x20, 0x40);        // data runs offset
+        LittleEndian.setInt64(buffer, offset + 0x28, 9 * 4096);    // allocated size
+        LittleEndian.setInt64(buffer, offset + 0x30, size);
+        LittleEndian.setInt64(buffer, offset + 0x38, size);
+        System.arraycopy(runs, 0, buffer, offset + 0x40, runs.length);
+    }
+
+    /**
+     * The shape of record 179 in the X-Ways sample $MFT: a deleted record whose used size, 344, stops inside its
+     * second $FILE_NAME, with its $DATA after that. The chain past the used size is intact and ends on the marker.
+     */
+    @Test
+    public void testAttributesPastTheUsedSizeAreRead() throws Exception {
+        // Arrange
+        byte[] buffer = emptyRecord(344);
+        residentAttribute(buffer, 56, 0x10, 96);
+        fileNameAttribute(buffer, 152, 120, "SHORTN~1.TXT");
+        fileNameAttribute(buffer, 272, 200, "a long file name that runs on past the used size.txt");
+        nonResidentAttribute(buffer, 472, 0x80, 34304, new byte[] { 0x21, 0x09, 0x1e, 0x0e, 0x00 });
+        LittleEndian.setInt32(buffer, 544, 0xFFFFFFFF);
+
+        // Act
+        FileRecord record = new FileRecord(null, 4096, false, 179, buffer, 0);
+        NTFSAttribute data = record.findAttributeByType(NTFSAttribute.Types.DATA);
+
+        // Assert
+        assertThat(record.readStoredAttributes(), hasSize(4));
+        assertThat(record.getFileNameAttributes(), hasSize(2));
+        assertThat(data, is(notNullValue()));
+        assertThat(record.getAttributeTotalSize(NTFSAttribute.Types.DATA, null), is(34304L));
+    }
+
+    /**
+     * A non-resident $INDEX_ROOT can't be read: the attributes before it are kept, and nothing throws.
+     */
+    @Test
+    public void testAnUnreadableAttributeKeepsTheOnesBeforeIt() throws Exception {
+        // Arrange
+        byte[] buffer = emptyRecord(RECORD_SIZE);
+        residentAttribute(buffer, 56, 0x10, 96);
+        fileNameAttribute(buffer, 152, 120, "file.txt");
+        nonResidentAttribute(buffer, 272, 0x90, 0x1000, new byte[] { 0x11, 0x01, 0x10, 0x00 });
+        LittleEndian.setInt32(buffer, 344, 0xFFFFFFFF);
+
+        // Act
+        FileRecord record = new FileRecord(null, 4096, false, 7, buffer, 0);
+        List<NTFSAttribute> attributes = record.getAllAttributes();
+
+        // Assert
+        assertThat(attributes, is(notNullValue()));
+        assertThat(attributes, hasSize(2));
+        assertThat(attributes.get(1).getAttributeType(), is(NTFSAttribute.Types.FILE_NAME));
+        assertThat(record.findAttributeByType(NTFSAttribute.Types.INDEX_ROOT), is(nullValue()));
+    }
+
+    /**
+     * A first attribute whose run list can't be decoded leaves an empty list, not a null one.
+     */
+    @Test
+    public void testABadFirstRunListGivesAnEmptyList() throws Exception {
+        // Arrange: a run header claiming a 15-byte length field
+        byte[] buffer = emptyRecord(RECORD_SIZE);
+        nonResidentAttribute(buffer, 56, 0x80, 0x1000, new byte[] { 0x1f, 0x01, 0x10, 0x00 });
+        LittleEndian.setInt32(buffer, 56 + 0x48, 0xFFFFFFFF);
+
+        // Act
+        FileRecord record = new FileRecord(null, 4096, false, 7, buffer, 0);
+
+        // Assert
+        assertThat(record.getAllAttributes(), is(empty()));
+        assertThat(record.findAttributeByType(NTFSAttribute.Types.DATA), is(nullValue()));
+    }
 }
