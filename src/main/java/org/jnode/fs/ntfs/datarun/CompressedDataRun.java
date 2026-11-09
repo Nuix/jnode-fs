@@ -23,7 +23,10 @@ package org.jnode.fs.ntfs.datarun;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.jnode.fs.ntfs.NTFSVolume;
 import org.jnode.fs.util.FSUtils;
 import org.jnode.util.LittleEndian;
@@ -54,6 +57,16 @@ public final class CompressedDataRun implements DataRunInterface {
      * The number of clusters which make up a compression unit.
      */
     private final int compressionUnitSize;
+
+    /**
+     * How the unit failed strict LZNT1 the last time it was decoded; empty if it passed or hasn't been decoded.
+     */
+    private volatile Set<CompressionUnitProblem> problems = Collections.emptySet();
+
+    /**
+     * Whether the unit has been read, so that {@link #problems} is known.
+     */
+    private volatile boolean checked;
 
     /**
      * Constructs a compressed run which when read, will decrypt data found
@@ -143,6 +156,7 @@ public final class CompressedDataRun implements DataRunInterface {
         final byte[] tempUncompressed = new byte[compressionUnitSize * clusterSize];
 
         if (tempCompressedOffset == tempUncompressed.length) {
+            problems = Collections.emptySet();
             // A unit that does not compress is stored as-is, filling the whole unit. It can be stored as several
             // fragments, so the test has to be on the total rather than on any single run: a unit split across two
             // runs is still stored raw, and running it through the decompressor produces garbage.
@@ -153,8 +167,14 @@ public final class CompressedDataRun implements DataRunInterface {
 
             // XXX: We could potentially reduce the overhead by modifying the compression
             //      routine such that it's capable of skipping chunks that aren't needed.
-            decompressUnit(compressed, tempUncompressed);
+            Set<CompressionUnitProblem> found = new LinkedHashSet<>();
+            decompressUnit(compressed, tempUncompressed, found);
+            if (!found.isEmpty()) {
+                log.debug("Compression unit at VCN {} fails strict LZNT1: {}", myFirstVcn, found);
+            }
+            problems = Collections.unmodifiableSet(found);
         }
+        checked = true;
 
         int copySource = vcnOffsetWithinUnit * clusterSize;
         int copyDest = dstOffset + (int) (actFirstVcn - vcn) * clusterSize;
@@ -187,6 +207,23 @@ public final class CompressedDataRun implements DataRunInterface {
      */
     public int decompressUnit(final byte[] compressed,
                               final byte[] uncompressed) throws IOException {
+        return decompressUnit(compressed, uncompressed, new LinkedHashSet<CompressionUnitProblem>());
+    }
+
+    /**
+     * Decompresses a single unit of multiple compressed blocks, noting where it fails strict LZNT1.
+     *
+     * <p>The decode is lenient whatever is found: it keeps what it can get out of a damaged stream. The problems
+     * say whether that output can be trusted.</p>
+     *
+     * @param compressed   the compressed data (in.)
+     * @param uncompressed the uncompressed data (out.)
+     * @param problems     receives each way the unit fails strict LZNT1, in the order they are found.
+     * @return the actual length of the uncompressed data.
+     * @throws IOException if the decompression fails.
+     */
+    public int decompressUnit(final byte[] compressed, final byte[] uncompressed,
+                              final Set<CompressionUnitProblem> problems) throws IOException {
 
         // This is just a convenient way to simulate the original code's pointer arithmetic.
         // I tried using buffers but positions in those are always from the beginning and
@@ -194,11 +231,12 @@ public final class CompressedDataRun implements DataRunInterface {
         final OffsetByteArray compressedData = new OffsetByteArray(compressed);
         final OffsetByteArray uncompressedData = new OffsetByteArray(uncompressed);
 
-        // "compressedData.offset < compressed.length - 1" means we can read in at least two bytes (the 16-bit header)
-        while (compressedData.offset < compressed.length - 1) {
+        // "compressedData.offset < compressed.length - 1" means we can read in at least two bytes (the 16-bit header).
+        // Once the output is full, whatever follows is slack, not a chunk.
+        while (compressedData.offset < compressed.length - 1 && uncompressedData.offset < uncompressed.length) {
             // Bits [11:0] contain the size of the compressed chunk, minus three bytes.
             int compressedChunkSize = (compressedData.getShort(0) & (BLOCK_SIZE - 1)) + 3;
-            final int uncompressedChunkSize = decompressBlock(compressedData, uncompressedData);
+            final int uncompressedChunkSize = decompressBlock(compressedData, uncompressedData, problems);
 
             if (uncompressedChunkSize == 0) {
                 break;
@@ -206,9 +244,33 @@ public final class CompressedDataRun implements DataRunInterface {
 
             compressedData.offset += compressedChunkSize;
             uncompressedData.offset += uncompressedChunkSize;
+
+            if (uncompressedChunkSize < BLOCK_SIZE && compressedData.offset < compressed.length - 1
+                && compressedData.getShort(0) != 0 && uncompressedData.offset < uncompressed.length) {
+                problems.add(CompressionUnitProblem.SHORT_CHUNK);
+            }
         }
 
         return uncompressedData.offset; //the actual length of the uncompressed data.
+    }
+
+    /**
+     * Gets how this unit failed strict LZNT1 the last time it was read.
+     *
+     * @return the problems, in the order they were found; empty if it passed, was stored uncompressed, or hasn't
+     *     been read.
+     */
+    public Set<CompressionUnitProblem> getProblems() {
+        return problems;
+    }
+
+    /**
+     * Checks whether the unit has been read, so that {@link #getProblems()} is known.
+     *
+     * @return {@code true} once the unit has been read.
+     */
+    public boolean isChecked() {
+        return checked;
     }
 
     /**
@@ -220,7 +282,8 @@ public final class CompressedDataRun implements DataRunInterface {
      * @see <a href="https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-xca/cba0fa15-bd62-4eda-8838-8fc7ab406df1">LZNT1 Algorithm Details</a>
      */
     private int decompressBlock(final OffsetByteArray compressed,
-                                final OffsetByteArray uncompressed) {
+                                final OffsetByteArray uncompressed,
+                                final Set<CompressionUnitProblem> problems) {
 
         // nothing to read from the compressed array.
         if (compressed.offset >= compressed.array.length) {
@@ -256,7 +319,8 @@ public final class CompressedDataRun implements DataRunInterface {
         // Bits 14 down to 12 contain a signature value. This value MUST always be 3 (unless the header denotes the end of the compressed buffer).
         final int signature = rawLen & 0x7000;
         if (rawLen != 0 && signature != 0x3000) {
-            log.error("ntfs_uncompblock: header {} 's signature bits (14 down to 12) is not 3", signature);
+            log.debug("ntfs_uncompblock: header {} 's signature bits (14 down to 12) is not 3", signature);
+            problems.add(CompressionUnitProblem.BAD_SIGNATURE);
         }
 
         // Bits 11 down to 0 contain the size of the compressed chunk minus three bytes. This size otherwise
@@ -281,6 +345,9 @@ public final class CompressedDataRun implements DataRunInterface {
 
         // The last byte of this chunk, bounded by what is actually stored as well as by the size the header claims.
         final int chunkEnd = Math.min(len + 3, availableInCompressed);
+        if (len + 3 > availableInCompressed) {
+            problems.add(CompressionUnitProblem.CHUNK_PAST_STORED_DATA);
+        }
 
         // Bit 15 indicates whether the chunk contains compressed data. If this bit is zero, the chunk header is followed by uncompressed literal data.
         // If this bit is set, the next byte of the chunk is the beginning of a Flag_group nonterminal that describes some compressed data.
@@ -348,6 +415,13 @@ public final class CompressedDataRun implements DataRunInterface {
                     // to get the actual displacement and length.
                     final int boff = (tmp >>> dshift) + 1;
                     int blen = (tmp & lmask) + 3;
+
+                    if (boff > pos) {
+                        problems.add(CompressionUnitProblem.BACK_REFERENCE_BEFORE_CHUNK);
+                    }
+                    if (blen > BLOCK_SIZE - pos) {
+                        problems.add(CompressionUnitProblem.BACK_REFERENCE_PAST_CHUNK);
+                    }
 
                     // Some of the bits in a flag byte might not be used.
                     // To process compressed buffers,

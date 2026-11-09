@@ -34,6 +34,9 @@ import org.jnode.fs.ntfs.attribute.NTFSNonResidentAttribute;
 import org.jnode.fs.ntfs.attribute.NTFSResidentAttribute;
 import org.jnode.fs.ntfs.attribute.ReparsePointAttribute;
 import org.jnode.fs.ntfs.attribute.ReparsePointTags;
+import org.jnode.fs.ntfs.datarun.CompressedDataRun;
+import org.jnode.fs.ntfs.datarun.CompressionUnitProblem;
+import org.jnode.fs.ntfs.datarun.DataRunInterface;
 import org.jnode.fs.ntfs.wof.WofCompressedStream;
 import org.jnode.fs.ntfs.wof.WofCompressionFormat;
 import org.jnode.fs.util.FSUtils;
@@ -834,6 +837,75 @@ public class FileRecord extends NTFSRecord {
         }
 
         System.arraycopy(tmp, (int) (fileOffset % clusterSize), dest, off, len);
+    }
+
+    /**
+     * Gets the compression units of a stream that fail strict LZNT1, by the VCN they start at. Their decoded bytes are
+     * not reliable: such a unit is usually read from clusters that now hold other data.
+     *
+     * <p>Every unit is checked: one that this record hasn't read yet is read now, so the result doesn't depend on
+     * what was read before. In the unit that holds the valid data length, a last chunk cut short is expected and
+     * isn't reported.</p>
+     *
+     * @param attributeType the attribute type.
+     * @param streamName    the stream name, or {@code null} for the default stream.
+     * @return the problems for each failing unit, in VCN order; empty if there are none.
+     * @throws IOException if a unit can't be read.
+     */
+    public SortedMap<Long, Set<CompressionUnitProblem>> getCorruptCompressionUnits(NTFSAttribute.Types attributeType,
+                                                                                String streamName)
+        throws IOException {
+        Map<Long, CompressedDataRun> units = new TreeMap<>();
+        Iterator<NTFSAttribute> attributes = findAttributesByTypeAndName(attributeType, streamName);
+        long initialisedSize = -1;
+
+        while (attributes.hasNext()) {
+            NTFSAttribute attribute = attributes.next();
+            if (attribute.isResident() || !attribute.isCompressedAttribute()) {
+                continue;
+            }
+
+            NTFSNonResidentAttribute nonResident = (NTFSNonResidentAttribute) attribute;
+            if (nonResident.getStartVCN() == 0) {
+                initialisedSize = nonResident.getAttributeInitializedSize();
+            }
+
+            for (DataRunInterface run : nonResident.getDataRuns()) {
+                if (run instanceof CompressedDataRun) {
+                    units.put(run.getFirstVcn(), (CompressedDataRun) run);
+                }
+            }
+        }
+
+        int clusterSize = getClusterSize();
+        SortedMap<Long, Set<CompressionUnitProblem>> corrupt = new TreeMap<>();
+        for (CompressedDataRun unit : units.values()) {
+            if (!unit.isChecked()) {
+                int clusters = (int) unit.getLength();
+                unit.readClusters(unit.getFirstVcn(), new byte[clusters * clusterSize], 0, clusters, clusterSize,
+                    getVolume());
+            }
+
+            Set<CompressionUnitProblem> problems = unit.getProblems();
+            if (problems.isEmpty()) {
+                continue;
+            }
+
+            long unitStart = unit.getFirstVcn() * (long) clusterSize;
+            long unitEnd = unitStart + unit.getLength() * clusterSize;
+            if (initialisedSize > unitStart && initialisedSize < unitEnd
+                && problems.contains(CompressionUnitProblem.CHUNK_PAST_STORED_DATA)) {
+                Set<CompressionUnitProblem> rest = new LinkedHashSet<>(problems);
+                rest.remove(CompressionUnitProblem.CHUNK_PAST_STORED_DATA);
+                problems = Collections.unmodifiableSet(rest);
+            }
+
+            if (!problems.isEmpty()) {
+                corrupt.put(unit.getFirstVcn(), problems);
+            }
+        }
+
+        return corrupt;
     }
 
     @Override
