@@ -1,6 +1,7 @@
 package org.jnode.fs.ntfs.logfile;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -252,6 +253,86 @@ public class LogFileWalkTest {
         // Assert
         assertThat(records.get(victim).getOffset(), is((int) builder.homeOffset(victim)));
         assertThat(records.get(victim).getRecordType(), is(1L));
+    }
+
+    @Test
+    public void testABlankLogHasNoRecords() throws Exception {
+        // Arrange: all 0xFF, as ntfs-3g and mkntfs leave it
+        byte[] buffer = new byte[PAGES * PAGE_SIZE];
+        Arrays.fill(buffer, (byte) 0xFF);
+
+        // Act
+        LogFile logFile = new LogFile(buffer);
+
+        // Assert
+        assertThat(logFile.isInitialised(), is(false));
+        assertThat(logFile.getLogRecords().size(), is(0));
+    }
+
+    @Test
+    public void testATornPageLosesOnlyThatPage() throws Exception {
+        // Arrange: page 7's third sector didn't make it to disk, so its fix-up doesn't match
+        LogFileBuilder builder = new LogFileBuilder(PAGES, SEQ_BITS);
+        List<Long> kept = new ArrayList<Long>();
+        List<Long> torn = new ArrayList<Long>();
+        for (int page = 4; page <= 10; page++) {
+            List<Long> lsns = builder.fillPage(page, page, 1, DATA_OFFSET, SMALL_RECORDS);
+            (page == 7 ? torn : kept).addAll(lsns);
+        }
+        byte[] buffer = builder.build();
+        tearSector(buffer, 7 * PAGE_SIZE, 3);
+
+        // Act
+        Map<Long, LogRecord> records = new LogFile(buffer).getLsnLogRecordMap();
+
+        // Assert
+        assertRecordsAtHome(builder, records, kept);
+        assertThat(records.size(), is(kept.size()));
+    }
+
+    @Test
+    public void testAnOversizedUpdateSequenceArrayLosesOnlyItsOwnPage() throws Exception {
+        // Arrange: page 7 claims 64 fix-ups, which would run its fix-up on into pages 8-10
+        LogFileBuilder builder = new LogFileBuilder(PAGES, SEQ_BITS);
+        List<Long> kept = new ArrayList<Long>();
+        for (int page = 4; page <= 10; page++) {
+            List<Long> lsns = builder.fillPage(page, page, 1, DATA_OFFSET, SMALL_RECORDS);
+            if (page != 7) {
+                kept.addAll(lsns);
+            }
+        }
+        byte[] buffer = builder.build();
+        buffer[7 * PAGE_SIZE + 6] = 0x40;
+
+        // Act
+        Map<Long, LogRecord> records = new LogFile(buffer).getLsnLogRecordMap();
+
+        // Assert
+        assertRecordsAtHome(builder, records, kept);
+        assertThat(records.size(), is(kept.size()));
+    }
+
+    @Test
+    public void testATornRestartPageFallsBackToTheOtherOne() throws Exception {
+        // Arrange
+        LogFileBuilder builder = new LogFileBuilder(PAGES, SEQ_BITS);
+        List<Long> expected = builder.fillPage(4, 4, 1, DATA_OFFSET, SMALL_RECORDS);
+        byte[] buffer = builder.build();
+        tearSector(buffer, 0, 1);
+
+        // Act
+        LogFile logFile = new LogFile(buffer);
+
+        // Assert
+        assertThat(logFile.isInitialised(), is(true));
+        assertRecordsAtHome(builder, logFile.getLsnLogRecordMap(), expected);
+    }
+
+    /**
+     * Changes the update sequence number at the end of a sector so that the page's fix-up no longer matches.
+     */
+    private static void tearSector(byte[] buffer, int pageOffset, int sector) {
+        buffer[pageOffset + sector * 512 - 2] ^= 0x7F;
     }
 
     private static void assertRecordsAtHome(LogFileBuilder builder, Map<Long, LogRecord> records, List<Long> lsns) {

@@ -26,6 +26,16 @@ public class LogRecord extends NTFSStructure {
     public static int RECORD_TYPE_CHECKPOINT = 0x2;
 
     /**
+     * The record type value for an update record.
+     */
+    public static final int RECORD_TYPE_UPDATE = 0x1;
+
+    /**
+     * The position of the list of target LCNs in an update record.
+     */
+    private static final int LCN_LIST_OFFSET = 0x50;
+
+    /**
      * The flag that indicates the record crosses a page boundary.
      */
     public static int FLAG_CROSSES_PAGE = 0x1;
@@ -294,6 +304,20 @@ public class LogRecord extends NTFSStructure {
     }
 
     /**
+     * Gets a signed 64-bit integer which may or may not cross the log file page boundary.
+     *
+     * @param offset the offset to the field in this structure.
+     * @return the value.
+     */
+    protected long getInt64AcrossPages(int offset) {
+        if (!spansPages()) {
+            return getInt64(offset);
+        }
+
+        return LittleEndian.getInt64(readAcrossPages(offset, 8), 0);
+    }
+
+    /**
      * Copy (byte-array) data from a given offset which may or may not cross the log file page boundary.
      *
      * @param offset the offset to read from in this structure.
@@ -467,34 +491,149 @@ public class LogRecord extends NTFSStructure {
      * @return the target VCN.
      */
     public long getTargetVcn() {
-        return getUInt32AcrossPages(0x48);
+        return getInt64AcrossPages(0x48);
     }
 
     /**
-     * Gets the target LCN.
+     * Gets the first target LCN. This is only an LCN when {@link #hasTargetLcn()}; otherwise the bytes belong to the
+     * redo data.
      *
      * @return the target LCN.
      */
     public long getTargetLcn() {
-        return getUInt32AcrossPages(0x50);
+        return getInt64AcrossPages(LCN_LIST_OFFSET);
+    }
+
+    /**
+     * Checks whether the record has at least one target LCN: it is an update record, its LCNs to follow is above
+     * zero, and the first LCN lies inside the record.
+     *
+     * @return {@code true} if there is a target LCN.
+     */
+    public boolean hasTargetLcn() {
+        return getTargetLcns().length > 0;
+    }
+
+    /**
+     * Gets the target LCNs: as many as LCNs to follow gives, up to the end of the record.
+     *
+     * @return the LCNs; empty for a checkpoint record or when none follow.
+     */
+    public long[] getTargetLcns() {
+        if (!isUpdateRecord()) {
+            return new long[0];
+        }
+
+        long fit = (LENGTH_CALCULATION_OFFSET + getClientDataLength() - LCN_LIST_OFFSET) / 8;
+        int count = (int) Math.max(0, Math.min(getLcnsToFollow(), fit));
+        long[] lcns = new long[count];
+        for (int i = 0; i < count; i++) {
+            lcns[i] = getInt64AcrossPages(LCN_LIST_OFFSET + 8 * i);
+        }
+        return lcns;
+    }
+
+    /**
+     * Checks whether this is an update record, the only type with redo and undo fields.
+     *
+     * @return {@code true} for record type 1.
+     */
+    public boolean isUpdateRecord() {
+        return getRecordType() == RECORD_TYPE_UPDATE;
+    }
+
+    /**
+     * Gets the NTFS restart area held by a checkpoint record.
+     *
+     * @return the restart area, or {@code null} if this isn't a checkpoint record or its client data is too short.
+     */
+    public CheckpointRecord getCheckpoint() {
+        if (getRecordType() != RECORD_TYPE_CHECKPOINT || getClientDataLength() < CheckpointRecord.SIZE) {
+            return null;
+        }
+
+        byte[] bytes = getRecordBytes();
+        return new CheckpointRecord(bytes, LENGTH_CALCULATION_OFFSET);
+    }
+
+    /**
+     * Checks whether the redo data lies inside this update record's client data.
+     *
+     * @return {@code true} if it does.
+     */
+    public boolean isRedoDataInRecord() {
+        return isUpdateRecord() && (long) getRedoOffset() + getRedoLength() <= getClientDataLength();
+    }
+
+    /**
+     * Checks whether the undo data lies inside this update record's client data.
+     *
+     * @return {@code true} if it does.
+     */
+    public boolean isUndoDataInRecord() {
+        return isUpdateRecord() && (long) getUndoOffset() + getUndoLength() <= getClientDataLength();
     }
 
     /**
      * Gets the redo data for the record.
      *
-     * @param buffer the buffer to write into.
+     * @return the redo data; empty when it doesn't lie inside the record (see {@link #isRedoDataInRecord()}),
+     *     including for a checkpoint record.
      */
-    public void getRedoData(byte[] buffer) {
-        getDataAcrossPages(0x30 + getRedoOffset(), buffer, 0, getRedoLength());
+    public byte[] getRedoData() {
+        if (!isRedoDataInRecord()) {
+            return new byte[0];
+        }
+
+        byte[] data = new byte[getRedoLength()];
+        getDataAcrossPages(0x30 + getRedoOffset(), data, 0, data.length);
+        return data;
     }
 
     /**
      * Gets the undo data for the record.
      *
+     * @return the undo data; empty when it doesn't lie inside the record (see {@link #isUndoDataInRecord()}),
+     *     including for a checkpoint record.
+     */
+    public byte[] getUndoData() {
+        if (!isUndoDataInRecord()) {
+            return new byte[0];
+        }
+
+        byte[] data = new byte[getUndoLength()];
+        getDataAcrossPages(0x30 + getUndoOffset(), data, 0, data.length);
+        return data;
+    }
+
+    /**
+     * Copies the redo data for the record into a buffer. Nothing is copied when it doesn't lie inside the record, so
+     * a buffer sized from {@link #getRedoLength()} is left as it was: use {@link #getRedoData()} to tell.
+     *
+     * @param buffer the buffer to write into.
+     */
+    public void getRedoData(byte[] buffer) {
+        if (!isRedoDataInRecord()) {
+            log.debug("Redo data of $LogFile record {} lies outside the record", getLsn());
+            return;
+        }
+
+        getDataAcrossPages(0x30 + getRedoOffset(), buffer, 0, Math.min(buffer.length, getRedoLength()));
+    }
+
+    /**
+     * Copies the undo data for the record into a buffer. Nothing is copied when it doesn't lie inside the record, so
+     * a buffer sized from {@link #getUndoLength()} is left as it was: use {@link #getUndoData()} to tell.
+     *
      * @param buffer the buffer to write into.
      */
     public void getUndoData(byte[] buffer) {
-        getDataAcrossPages(0x30 + getUndoOffset(), buffer, 0, getUndoLength());
+        if (!isUndoDataInRecord()) {
+            log.debug("Undo data of $LogFile record {} lies outside the record", getLsn());
+            return;
+        }
+
+        getDataAcrossPages(0x30 + getUndoOffset(), buffer, 0, Math.min(buffer.length, getUndoLength()));
     }
 
     @Override
@@ -529,6 +668,21 @@ public class LogRecord extends NTFSStructure {
      */
     public String toDebugString() {
         StringBuilder builder = new StringBuilder("Log Record:[\n");
+        if (!isUpdateRecord()) {
+            builder.append("lsn: " + getLsn() + "\n");
+            builder.append("prev-lsn: " + getClientPreviousLsn() + "\n");
+            builder.append("undo-lsn: " + getClientUndoNextLsn() + "\n");
+            builder.append("data-length: " + getClientDataLength() + "\n");
+            builder.append("client-id: " + getClientId() + "\n");
+            builder.append("record-type: " + getRecordType() + "\n");
+            builder.append("transaction-id: " + getTransactionId() + "\n");
+            builder.append("flags: " + getFlags() + "\n");
+            CheckpointRecord checkpoint = getCheckpoint();
+            builder.append(checkpoint != null ? checkpoint.toDebugString() : "no checkpoint");
+            builder.append("]");
+            return builder.toString();
+        }
+
         builder.append("lsn: " + getLsn() + "\n");
         builder.append("prev-lsn: " + getClientPreviousLsn() + "\n");
         builder.append("undo-lsn: " + getClientUndoNextLsn() + "\n");

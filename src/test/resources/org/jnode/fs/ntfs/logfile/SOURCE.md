@@ -11,6 +11,7 @@ crosses into a page from another pass of the log is not in the list.
 | `dfir-orc.LogFile.gz` | `tests/OrcLibTest/ntfs_images/ntfs.7z` (`ntfs.vhd`, partition at LBA 128) from <https://github.com/DFIR-ORC/dfir-orc>. MD5 of the stream: `a2d7bbf03f98f557ce1d0777cac84f67`. | LGPL-2.1-or-later, Copyright 2011-2019 ANSSI (per the repository's source headers) |
 | `win11-reparse.LogFile.gz` | `tests/data/ntfs_windows_reparse.zip` (`ntfs_windows_reparse.img`, Windows 11) from <https://github.com/SecurityRonin/ntfs-forensic>. MD5 of the stream: `b720acd216925c7629b73a1d1ad1c636`. | Apache-2.0, Albert Hui (SecurityRonin) |
 | `sample-tiny.LogFile.gz` | `SampleTinyNtfsVolume/$LogFile` from `LogFileParser_v2.0.0.53.zip` at <https://github.com/jschicht/LogFileParser>, as redistributed in `tests/data/SampleTinyNtfsVolume.zip` of SecurityRonin/ntfs-forensic. MD5 of the stream: `f82b4c5437ee297913847a94d30afece`. | MIT, Copyright (c) 2022 Joakim Schicht |
+| `tiny-blank.LogFile.gz` | `tests/data/tiny.zip` (`tiny.img`, made by `mkntfs` from ntfs-3g 2022.10.3) from <https://github.com/SecurityRonin/ntfs-forensic>. The stream is all 0xFF. MD5 of the stream: `b23b5d09162b92c0284923a7f628d2a5`. | Apache-2.0, Albert Hui (SecurityRonin) |
 
 ## MIT notice for `sample-tiny.LogFile.gz`
 

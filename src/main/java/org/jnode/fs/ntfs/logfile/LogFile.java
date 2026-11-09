@@ -98,6 +98,27 @@ public class LogFile {
     private boolean cleanlyShutdown = true;
 
     /**
+     * The smallest and largest log page sizes accepted from a restart page.
+     */
+    private static final int MIN_LOG_PAGE_SIZE = 0x200;
+    private static final int MAX_LOG_PAGE_SIZE = 0x10000;
+
+    /**
+     * The size of the fixed part of the restart area.
+     */
+    private static final int RESTART_AREA_SIZE = 0x30;
+
+    /**
+     * The restart page offset tried for the second restart page when the first one can't be read.
+     */
+    private static final int DEFAULT_LOG_PAGE_SIZE = 0x1000;
+
+    /**
+     * The sector size that fix-ups protect.
+     */
+    private static final int SECTOR_SIZE = 0x200;
+
+    /**
      * Creates a new instance.
      *
      * @param fileRecord the file record to read the $LogFile data from.
@@ -110,7 +131,8 @@ public class LogFile {
     /**
      * Creates a new instance from the contents of a $LogFile.
      *
-     * <p>Fix-ups are applied to the buffer in place.</p>
+     * <p>Fix-ups are applied to the buffer in place. A log without a readable restart page, such as one left blank
+     * (all 0xFF) by ntfs-3g or mkntfs, is not initialised and has no records.</p>
      *
      * @param logFileBuffer the $LogFile data.
      * @throws IOException if an error occurs.
@@ -121,6 +143,14 @@ public class LogFile {
 
         // Read in the restart area info
         restartPageHeader = getNewestRestartPageHeader(logFileBuffer);
+        if (restartPageHeader == null) {
+            log.info("$LogFile has no readable restart page, so it is not initialised");
+            restartArea = null;
+            logPageSize = 0;
+            pageHeaders = new RecordPageHeader[0];
+            return;
+        }
+
         int restartAreaOffset = restartPageHeader.getOffset() + restartPageHeader.getRestartOffset();
         logPageSize = restartPageHeader.getLogPageSize();
         restartArea = new RestartArea(logFileBuffer, restartAreaOffset);
@@ -167,18 +197,28 @@ public class LogFile {
     }
 
     /**
-     * Reads the header of every record page, which also applies each page's fix-up.
+     * Reads the header of every record page, which also applies each page's fix-up. A page whose fix-up fails, as
+     * left by a crash mid-write, is skipped rather than losing the whole log.
      *
      * @return the headers, indexed by page number.
-     * @throws IOException if an error occurs.
      */
-    private RecordPageHeader[] readPageHeaders() throws IOException {
+    private RecordPageHeader[] readPageHeaders() {
         RecordPageHeader[] headers = new RecordPageHeader[(int) (logFileLength / logPageSize)];
 
         for (int page = FIRST_RECORD_PAGE; page < headers.length; page++) {
             int offset = page * logPageSize;
             if (LittleEndian.getInt32(logFileBuffer, offset) == RecordPageHeader.Magic.RCRD) {
-                headers[page] = new RecordPageHeader(logFileBuffer, offset);
+                if (!hasPlausibleUpdateSequence(logFileBuffer, offset, logPageSize)) {
+                    log.warn(String.format("Skipping $LogFile page %d: its update sequence array doesn't fit the page",
+                        page));
+                    continue;
+                }
+
+                try {
+                    headers[page] = new RecordPageHeader(logFileBuffer, offset);
+                } catch (IOException e) {
+                    log.warn(String.format("Skipping $LogFile page %d: %s", page, e.getMessage()));
+                }
             }
         }
 
@@ -195,6 +235,15 @@ public class LogFile {
         }
 
         lsnLogRecordMap = new TreeMap<Long, LogRecord>();
+        if (restartArea == null) {
+            return;
+        }
+
+        int dataOffset = restartArea.getLogPageDataOffset();
+        if (dataOffset < RecordPageHeader.HEADER_SIZE || dataOffset + LogRecord.LENGTH_CALCULATION_OFFSET > logPageSize) {
+            log.warn("$LogFile restart area has an invalid page data offset: " + dataOffset);
+            return;
+        }
 
         long seqBits = restartArea.getSequenceNumberBits();
         if (seqBits < 3 || seqBits > 63) {
@@ -500,35 +549,92 @@ public class LogFile {
      * Gets the restart page header that corresponds to the restart page with the highest current LSN.
      *
      * @param buffer the buffer to read from.
-     * @return the header.
-     * @throws IOException if an error occurs.
+     * @return the header, or {@code null} if neither restart page can be read.
      */
-    private RestartPageHeader getNewestRestartPageHeader(byte[] buffer) throws IOException {
-        RestartPageHeader restartPageHeader1 = new RestartPageHeader(buffer, 0);
-        if (!restartPageHeader1.isValid()) {
-            throw new IllegalStateException("Restart header has invalid magic: " + restartPageHeader1.getMagic());
-        } else if (restartPageHeader1.getMagic() == RestartPageHeader.Magic.CHKD) {
-            log.warn("First $LogFile restart header has check disk magic");
-        }
+    private static RestartPageHeader getNewestRestartPageHeader(byte[] buffer) {
+        RestartPageHeader restartPageHeader1 = readRestartPage(buffer, 0);
+        int secondOffset = restartPageHeader1 != null ? restartPageHeader1.getSystemPageSize() : DEFAULT_LOG_PAGE_SIZE;
+        RestartPageHeader restartPageHeader2 = readRestartPage(buffer, secondOffset);
 
-        RestartPageHeader restartPageHeader2 = new RestartPageHeader(buffer, restartPageHeader1.getLogPageSize());
-        if (!restartPageHeader2.isValid()) {
-            throw new IllegalStateException("Second restart header has invalid magic: " + restartPageHeader2.getMagic());
-        }  else if (restartPageHeader2.getMagic() == RestartPageHeader.Magic.CHKD) {
-            log.warn("Second $LogFile restart header has check disk magic");
+        if (restartPageHeader1 == null || restartPageHeader2 == null) {
+            return restartPageHeader1 != null ? restartPageHeader1 : restartPageHeader2;
         }
-
-        int restartAreaOffset1 = restartPageHeader1.getRestartOffset();
-        int restartAreaOffset2 = restartPageHeader2.getRestartOffset();
-        RestartArea restartArea1 = new RestartArea(buffer, restartAreaOffset1);
-        RestartArea restartArea2 = new RestartArea(buffer, restartPageHeader1.getLogPageSize() + restartAreaOffset2);
 
         // Pick the restart page with the highest current LSN
-        if (restartArea1.getCurrentLsn() >= restartArea2.getCurrentLsn()) {
-            return restartPageHeader1;
-        } else {
-            return restartPageHeader2;
+        long currentLsn1 = new RestartArea(buffer, restartPageHeader1.getRestartOffset()).getCurrentLsn();
+        long currentLsn2 = new RestartArea(buffer, secondOffset + restartPageHeader2.getRestartOffset()).getCurrentLsn();
+        return currentLsn1 >= currentLsn2 ? restartPageHeader1 : restartPageHeader2;
+    }
+
+    /**
+     * Reads a restart page, checking its magic and sizes before applying the fix-up so that a blank or damaged page
+     * isn't an error. A restart page is one system page long, and the second one starts one system page in.
+     *
+     * @param buffer the buffer to read from.
+     * @param offset the offset of the page.
+     * @return the header, or {@code null} if the page isn't a usable restart page.
+     */
+    private static RestartPageHeader readRestartPage(byte[] buffer, int offset) {
+        if (offset < 0 || offset + DEFAULT_LOG_PAGE_SIZE / 8 > buffer.length) {
+            return null;
         }
+
+        int magic = LittleEndian.getInt32(buffer, offset);
+        if (magic != RestartPageHeader.Magic.RSTR && magic != RestartPageHeader.Magic.CHKD) {
+            return null;
+        }
+
+        int systemPageSize = LittleEndian.getInt32(buffer, offset + 0x10);
+        int logPageSize = LittleEndian.getInt32(buffer, offset + 0x14);
+        if (!isPageSize(systemPageSize) || !isPageSize(logPageSize) || offset + systemPageSize > buffer.length
+            || !hasPlausibleUpdateSequence(buffer, offset, systemPageSize)) {
+            log.warn(String.format("Skipping $LogFile restart page at 0x%x: system page size %d, log page size %d",
+                offset, systemPageSize, logPageSize));
+            return null;
+        }
+
+        RestartPageHeader header;
+        try {
+            header = new RestartPageHeader(buffer, offset);
+        } catch (IOException e) {
+            log.warn(String.format("Skipping $LogFile restart page at 0x%x: %s", offset, e.getMessage()));
+            return null;
+        }
+
+        if (header.getRestartOffset() + RESTART_AREA_SIZE > systemPageSize) {
+            log.warn(String.format("Skipping $LogFile restart page at 0x%x: restart offset %d", offset,
+                header.getRestartOffset()));
+            return null;
+        }
+
+        if (magic == RestartPageHeader.Magic.CHKD) {
+            log.warn(String.format("$LogFile restart page at 0x%x has check disk magic", offset));
+        }
+
+        return header;
+    }
+
+    private static boolean isPageSize(int size) {
+        return size >= MIN_LOG_PAGE_SIZE && size <= MAX_LOG_PAGE_SIZE && Integer.bitCount(size) == 1;
+    }
+
+    /**
+     * Checks that a page's update sequence array lies inside the page and covers no more sectors than it has, so
+     * that its fix-up can't write into the next page.
+     */
+    private static boolean hasPlausibleUpdateSequence(byte[] buffer, int offset, int pageSize) {
+        int arrayOffset = LittleEndian.getUInt16(buffer, offset + 0x04);
+        int count = LittleEndian.getUInt16(buffer, offset + 0x06);
+        return count >= 1 && count <= pageSize / SECTOR_SIZE + 1 && arrayOffset + 2 * count <= pageSize;
+    }
+
+    /**
+     * Checks whether the log has a readable restart page. A blank log, as left by ntfs-3g or mkntfs, has none.
+     *
+     * @return {@code true} if initialised.
+     */
+    public boolean isInitialised() {
+        return restartArea != null;
     }
 
     /**

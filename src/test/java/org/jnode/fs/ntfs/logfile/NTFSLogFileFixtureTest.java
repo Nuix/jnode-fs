@@ -74,6 +74,45 @@ public class NTFSLogFileFixtureTest {
     }
 
     /**
+     * The log mkntfs leaves: all 0xFF. v2.0.1 threw "Fix-up error" because it applied the fix-up before checking the
+     * magic.
+     */
+    @Test
+    public void testBlankLog() throws Exception {
+        LogFile logFile = new LogFile(FileSystemTestUtils.readImage(DIRECTORY + "tiny-blank.LogFile"));
+
+        assertThat(logFile.isInitialised(), is(false));
+        assertThat(logFile.getLogRecords().size(), is(0));
+    }
+
+    /**
+     * Checkpoint records hold a restart area, not update-record fields, and some update records claim redo data that
+     * runs past their client data. Neither may yield a payload.
+     */
+    @Test
+    public void testDfirOrcCheckpointsAndPayloadBounds() throws Exception {
+        Map<Long, LogRecord> records = walk("dfir-orc");
+
+        int checkpoints = 0;
+        int outsideTheRecord = 0;
+        for (LogRecord record : records.values()) {
+            if (record.getRecordType() == LogRecord.RECORD_TYPE_CHECKPOINT) {
+                checkpoints++;
+                CheckpointRecord checkpoint = record.getCheckpoint();
+                assertThat(checkpoint, is(notNullValue()));
+                assertThat(checkpoint.getMajorVersion(), is(1L));
+                assertThat(checkpoint.getStartOfCheckpointLsn() <= record.getLsn(), is(true));
+                assertThat(record.isRedoDataInRecord() || record.isUndoDataInRecord(), is(false));
+            } else if (!record.isRedoDataInRecord() || !record.isUndoDataInRecord()) {
+                outsideTheRecord++;
+            }
+        }
+
+        assertThat(checkpoints, is(52));
+        assertThat(outsideTheRecord, is(7));
+    }
+
+    /**
      * Restoring v1.0.1's {@code (int)} cast on the record length reads 108,460 records here, 2,182 fewer than v2.0.1's
      * 110,641. The log is 18 MB, so it isn't committed: it is
      * {@code Windows/NTFSArtifacts/LogFile/Win2012R2/StolenSzechuan/$LogFile} from
