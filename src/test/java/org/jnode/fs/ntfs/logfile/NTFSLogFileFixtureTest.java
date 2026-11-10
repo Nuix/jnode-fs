@@ -11,6 +11,7 @@ import org.junit.Assume;
 import org.junit.Test;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isOneOf;
 import static org.hamcrest.Matchers.notNullValue;
@@ -119,9 +120,16 @@ public class NTFSLogFileFixtureTest {
     public void testDfirOrcChainsDumpWithoutMissingRecords() throws Exception {
         LogFile logFile = new LogFile(FileSystemTestUtils.readImage(DIRECTORY + "dfir-orc.LogFile"));
 
-        for (long lsn : logFile.getLsnLogRecordMap().keySet()) {
-            assertThat(logFile.dumpLogChain(lsn), is(notNullValue()));
+        int undoChains = 0;
+        for (LogRecord record : logFile.getLsnLogRecordMap().values()) {
+            String chain = logFile.dumpLogChain(record.getLsn());
+            long undoNext = record.getClientUndoNextLsn();
+            if (undoNext != 0 && logFile.getLsnLogRecordMap().containsKey(undoNext)) {
+                assertThat("record " + record.getLsn(), chain.contains(">"), is(true));
+                undoChains++;
+            }
         }
+        assertThat(undoChains, is(greaterThan(0)));
         assertThat(logFile.dumpLogChain(1), is("[]"));
     }
 

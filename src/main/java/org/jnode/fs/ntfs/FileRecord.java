@@ -36,6 +36,7 @@ import org.jnode.fs.ntfs.attribute.ReparsePointAttribute;
 import org.jnode.fs.ntfs.attribute.ReparsePointTags;
 import org.jnode.fs.ntfs.datarun.CompressedDataRun;
 import org.jnode.fs.ntfs.datarun.CompressionUnitProblem;
+import org.jnode.fs.ntfs.datarun.DataRun;
 import org.jnode.fs.ntfs.datarun.DataRunInterface;
 import org.jnode.fs.ntfs.wof.WofCompressedStream;
 import org.jnode.fs.ntfs.wof.WofCompressionFormat;
@@ -664,18 +665,37 @@ public class FileRecord extends NTFSRecord {
         return lookup.get();
     }
 
+    /**
+     * Checks whether the file looks WOF compressed without its reparse point: it has the WOF stream, or its unnamed
+     * $DATA is missing or has nothing allocated. Any other reparse point file reads its unnamed $DATA as usual.
+     */
+    private boolean looksWofCompressed() {
+        if (findAttributesByTypeAndName(NTFSAttribute.Types.DATA, WOF_STREAM_NAME).hasNext()) {
+            return true;
+        }
+
+        Iterator<NTFSAttribute> data = findAttributesByTypeAndName(NTFSAttribute.Types.DATA, null);
+        if (!data.hasNext()) {
+            return true;
+        }
+
+        NTFSAttribute first = data.next();
+        if (first.isResident()) {
+            return false;
+        }
+        for (DataRunInterface run : ((NTFSNonResidentAttribute) first).getDataRuns()) {
+            if (!(run instanceof DataRun) || !((DataRun) run).isSparse()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private WofCompressedStream findWofCompressedStream() throws IOException {
         NTFSAttribute reparsePoint = findAttributeByType(NTFSAttribute.Types.REPARSE_POINT);
-        if (reparsePoint == null && attributeListFailure != null && isFlaggedAsReparsePoint()) {
-            throw new IOException("the reparse point may be in an extension record, but the attribute list could " +
-                "not be read", attributeListFailure);
-        }
-        if (reparsePoint == null && storedAttributeFailure != null && isFlaggedAsReparsePoint()) {
-            throw new IOException("the reparse point may be past the attribute that could not be read",
-                storedAttributeFailure);
-        }
-        if (reparsePoint == null && isAttributeListIncomplete() && isFlaggedAsReparsePoint()) {
-            throw new IOException("the reparse point may be in an attribute list entry that could not be followed");
+        if (reparsePoint == null && isAttributeListIncomplete() && isFlaggedAsReparsePoint() && looksWofCompressed()) {
+            throw new IOException("the reparse point is missing: it may be in an attribute that could not be read",
+                attributeListFailure != null ? attributeListFailure : storedAttributeFailure);
         }
         if (!(reparsePoint instanceof ReparsePointAttribute)) {
             return null;
@@ -866,7 +886,8 @@ public class FileRecord extends NTFSRecord {
      *
      * <p>Every unit is checked: one that this record hasn't read yet is read now, so the result doesn't depend on
      * what was read before. In the unit that holds the valid data length, a last chunk cut short, or a short chunk
-     * followed by slack rather than an end marker, is expected and isn't reported.</p>
+     * followed by slack rather than an end marker, is expected and isn't reported. When the first extent isn't
+     * found, the last unit is taken to hold it. Units wholly past it were never written and aren't reported.</p>
      *
      * @param attributeType the attribute type.
      * @param streamName    the stream name, or {@code null} for the default stream.
@@ -876,7 +897,7 @@ public class FileRecord extends NTFSRecord {
     public SortedMap<Long, Set<CompressionUnitProblem>> getCorruptCompressionUnits(NTFSAttribute.Types attributeType,
                                                                                 String streamName)
         throws IOException {
-        Map<Long, CompressedDataRun> units = new TreeMap<>();
+        TreeMap<Long, CompressedDataRun> units = new TreeMap<>();
         Iterator<NTFSAttribute> attributes = findAttributesByTypeAndName(attributeType, streamName);
         long initialisedSize = -1;
 
@@ -899,8 +920,18 @@ public class FileRecord extends NTFSRecord {
         }
 
         int clusterSize = getClusterSize();
+        if (initialisedSize < 0 && !units.isEmpty()) {
+            CompressedDataRun last = units.lastEntry().getValue();
+            initialisedSize = last.getFirstVcn() * (long) clusterSize + 1;
+        }
+
         SortedMap<Long, Set<CompressionUnitProblem>> corrupt = new TreeMap<>();
         for (CompressedDataRun unit : units.values()) {
+            long unitStart = unit.getFirstVcn() * (long) clusterSize;
+            if (unitStart >= initialisedSize) {
+                continue;
+            }
+
             if (!unit.isChecked()) {
                 int clusters = (int) unit.getLength();
                 unit.readClusters(unit.getFirstVcn(), new byte[clusters * clusterSize], 0, clusters, clusterSize,
@@ -912,7 +943,6 @@ public class FileRecord extends NTFSRecord {
                 continue;
             }
 
-            long unitStart = unit.getFirstVcn() * (long) clusterSize;
             long unitEnd = unitStart + unit.getLength() * clusterSize;
             if (initialisedSize > unitStart && initialisedSize < unitEnd) {
                 Set<CompressionUnitProblem> rest = new LinkedHashSet<>(problems);
@@ -1017,6 +1047,10 @@ public class FileRecord extends NTFSRecord {
                                 log.error("Failed to find an attribute matching entry '{}' in the holding record, ref={}", entry, referenceNumber);
                             }
                             attributeListIncomplete = true;
+                            if (storedAttributeFailure == null) {
+                                // The holding record's own walk may have stopped before the attribute
+                                storedAttributeFailure = holdingRecord.storedAttributeFailure;
+                            }
                         } else {
                             attributeListBuilder.add(attribute);
                         }
@@ -1085,22 +1119,24 @@ public class FileRecord extends NTFSRecord {
      *
      * <p>On a deleted record the used size is often stale and cuts through an attribute, while the chain past it is
      * intact and ends on the marker within the allocated size. On a record in use it is current, and the slack past
-     * it can still hold attributes of the record's previous owner, which must not be read as live. When a size is
-     * implausible the buffer is the only bound, so a buffer holding several records must not be passed with a
-     * corrupt record in it.</p>
+     * it can still hold attributes of the record's previous owner, which must not be read as live. A deleted record
+     * whose allocated size is implausible falls back to the used size. When both are implausible the buffer is the
+     * only bound, so a buffer holding several records must not be passed with a corrupt record in it.</p>
      *
      * @return the exclusive upper bound, relative to the start of the record.
      */
     private int getAttributeWalkLimit() {
         int limit = getBuffer().length - getOffset();
+        int minimum = getFirstAttributeOffset() + 8;
 
         long allocatedSize = getAllocatedSize();
-        if (allocatedSize >= getFirstAttributeOffset() + 8 && allocatedSize < limit) {
+        boolean allocatedPlausible = allocatedSize >= minimum && allocatedSize <= limit;
+        if (allocatedPlausible) {
             limit = (int) allocatedSize;
         }
 
         long usedSize = getRealSize();
-        if (isInUse() && usedSize >= getFirstAttributeOffset() + 8 && usedSize < limit) {
+        if ((isInUse() || !allocatedPlausible) && usedSize >= minimum && usedSize < limit) {
             limit = (int) usedSize;
         }
 
@@ -1143,10 +1179,7 @@ public class FileRecord extends NTFSRecord {
                 try {
                     attribute = NTFSAttribute.getAttribute(FileRecord.this, offset);
                 } catch (RuntimeException e) {
-                    log.debug("{}:Attribute at offset {} could not be read, keeping the {} before it",
-                        referenceNumber, offset, attributeListBuilder.toList().size(), e);
-                    storedAttributeFailure = e;
-                    attributeListIncomplete = true;
+                    stopWalk(offset, attributeListBuilder, e);
                     break;
                 }
 
@@ -1169,10 +1202,7 @@ public class FileRecord extends NTFSRecord {
                         try {
                             attributeListBuilder.add(attribute);
                         } catch (RuntimeException e) {
-                            log.debug("{}:Attribute at offset {} could not be read, keeping the {} before it",
-                                referenceNumber, offset, attributeListBuilder.toList().size(), e);
-                            storedAttributeFailure = e;
-                            attributeListIncomplete = true;
+                            stopWalk(offset, attributeListBuilder, e);
                             break;
                         }
 
@@ -1192,6 +1222,16 @@ public class FileRecord extends NTFSRecord {
         }
 
         return attributeListBuilder.toList();
+    }
+
+    /**
+     * Records that the walk stopped at an attribute it couldn't read, keeping the ones before it.
+     */
+    private void stopWalk(int offset, AttributeListBuilder attributeListBuilder, RuntimeException e) {
+        log.debug("{}:Attribute at offset {} could not be read, keeping the {} before it", referenceNumber, offset,
+            attributeListBuilder.toList().size(), e);
+        storedAttributeFailure = e;
+        attributeListIncomplete = true;
     }
 
     /**

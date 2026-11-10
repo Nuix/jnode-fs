@@ -1,15 +1,14 @@
 package org.jnode.fs.ntfs;
 
-import java.io.IOException;
 import java.util.Arrays;
 
 import org.jnode.fs.ntfs.datarun.CompressedDataRun;
+import org.jnode.fs.ntfs.datarun.CompressionUnitProblem;
 import org.jnode.fs.ntfs.datarun.DataRun;
 import org.junit.Test;
 
 import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.fail;
 
 /**
  * Tests how a compression unit that is stored uncompressed is read back.
@@ -104,10 +103,10 @@ public class NTFSCompressedUnitStorageTest {
 
     /**
      * Fragments that add up to more than the unit cannot be laid out in it, and previously overran the buffer they
-     * were read into.
+     * were read into. The fragments that fit are read, and the unit is flagged.
      */
     @Test
-    public void testFragmentsLongerThanTheUnitAreRejected() throws Exception {
+    public void testFragmentsLongerThanTheUnitAreFlagged() throws Exception {
         // Arrange
         byte[] data = device();
         NTFSVolume volume = NTFSTestVolume.volume(CLUSTER_SIZE, data);
@@ -116,13 +115,10 @@ public class NTFSCompressedUnitStorageTest {
         run.addDataRun(new DataRun(40, 9, false, 0, 10));
 
         // Act
-        try {
-            run.readClusters(0, new byte[COMPRESSION_UNIT * CLUSTER_SIZE], 0, COMPRESSION_UNIT, CLUSTER_SIZE, volume);
-            fail("runs totalling more than the compression unit should be rejected");
-        } catch (IOException e) {
-            // Assert
-            assertThat(e.getMessage(), containsString("more than the 16 cluster compression unit"));
-        }
+        run.readClusters(0, new byte[COMPRESSION_UNIT * CLUSTER_SIZE], 0, COMPRESSION_UNIT, CLUSTER_SIZE, volume);
+
+        // Assert
+        assertThat(run.getProblems(), hasItem(CompressionUnitProblem.RUNS_PAST_UNIT));
     }
 
     /**

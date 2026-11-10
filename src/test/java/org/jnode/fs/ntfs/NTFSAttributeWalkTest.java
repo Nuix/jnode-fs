@@ -346,4 +346,62 @@ public class NTFSAttributeWalkTest {
         // Assert
         assertThat(record.isAttributeListIncomplete(), is(false));
     }
+
+    /**
+     * Builds a record flagged as a reparse point whose walk stops at an unreadable $INDEX_ROOT before any
+     * $REPARSE_POINT, optionally with a resident unnamed $DATA before it.
+     */
+    private static FileRecord reparsePointRecordWithAnUnreadableAttribute(boolean withData) throws Exception {
+        byte[] buffer = emptyRecord(RECORD_SIZE);
+        residentAttribute(buffer, 56, 0x10, 96);
+        LittleEndian.setInt32(buffer, 56 + 0x18 + 0x20, 0x400);   // reparse point flag
+        int offset = 152;
+        if (withData) {
+            residentAttribute(buffer, offset, 0x80, 0x20);
+            offset += 0x20;
+        }
+        nonResidentAttribute(buffer, offset, 0x90, 0x1000, new byte[] { 0x11, 0x01, 0x10, 0x00 });
+        LittleEndian.setInt32(buffer, offset + 0x48, 0xFFFFFFFF);
+        return new FileRecord(null, 4096, false, 7, buffer, 0);
+    }
+
+    /**
+     * A symlink or other non-WOF reparse point file with its $DATA in place reads as before.
+     */
+    @Test
+    public void testAMissingReparsePointOnANonWofFileIsNotAFailure() throws Exception {
+        FileRecord record = reparsePointRecordWithAnUnreadableAttribute(true);
+
+        assertThat(record.isAttributeListIncomplete(), is(true));
+        assertThat(record.getWofCompressedStream(), is(nullValue()));
+    }
+
+    /**
+     * Without its $DATA the file may be WOF compressed, so it fails rather than reading nothing.
+     */
+    @Test(expected = java.io.IOException.class)
+    public void testAMissingReparsePointOnAFileWithoutDataFails() throws Exception {
+        reparsePointRecordWithAnUnreadableAttribute(false).getWofCompressedStream();
+    }
+
+    /**
+     * A deleted record with a garbage allocated size is bounded by its used size, not by the next record.
+     */
+    @Test
+    public void testADeletedRecordWithABadAllocatedSizeStopsAtTheUsedSize() throws Exception {
+        // Arrange: two records back to back; the first is deleted, has no end marker and an allocated size of 0
+        byte[] buffer = new byte[2 * RECORD_SIZE];
+        mftRecord(buffer, 0, 0x40, false);
+        LittleEndian.setInt16(buffer, 0x16, 0x00);
+        LittleEndian.setInt32(buffer, 0x1c, 0);
+        mftRecord(buffer, RECORD_SIZE, 0x40, true);
+        System.arraycopy(buffer, RECORD_SIZE + 0x38, buffer, 0x78, RECORD_SIZE - 0x78);
+
+        // Act
+        List<NTFSAttribute> attributes = new FileRecord(null, RECORD_SIZE, false, 1, buffer, 0)
+            .readStoredAttributes();
+
+        // Assert
+        assertThat(attributes, hasSize(1));
+    }
 }

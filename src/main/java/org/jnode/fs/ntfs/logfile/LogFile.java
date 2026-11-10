@@ -365,8 +365,7 @@ public class LogFile {
                     long lsn = LittleEndian.getInt64(logFileBuffer, pageStart + pos);
                     long home = homeOffset(lsn);
 
-                    if (lsn > 0 && lsn <= lastLsn && home % logPageSize == pos
-                        && isRecordType(LittleEndian.getUInt32(logFileBuffer, pageStart + pos + 0x20))) {
+                    if (home % logPageSize == pos && isRecordAt(pageStart + pos, lastLsn)) {
                         if (home / logPageSize == page) {
                             atHome++;
                         } else {
@@ -417,10 +416,8 @@ public class LogFile {
                         placed = home / logPageSize == homePage && home % logPageSize == pos;
                     }
 
-                    long recordType = LittleEndian.getUInt32(logFileBuffer, position + 0x20);
-                    long clientDataLength = LittleEndian.getUInt32(logFileBuffer, position + 0x18);
-
-                    if (placed && isRecordType(recordType) && clientDataLength < logFileLength) {
+                    if (placed && isRecordAt(position, lastLsn)) {
+                        long clientDataLength = LittleEndian.getUInt32(logFileBuffer, position + 0x18);
                         homePage = (int) (home / logPageSize);
 
                         Placement previous = placements.get(lsn);
@@ -463,15 +460,24 @@ public class LogFile {
 
             for (int pos = dataOffset; pos + LogRecord.LENGTH_CALCULATION_OFFSET <= logPageSize; pos += 8) {
                 int position = pageStart + pos;
-                long lsn = LittleEndian.getInt64(logFileBuffer, position);
-                if (lsn > 0 && lsn <= lastLsn && homeOffset(lsn) == position
-                    && isRecordType(LittleEndian.getUInt32(logFileBuffer, position + 0x20))
-                    && LittleEndian.getUInt32(logFileBuffer, position + 0x18) < logFileLength) {
+                if (homeOffset(LittleEndian.getInt64(logFileBuffer, position)) == position
+                    && isRecordAt(position, lastLsn)) {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        /**
+         * Checks whether the bytes at a position look like a record header written in the page's lap: an LSN no
+         * later than the page's last, a known record type and a client data length that fits in the log.
+         */
+        private boolean isRecordAt(int position, long lastLsn) {
+            long lsn = LittleEndian.getInt64(logFileBuffer, position);
+            return lsn > 0 && lsn <= lastLsn
+                && isRecordType(LittleEndian.getUInt32(logFileBuffer, position + 0x20))
+                && LittleEndian.getUInt32(logFileBuffer, position + 0x18) < logFileLength;
         }
 
         /**
@@ -702,6 +708,9 @@ public class LogFile {
         }
 
         int midIndex = records.size() - 1;
+        // The undo chain usually repeats the previous chain, so it gets its own set
+        seen.clear();
+        seen.add(lsn);
         current = midRecord;
         while (current.getClientUndoNextLsn() != 0 && seen.add(current.getClientUndoNextLsn())) {
             current = lsnLogRecordMap.get(current.getClientUndoNextLsn());

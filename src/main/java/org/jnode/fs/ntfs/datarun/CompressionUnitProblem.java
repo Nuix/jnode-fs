@@ -31,5 +31,10 @@ public enum CompressionUnitProblem {
     /**
      * A chunk header claims more bytes than are stored. Expected only in the unit that holds the valid data length.
      */
-    CHUNK_PAST_STORED_DATA
+    CHUNK_PAST_STORED_DATA,
+
+    /**
+     * The unit's runs hold more clusters than the compression unit. Only the clusters that fit are decoded.
+     */
+    RUNS_PAST_UNIT
 }

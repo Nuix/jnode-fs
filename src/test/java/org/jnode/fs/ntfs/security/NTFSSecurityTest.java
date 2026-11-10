@@ -55,6 +55,38 @@ public class NTFSSecurityTest {
     }
 
     /**
+     * An object ACE holds its object flags and the GUIDs they name before the SID.
+     */
+    @Test
+    public void testObjectAceSidFollowsItsGuids() {
+        // Arrange: Allow Object, with both GUIDs present
+        byte[] buffer = new byte[0x14 + 8 + 0x38];
+        int acl = 0x14;
+        buffer[acl] = 2;
+        LittleEndian.setInt16(buffer, acl + 2, 8 + 0x38);
+        LittleEndian.setInt16(buffer, acl + 4, 1);
+
+        int ace = acl + 8;
+        buffer[ace] = 0x05;
+        LittleEndian.setInt16(buffer, ace + 2, 0x38);
+        LittleEndian.setInt32(buffer, ace + 4, 0x100);
+        LittleEndian.setInt32(buffer, ace + 8, 0x3);
+        Arrays.fill(buffer, ace + 12, ace + 44, (byte) 0xAB);
+        buffer[ace + 44] = 1;
+        buffer[ace + 45] = 1;
+        buffer[ace + 51] = 5;
+        LittleEndian.setInt32(buffer, ace + 52, 18);
+
+        // Act
+        AccessControlEntry entry =
+            new AccessControlList(new SecurityDescriptor(buffer, 0), acl).getAces().get(0);
+
+        // Assert
+        assertThat(entry.isObjectAce(), is(true));
+        assertThat(entry.getSid().toSidString(), is("S-1-5-18"));
+    }
+
+    /**
      * A mandatory label's mask is the integrity policy, not file access rights: 0x1 is "No Write Up", not "Read".
      */
     @Test

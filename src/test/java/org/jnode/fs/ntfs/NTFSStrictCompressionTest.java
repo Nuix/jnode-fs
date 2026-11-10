@@ -269,4 +269,36 @@ public class NTFSStrictCompressionTest {
             record.getCorruptCompressionUnits(NTFSAttribute.Types.DATA, null);
         assertThat(corrupt.get(0L), is(EnumSet.of(SHORT_CHUNK)));
     }
+
+    /**
+     * A unit wholly past the valid data length was never written, so whatever it holds isn't reported.
+     */
+    @Test
+    public void testAUnitPastTheValidDataLengthIsNotReported() throws Exception {
+        FileRecord record = fileWithAShortLastChunk(0);
+
+        assertThat(record.getCorruptCompressionUnits(NTFSAttribute.Types.DATA, null).isEmpty(), is(true));
+    }
+
+    /**
+     * Runs holding more clusters than the unit are read up to the unit, and the unit is reported.
+     */
+    @Test
+    public void testAUnitWithTooManyRunsIsReadAndReported() throws Exception {
+        // Arrange: two 10-cluster fragments in one 16-cluster unit
+        int clusterSize = 512;
+        NTFSVolume volume = NTFSTestVolume.volume(clusterSize, new byte[32 * clusterSize]);
+        long size = 16 * clusterSize;
+        byte[] attribute = NTFSTestRecords.nonResidentAttribute(0, 15, 0x0001, 4, toByteArray("11 0A 02 11 0A 05 00"),
+            size, size, size);
+        FileRecord record = NTFSTestRecords.record(volume, clusterSize, attribute);
+
+        // Act
+        record.readData(NTFSAttribute.Types.DATA, null, 0, new byte[(int) size], 0, (int) size, true);
+        SortedMap<Long, Set<CompressionUnitProblem>> corrupt =
+            record.getCorruptCompressionUnits(NTFSAttribute.Types.DATA, null);
+
+        // Assert
+        assertThat(corrupt.get(0L), is(EnumSet.of(CompressionUnitProblem.RUNS_PAST_UNIT)));
+    }
 }

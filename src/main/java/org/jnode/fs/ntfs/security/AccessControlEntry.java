@@ -83,7 +83,48 @@ public class AccessControlEntry extends NTFSStructure {
      * @return the SID.
      */
     public SecurityIdentifier getSid() {
-        return SecurityUtils.readSid(this, 8);
+        return SecurityUtils.readSid(this, getSidOffset());
+    }
+
+    /**
+     * Checks whether this is an object ACE, which holds object flags and up to two GUIDs before its SID.
+     *
+     * @return {@code true} for the object ACE types.
+     */
+    public boolean isObjectAce() {
+        switch (getType()) {
+            case 0x05:
+            case 0x06:
+            case 0x07:
+            case 0x08:
+            case 0x0b:
+            case 0x0c:
+            case 0x0f:
+            case 0x10:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Gets the offset of the SID: after the object flags and the object type and inherited object type GUIDs that
+     * the flags say are present, for an object ACE.
+     */
+    private int getSidOffset() {
+        if (!isObjectAce()) {
+            return 8;
+        }
+
+        int objectFlags = getInt32(8);
+        int offset = 12;
+        if ((objectFlags & 0x1) != 0) {
+            offset += 16;
+        }
+        if ((objectFlags & 0x2) != 0) {
+            offset += 16;
+        }
+        return offset;
     }
 
     /**

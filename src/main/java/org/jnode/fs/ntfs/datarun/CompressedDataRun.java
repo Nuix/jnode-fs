@@ -126,6 +126,7 @@ public final class CompressedDataRun implements DataRunInterface {
         final byte[] tempCompressed = new byte[compressionUnitSize * clusterSize];
         long readVcn = myFirstVcn;
         int tempCompressedOffset = 0;
+        boolean runsPastUnit = false;
 
         for (DataRun compressedRun : compressedRuns) {
             // This is the actual number of stored clusters after compression.
@@ -134,9 +135,11 @@ public final class CompressedDataRun implements DataRunInterface {
             // skip the sparse data runs.
             if (!compressedRun.isSparse()) {
                 if (tempCompressedOffset + clusterSize * compClusters > tempCompressed.length) {
-                    throw new IOException(String.format(
-                            "Runs at VCN %d hold more than the %d cluster compression unit", myFirstVcn,
-                            compressionUnitSize));
+                    // Decode what fits rather than lose the whole unit
+                    log.debug("Runs at VCN {} hold more than the {} cluster compression unit", myFirstVcn,
+                        compressionUnitSize);
+                    runsPastUnit = true;
+                    break;
                 }
 
                 // Now we know the data is compressed.  Read in the compressed block...
@@ -156,7 +159,9 @@ public final class CompressedDataRun implements DataRunInterface {
         final byte[] tempUncompressed = new byte[compressionUnitSize * clusterSize];
 
         if (tempCompressedOffset == tempUncompressed.length) {
-            problems = Collections.emptySet();
+            problems = runsPastUnit
+                ? Collections.singleton(CompressionUnitProblem.RUNS_PAST_UNIT)
+                : Collections.<CompressionUnitProblem>emptySet();
             // A unit that does not compress is stored as-is, filling the whole unit. It can be stored as several
             // fragments, so the test has to be on the total rather than on any single run: a unit split across two
             // runs is still stored raw, and running it through the decompressor produces garbage.
@@ -168,6 +173,9 @@ public final class CompressedDataRun implements DataRunInterface {
             // XXX: We could potentially reduce the overhead by modifying the compression
             //      routine such that it's capable of skipping chunks that aren't needed.
             Set<CompressionUnitProblem> found = new LinkedHashSet<>();
+            if (runsPastUnit) {
+                found.add(CompressionUnitProblem.RUNS_PAST_UNIT);
+            }
             decompressUnit(compressed, tempUncompressed, found);
             if (!found.isEmpty()) {
                 log.debug("Compression unit at VCN {} fails strict LZNT1: {}", myFirstVcn, found);
