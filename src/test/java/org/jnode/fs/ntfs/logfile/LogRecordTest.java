@@ -285,6 +285,51 @@ public class LogRecordTest {
     }
 
     /**
+     * Windows 8 and later keep page copies in pages 4-33, so a record crossing the last page continues in page 34.
+     */
+    @Test
+    public void testGetDataAcrossPages_wrapsToTheGivenFirstCircularPage() {
+        // Arrange
+        byte[] buffer = new byte[40 * PAGE_SIZE];
+        for (int i = 0; i < buffer.length; i++) {
+            buffer[i] = (byte) (i * 7);
+        }
+        int recordOffset = buffer.length - 0x40;
+        LittleEndian.setInt16(buffer, recordOffset + 0x28, LogRecord.FLAG_CROSSES_PAGE);
+        LogRecord record = new LogRecord(buffer, recordOffset, PAGE_SIZE, LOG_PAGE_DATA_OFFSET,
+            LogFile.BUFFER_AREA_END);
+
+        // Act
+        byte[] actual = new byte[0x80];
+        record.getDataAcrossPages(0, actual, 0, actual.length);
+
+        // Assert
+        int continuation = LogFile.BUFFER_AREA_END * PAGE_SIZE + LOG_PAGE_DATA_OFFSET;
+        assertThat(Arrays.copyOfRange(actual, 0x40, 0x80),
+                   is(Arrays.copyOfRange(buffer, continuation, continuation + 0x40)));
+    }
+
+    /**
+     * Only the restart area is copied out of a checkpoint record, however long its client data claims to be.
+     */
+    @Test
+    public void testGetCheckpoint_whenTheClientDataLengthIsHuge() {
+        // Arrange
+        byte[] buffer = new byte[2 * PAGE_SIZE];
+        int offset = PAGE_SIZE + LOG_PAGE_DATA_OFFSET;
+        LittleEndian.setInt64(buffer, offset, 0x1000);
+        LittleEndian.setInt32(buffer, offset + 0x18, 0x7FFFFFF0);
+        LittleEndian.setInt32(buffer, offset + 0x20, LogRecord.RECORD_TYPE_CHECKPOINT);
+        LogRecord record = new LogRecord(buffer, offset, PAGE_SIZE, LOG_PAGE_DATA_OFFSET);
+
+        // Act
+        CheckpointRecord checkpoint = record.getCheckpoint();
+
+        // Assert
+        assertThat(checkpoint, is(notNullValue()));
+    }
+
+    /**
      * Builds a page holding one update record at the data offset that doesn't cross the page.
      */
     private static LogRecord updateRecord(int clientDataLength, int lcnsToFollow) {

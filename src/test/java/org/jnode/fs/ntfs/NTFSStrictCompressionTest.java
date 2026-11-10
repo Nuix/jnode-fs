@@ -233,4 +233,40 @@ public class NTFSStrictCompressionTest {
         assertThat(corrupt.keySet(), contains(0L));
         assertThat(corrupt.get(0L), is(EnumSet.of(CHUNK_PAST_STORED_DATA)));
     }
+
+    /**
+     * Builds a compressed file of one 16-cluster unit whose stored cluster holds an 8-byte chunk with no end marker
+     * after it: the slack holds an older chunk instead.
+     */
+    private static FileRecord fileWithAShortLastChunk(long validDataLength) throws Exception {
+        int clusterSize = 512;
+        byte[] device = new byte[32 * clusterSize];
+        NTFSVolume volume = NTFSTestVolume.volume(clusterSize, device);
+        byte[] chunk = toByteArray("08 B0 00 41 41 41 41 41 41 41 41");
+        System.arraycopy(chunk, 0, device, 2 * clusterSize, chunk.length);
+        System.arraycopy(chunk, 0, device, 2 * clusterSize + chunk.length, chunk.length);
+
+        long size = 16 * clusterSize;
+        byte[] attribute = NTFSTestRecords.nonResidentAttribute(0, 15, 0x0001, 4, toByteArray("11 01 02 01 0F 00"),
+            size, size, validDataLength);
+        FileRecord record = NTFSTestRecords.record(volume, clusterSize, attribute);
+        record.readData(NTFSAttribute.Types.DATA, null, 0, new byte[(int) size], 0, (int) size, true);
+        return record;
+    }
+
+    @Test
+    public void testAShortLastChunkAtTheValidDataLengthIsNotReported() throws Exception {
+        FileRecord record = fileWithAShortLastChunk(8);
+
+        assertThat(record.getCorruptCompressionUnits(NTFSAttribute.Types.DATA, null).isEmpty(), is(true));
+    }
+
+    @Test
+    public void testAShortChunkElsewhereIsReported() throws Exception {
+        FileRecord record = fileWithAShortLastChunk(16 * 512);
+
+        SortedMap<Long, Set<CompressionUnitProblem>> corrupt =
+            record.getCorruptCompressionUnits(NTFSAttribute.Types.DATA, null);
+        assertThat(corrupt.get(0L), is(EnumSet.of(SHORT_CHUNK)));
+    }
 }

@@ -23,7 +23,8 @@ public enum CompressionUnitProblem {
     BACK_REFERENCE_PAST_CHUNK,
 
     /**
-     * A chunk other than the last decodes to fewer than 4,096 bytes.
+     * A chunk other than the last decodes to fewer than 4,096 bytes. Expected only in the unit that holds the valid
+     * data length, where the last chunk can be followed by slack rather than an end marker.
      */
     SHORT_CHUNK,
 

@@ -113,6 +113,19 @@ public class NTFSLogFileFixtureTest {
     }
 
     /**
+     * Records the walk drops can still be named by another record's previous or undo-next LSN.
+     */
+    @Test
+    public void testDfirOrcChainsDumpWithoutMissingRecords() throws Exception {
+        LogFile logFile = new LogFile(FileSystemTestUtils.readImage(DIRECTORY + "dfir-orc.LogFile"));
+
+        for (long lsn : logFile.getLsnLogRecordMap().keySet()) {
+            assertThat(logFile.dumpLogChain(lsn), is(notNullValue()));
+        }
+        assertThat(logFile.dumpLogChain(1), is("[]"));
+    }
+
+    /**
      * Restoring v1.0.1's {@code (int)} cast on the record length reads 108,460 records here, 2,182 fewer than v2.0.1's
      * 110,641. The log is 18 MB, so it isn't committed: it is
      * {@code Windows/NTFSArtifacts/LogFile/Win2012R2/StolenSzechuan/$LogFile} from

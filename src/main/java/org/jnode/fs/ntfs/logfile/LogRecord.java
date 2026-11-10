@@ -67,14 +67,35 @@ public class LogRecord extends NTFSStructure {
     private final int[] continuationPages;
 
     /**
-     * Creates a new log file record which continues in the physically next pages.
-     *  @param buffer the buffer.
+     * The page a record crossing the last page continues in, when {@link #continuationPages} is {@code null}.
+     */
+    private final int firstCircularPage;
+
+    /**
+     * Creates a new log file record which continues in the physically next pages, wrapping from the last page to
+     * page 4 as logs written before Windows 8 do.
+     *
+     * @param buffer the buffer.
      * @param offset the offset in the buffer to create the record at.
      * @param pageSize the page size.
      * @param logPageDataOffset the offset in the page to the log record data.
      */
     public LogRecord(byte[] buffer, int offset, int pageSize, int logPageDataOffset) {
-        this(buffer, offset, pageSize, logPageDataOffset, offset, null);
+        this(buffer, offset, pageSize, logPageDataOffset, LogFile.NORMAL_AREA_START);
+    }
+
+    /**
+     * Creates a new log file record which continues in the physically next pages.
+     *
+     * @param buffer the buffer.
+     * @param offset the offset in the buffer to create the record at.
+     * @param pageSize the page size.
+     * @param logPageDataOffset the offset in the page to the log record data.
+     * @param firstCircularPage the page to wrap to from the last page: 4 for logs written before Windows 8, 34 for
+     *     those written by Windows 8 and later, where pages 4-33 hold page copies.
+     */
+    public LogRecord(byte[] buffer, int offset, int pageSize, int logPageDataOffset, int firstCircularPage) {
+        this(buffer, offset, pageSize, logPageDataOffset, offset, null, firstCircularPage);
     }
 
     /**
@@ -89,12 +110,18 @@ public class LogRecord extends NTFSStructure {
      */
     LogRecord(byte[] buffer, int offset, int pageSize, int logPageDataOffset, long homeOffset,
               int[] continuationPages) {
+        this(buffer, offset, pageSize, logPageDataOffset, homeOffset, continuationPages, LogFile.NORMAL_AREA_START);
+    }
+
+    private LogRecord(byte[] buffer, int offset, int pageSize, int logPageDataOffset, long homeOffset,
+                      int[] continuationPages, int firstCircularPage) {
         super(buffer, offset);
 
         this.pageSize = pageSize;
         this.logPageDataOffset = logPageDataOffset;
         this.homeOffset = homeOffset;
         this.continuationPages = continuationPages;
+        this.firstCircularPage = firstCircularPage;
     }
 
     /**
@@ -248,8 +275,8 @@ public class LogRecord extends NTFSStructure {
         int nextPage = position - position % pageSize + pageSize;
 
         if (nextPage >= getBuffer().length) {
-            // Wrap back around to the start of the 'normal' area
-            nextPage = LogFile.NORMAL_AREA_START * pageSize;
+            // Wrap back around to the start of the circular area
+            nextPage = firstCircularPage * pageSize;
         }
 
         int start = nextPage + logPageDataOffset;
@@ -552,7 +579,8 @@ public class LogRecord extends NTFSStructure {
             return null;
         }
 
-        byte[] bytes = getRecordBytes();
+        byte[] bytes = new byte[LENGTH_CALCULATION_OFFSET + CheckpointRecord.SIZE];
+        getDataAcrossPages(0, bytes, 0, bytes.length);
         return new CheckpointRecord(bytes, LENGTH_CALCULATION_OFFSET);
     }
 

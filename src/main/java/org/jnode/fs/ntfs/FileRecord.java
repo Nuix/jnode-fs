@@ -127,8 +127,8 @@ public class FileRecord extends NTFSRecord {
     private Exception storedAttributeFailure;
 
     /**
-     * Whether an attribute list entry was left out because its holding record couldn't be found, didn't hold the
-     * attribute, or belongs to another file.
+     * Whether attributes may be missing: the stored walk hit an attribute it couldn't read, which may hide the
+     * $ATTRIBUTE_LIST, or an attribute list entry was left out.
      */
     private volatile boolean attributeListIncomplete;
 
@@ -674,6 +674,9 @@ public class FileRecord extends NTFSRecord {
             throw new IOException("the reparse point may be past the attribute that could not be read",
                 storedAttributeFailure);
         }
+        if (reparsePoint == null && isAttributeListIncomplete() && isFlaggedAsReparsePoint()) {
+            throw new IOException("the reparse point may be in an attribute list entry that could not be followed");
+        }
         if (!(reparsePoint instanceof ReparsePointAttribute)) {
             return null;
         }
@@ -862,8 +865,8 @@ public class FileRecord extends NTFSRecord {
      * not reliable: such a unit is usually read from clusters that now hold other data.
      *
      * <p>Every unit is checked: one that this record hasn't read yet is read now, so the result doesn't depend on
-     * what was read before. In the unit that holds the valid data length, a last chunk cut short is expected and
-     * isn't reported.</p>
+     * what was read before. In the unit that holds the valid data length, a last chunk cut short, or a short chunk
+     * followed by slack rather than an end marker, is expected and isn't reported.</p>
      *
      * @param attributeType the attribute type.
      * @param streamName    the stream name, or {@code null} for the default stream.
@@ -911,10 +914,10 @@ public class FileRecord extends NTFSRecord {
 
             long unitStart = unit.getFirstVcn() * (long) clusterSize;
             long unitEnd = unitStart + unit.getLength() * clusterSize;
-            if (initialisedSize > unitStart && initialisedSize < unitEnd
-                && problems.contains(CompressionUnitProblem.CHUNK_PAST_STORED_DATA)) {
+            if (initialisedSize > unitStart && initialisedSize < unitEnd) {
                 Set<CompressionUnitProblem> rest = new LinkedHashSet<>(problems);
                 rest.remove(CompressionUnitProblem.CHUNK_PAST_STORED_DATA);
+                rest.remove(CompressionUnitProblem.SHORT_CHUNK);
                 problems = Collections.unmodifiableSet(rest);
             }
 
@@ -1064,10 +1067,12 @@ public class FileRecord extends NTFSRecord {
     }
 
     /**
-     * Checks whether attributes named by the $ATTRIBUTE_LIST were left out of {@link #getAllAttributes()}: their
-     * holding record couldn't be read, didn't hold the attribute, or now belongs to another file.
+     * Checks whether attributes may be missing from {@link #getAllAttributes()}: the walk of the stored attributes
+     * stopped at one it couldn't read, so a $ATTRIBUTE_LIST past it isn't seen, or an entry of the attribute list was
+     * left out because its holding record couldn't be read, didn't hold the attribute, or now belongs to another
+     * file.
      *
-     * @return {@code true} if the attribute list couldn't be followed in full.
+     * @return {@code true} if the attributes may be incomplete.
      */
     public boolean isAttributeListIncomplete() {
         getAllAttributes();
@@ -1075,13 +1080,14 @@ public class FileRecord extends NTFSRecord {
     }
 
     /**
-     * Works out how far into the record the attribute walk is allowed to go: the allocated size, bounded by what is
-     * in the buffer.
+     * Works out how far into the record the attribute walk is allowed to go: the used size for a record in use, and
+     * the allocated size for a deleted one, bounded by what is in the buffer.
      *
-     * <p>The used size doesn't bound the walk. On deleted and some corrupt records it is stale and cuts through an
-     * attribute, while the chain past it is intact and ends on the marker within the allocated size. When the
-     * allocated size is implausible the buffer is the only bound, so a buffer holding several records must not be
-     * passed with a corrupt record in it.</p>
+     * <p>On a deleted record the used size is often stale and cuts through an attribute, while the chain past it is
+     * intact and ends on the marker within the allocated size. On a record in use it is current, and the slack past
+     * it can still hold attributes of the record's previous owner, which must not be read as live. When a size is
+     * implausible the buffer is the only bound, so a buffer holding several records must not be passed with a
+     * corrupt record in it.</p>
      *
      * @return the exclusive upper bound, relative to the start of the record.
      */
@@ -1091,6 +1097,11 @@ public class FileRecord extends NTFSRecord {
         long allocatedSize = getAllocatedSize();
         if (allocatedSize >= getFirstAttributeOffset() + 8 && allocatedSize < limit) {
             limit = (int) allocatedSize;
+        }
+
+        long usedSize = getRealSize();
+        if (isInUse() && usedSize >= getFirstAttributeOffset() + 8 && usedSize < limit) {
+            limit = (int) usedSize;
         }
 
         return limit;
@@ -1105,8 +1116,7 @@ public class FileRecord extends NTFSRecord {
         AttributeListBuilder attributeListBuilder = new AttributeListBuilder();
         int offset = getFirstAttributeOffset();
 
-        // Attributes cannot extend past the record's allocated size. Without this bound a corrupt size walks off the
-        // end of the buffer.
+        // Without this bound a corrupt size walks off the end of the buffer.
         final int limit = getAttributeWalkLimit();
 
         while (true) {
@@ -1136,6 +1146,7 @@ public class FileRecord extends NTFSRecord {
                     log.debug("{}:Attribute at offset {} could not be read, keeping the {} before it",
                         referenceNumber, offset, attributeListBuilder.toList().size(), e);
                     storedAttributeFailure = e;
+                    attributeListIncomplete = true;
                     break;
                 }
 
@@ -1161,6 +1172,7 @@ public class FileRecord extends NTFSRecord {
                             log.debug("{}:Attribute at offset {} could not be read, keeping the {} before it",
                                 referenceNumber, offset, attributeListBuilder.toList().size(), e);
                             storedAttributeFailure = e;
+                            attributeListIncomplete = true;
                             break;
                         }
 

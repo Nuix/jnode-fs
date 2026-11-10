@@ -276,4 +276,74 @@ public class NTFSAttributeWalkTest {
         assertThat(record.getAllAttributes(), is(empty()));
         assertThat(record.findAttributeByType(NTFSAttribute.Types.DATA), is(nullValue()));
     }
+
+    /**
+     * Builds a record holding one $FILE_NAME within its used size, with a damaged end marker and an older $FILE_NAME
+     * in the slack past it.
+     */
+    private static byte[] recordWithAttributeInTheSlack(boolean inUse) {
+        byte[] buffer = emptyRecord(272);
+        LittleEndian.setInt16(buffer, 0x16, inUse ? 0x01 : 0x00);
+        residentAttribute(buffer, 56, 0x10, 96);
+        fileNameAttribute(buffer, 152, 120, "live.txt");
+        fileNameAttribute(buffer, 272, 120, "stale.txt");
+        LittleEndian.setInt32(buffer, 392, 0xFFFFFFFF);
+        return buffer;
+    }
+
+    @Test
+    public void testSlackPastTheUsedSizeOfARecordInUseIsNotRead() throws Exception {
+        // Arrange
+        byte[] buffer = recordWithAttributeInTheSlack(true);
+
+        // Act
+        FileRecord record = new FileRecord(null, 4096, false, 7, buffer, 0);
+
+        // Assert
+        assertThat(record.readStoredAttributes(), hasSize(2));
+        assertThat(record.getFileNameAttributes(), hasSize(1));
+    }
+
+    @Test
+    public void testSlackPastTheUsedSizeOfADeletedRecordIsRead() throws Exception {
+        // Arrange
+        byte[] buffer = recordWithAttributeInTheSlack(false);
+
+        // Act
+        FileRecord record = new FileRecord(null, 4096, false, 7, buffer, 0);
+
+        // Assert
+        assertThat(record.readStoredAttributes(), hasSize(3));
+    }
+
+    /**
+     * An $ATTRIBUTE_LIST past an attribute that can't be read is never seen, so the attributes may be incomplete.
+     */
+    @Test
+    public void testAnUnreadableAttributeMarksTheAttributesIncomplete() throws Exception {
+        // Arrange
+        byte[] buffer = emptyRecord(RECORD_SIZE);
+        residentAttribute(buffer, 56, 0x10, 96);
+        nonResidentAttribute(buffer, 152, 0x90, 0x1000, new byte[] { 0x11, 0x01, 0x10, 0x00 });
+        LittleEndian.setInt32(buffer, 224, 0xFFFFFFFF);
+
+        // Act
+        FileRecord record = new FileRecord(null, 4096, false, 7, buffer, 0);
+
+        // Assert
+        assertThat(record.isAttributeListIncomplete(), is(true));
+    }
+
+    @Test
+    public void testAWellFormedRecordIsNotIncomplete() throws Exception {
+        // Arrange
+        byte[] buffer = new byte[RECORD_SIZE];
+        mftRecord(buffer, 0, 0x40, true);
+
+        // Act
+        FileRecord record = new FileRecord(null, RECORD_SIZE, false, 1, buffer, 0);
+
+        // Assert
+        assertThat(record.isAttributeListIncomplete(), is(false));
+    }
 }

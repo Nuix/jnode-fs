@@ -5,8 +5,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import org.jnode.fs.ntfs.FileRecord;
 import org.jnode.fs.ntfs.attribute.NTFSAttribute;
@@ -228,13 +230,19 @@ public class LogFile {
     /**
      * Parses the log records.
      */
-    private void parseRecords() {
+    private synchronized void parseRecords() {
         if (lsnLogRecordMap != null) {
             // Already parsed
             return;
         }
 
-        lsnLogRecordMap = new TreeMap<Long, LogRecord>();
+        // Only published once complete, so a scan that throws is retried rather than left half done
+        Map<Long, LogRecord> records = new TreeMap<Long, LogRecord>();
+        parseRecords(records);
+        lsnLogRecordMap = records;
+    }
+
+    private void parseRecords(Map<Long, LogRecord> records) {
         if (restartArea == null) {
             return;
         }
@@ -260,7 +268,7 @@ public class LogFile {
             if (record == null) {
                 dropped++;
             } else {
-                lsnLogRecordMap.put(entry.getKey(), record);
+                records.put(entry.getKey(), record);
             }
         }
 
@@ -390,7 +398,7 @@ public class LogFile {
         private void scanPage(int page) {
             int pageStart = page * logPageSize;
             long lastLsn = pageHeaders[page].getLastLsnOrFileOffset();
-            boolean mayBeCopy = page < NORMAL_AREA_START || (page < BUFFER_AREA_END && !hasRecordAtHome(page));
+            boolean mayBeCopy = page < NORMAL_AREA_START || (page < firstCircularPage && !hasRecordAtHome(page));
             int homePage = -1;
             int pos = dataOffset;
 
@@ -676,18 +684,30 @@ public class LogFile {
         parseRecords();
         List<LogRecord> records = new ArrayList<LogRecord>();
         LogRecord midRecord = lsnLogRecordMap.get(lsn);
+        if (midRecord == null) {
+            return "[]";
+        }
         records.add(midRecord);
 
+        // A linked LSN can name a record that was dropped or overwritten, or loop back on itself
+        Set<Long> seen = new HashSet<Long>();
+        seen.add(lsn);
         LogRecord current = midRecord;
-        while (current.getClientPreviousLsn() != 0) {
+        while (current.getClientPreviousLsn() != 0 && seen.add(current.getClientPreviousLsn())) {
             current = lsnLogRecordMap.get(current.getClientPreviousLsn());
+            if (current == null) {
+                break;
+            }
             records.add(0, current);
         }
 
         int midIndex = records.size() - 1;
         current = midRecord;
-        while (current.getClientUndoNextLsn() != 0) {
+        while (current.getClientUndoNextLsn() != 0 && seen.add(current.getClientUndoNextLsn())) {
             current = lsnLogRecordMap.get(current.getClientUndoNextLsn());
+            if (current == null) {
+                break;
+            }
             records.add(current);
         }
 
