@@ -2,6 +2,7 @@ package org.jnode.fs.ntfs;
 
 import java.util.List;
 
+import org.jnode.fs.ntfs.attribute.AttributeListBuilder;
 import org.jnode.fs.ntfs.attribute.NTFSNonResidentAttribute;
 import org.jnode.fs.ntfs.datarun.DataRunInterface;
 import org.junit.Test;
@@ -25,27 +26,70 @@ public class NTFSCompressionUnitSizeTest {
     private static final String COMPRESSED_RUNS = "21 07 B4 08 01 09 00";
 
     private static List<DataRunInterface> decode(int flags, int storedCompressionUnit) throws Exception {
+        return decode(0, flags, storedCompressionUnit);
+    }
+
+    private static List<DataRunInterface> decode(long firstVcn, int flags, int storedCompressionUnit)
+        throws Exception {
         NTFSNonResidentAttribute attribute =
-            nonResident(0, 15, flags, storedCompressionUnit, toByteArray(COMPRESSED_RUNS));
+            nonResident(firstVcn, firstVcn + 15, flags, storedCompressionUnit, toByteArray(COMPRESSED_RUNS));
 
         attribute.getDataRunDecoder().readDataRuns(attribute, attribute.getDataRunsOffset());
         return attribute.getDataRuns();
     }
 
     /**
-     * Compressed attribute data with a stored compression unit size of 0 has been seen on Windows XP. Taking that
-     * literally gives a unit of 1 cluster, under which every run is a whole unit and nothing is ever decompressed
-     * - the compressed bytes are handed back raw.
+     * A compressed attribute whose extent at VCN 0 stores a compression unit of 0 has no usable unit. Its runs are
+     * read as plain data, as v1.0.1 did, rather than decoded as 16-cluster LZNT1, which makes up content.
      */
     @Test
-    public void testCompressedAttributeWithAZeroCompressionUnit() throws Exception {
+    public void testZeroCompressionUnitOnTheFirstExtentReadsPlainRuns() throws Exception {
         // Act
-        List<DataRunInterface> dataRuns = decode(COMPRESSED, 0);
+        List<DataRunInterface> dataRuns = decode(0, COMPRESSED, 0);
 
         // Assert
+        assertThat(dataRuns, hasSize(2));
+        assertThat(dataRuns.get(0).toString(), is("[data-run vcn:0-6 cluster:2228]"));
+        assertThat(dataRuns.get(1).toString(), is("[sparse-run vcn:7-15 cluster:0]"));
+    }
+
+    /**
+     * Windows stores a compression unit of 0 on the later extents of a compressed attribute. Decoded on its own,
+     * such an extent takes the usual 16 clusters.
+     */
+    @Test
+    public void testZeroCompressionUnitOnALaterExtentUsesTheDefault() throws Exception {
+        // Act
+        List<DataRunInterface> dataRuns = decode(16, COMPRESSED, 0);
+
+        // Assert: a run list decoded on its own counts VCNs from 0
         assertThat(dataRuns, hasSize(1));
         assertThat(dataRuns.get(0).toString(),
             is("[compressed-run vcn:0-15 [[data-run vcn:0-6 cluster:2228]]]"));
+    }
+
+    /**
+     * A later extent's runs are read into the first extent's decoder, so they use the first extent's unit whatever
+     * the later extent stores.
+     */
+    @Test
+    public void testALaterExtentInheritsTheFirstExtentsUnit() throws Exception {
+        // Arrange
+        NTFSNonResidentAttribute first = nonResident(0, 15, COMPRESSED, 4, toByteArray(COMPRESSED_RUNS));
+        NTFSNonResidentAttribute later = nonResident(16, 31, COMPRESSED, 0, toByteArray(COMPRESSED_RUNS));
+        AttributeListBuilder builder = new AttributeListBuilder();
+
+        // Act
+        builder.add(first);
+        builder.add(later);
+
+        // Assert
+        List<DataRunInterface> dataRuns = first.getDataRuns();
+        assertThat(dataRuns, hasSize(2));
+        assertThat(dataRuns.get(0).toString(),
+            is("[compressed-run vcn:0-15 [[data-run vcn:0-6 cluster:2228]]]"));
+        assertThat(dataRuns.get(1).toString(),
+            is("[compressed-run vcn:16-31 [[data-run vcn:16-22 cluster:2228]]]"));
     }
 
     /**

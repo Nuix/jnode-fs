@@ -34,6 +34,10 @@ import org.jnode.fs.ntfs.attribute.NTFSNonResidentAttribute;
 import org.jnode.fs.ntfs.attribute.NTFSResidentAttribute;
 import org.jnode.fs.ntfs.attribute.ReparsePointAttribute;
 import org.jnode.fs.ntfs.attribute.ReparsePointTags;
+import org.jnode.fs.ntfs.datarun.CompressedDataRun;
+import org.jnode.fs.ntfs.datarun.CompressionUnitProblem;
+import org.jnode.fs.ntfs.datarun.DataRun;
+import org.jnode.fs.ntfs.datarun.DataRunInterface;
 import org.jnode.fs.ntfs.wof.WofCompressedStream;
 import org.jnode.fs.ntfs.wof.WofCompressionFormat;
 import org.jnode.fs.util.FSUtils;
@@ -117,6 +121,17 @@ public class FileRecord extends NTFSRecord {
      * Why the attribute list could not be read, if it could not, leaving only the attributes stored here.
      */
     private Exception attributeListFailure;
+
+    /**
+     * Why the walk of the attributes stored here stopped before the end marker, if it did.
+     */
+    private Exception storedAttributeFailure;
+
+    /**
+     * Whether attributes may be missing: the stored walk hit an attribute it couldn't read, which may hide the
+     * $ATTRIBUTE_LIST, or an attribute list entry was left out.
+     */
+    private volatile boolean attributeListIncomplete;
 
     /**
      * Initialize this instance.
@@ -443,21 +458,32 @@ public class FileRecord extends NTFSRecord {
      *
      * @return a collection of all attributes.
      */
-    public synchronized List<NTFSAttribute> getAllAttributes() {
+    public List<NTFSAttribute> getAllAttributes() {
+        return getAllAttributes(referenceNumber -> {
+            // When reading the MFT itself don't attempt to check the index is in range
+            // (we won't know the total MFT length yet)
+            MasterFileTable mft = getVolume().getMFT();
+            return getReferenceNumber() == MasterFileTable.SystemFiles.MFT
+                   ? mft.getRecordUnchecked(referenceNumber)
+                   : mft.getRecord(referenceNumber);
+        });
+    }
+
+    /**
+     * Gets all attributes in this file record, looking up the records an $ATTRIBUTE_LIST names with the given
+     * supplier.
+     *
+     * @param recordSupplier supplies the records holding listed attributes.
+     * @return a collection of all attributes.
+     */
+    synchronized List<NTFSAttribute> getAllAttributes(FileRecordSupplier recordSupplier) {
         if (attributeList == null) {
             try {
                 attributeList = new ArrayList<>(getAllStoredAttributes());
                 if (getAttributeListAttribute() != null) {
                     log.debug("Attributes in attribute list ({})", referenceNumber);
                     if (attributeListAttributes == null) {
-                        attributeListAttributes = readAttributeListAttributes(referenceNumber -> {
-                            // When reading the MFT itself don't attempt to check the index is in range
-                            // (we won't know the total MFT length yet)
-                            MasterFileTable mft = getVolume().getMFT();
-                            return getReferenceNumber() == MasterFileTable.SystemFiles.MFT
-                                   ? mft.getRecordUnchecked(referenceNumber)
-                                   : mft.getRecord(referenceNumber);
-                        });
+                        attributeListAttributes = readAttributeListAttributes(recordSupplier);
                     }
                     attributeList = new ArrayList<>(attributeListAttributes);
                 }
@@ -468,6 +494,10 @@ public class FileRecord extends NTFSRecord {
             } catch (Exception e) {
                 log.error("Error getting attributes for file record: {}, returning stored attributes", referenceNumber, e);
                 attributeListFailure = e;
+                attributeListIncomplete = true;
+                attributeList = storedAttributeList != null
+                    ? new ArrayList<>(storedAttributeList)
+                    : new ArrayList<NTFSAttribute>();
             }
         }
 
@@ -635,11 +665,37 @@ public class FileRecord extends NTFSRecord {
         return lookup.get();
     }
 
+    /**
+     * Checks whether the file looks WOF compressed without its reparse point: it has the WOF stream, or its unnamed
+     * $DATA is missing or has nothing allocated. Any other reparse point file reads its unnamed $DATA as usual.
+     */
+    private boolean looksWofCompressed() {
+        if (findAttributesByTypeAndName(NTFSAttribute.Types.DATA, WOF_STREAM_NAME).hasNext()) {
+            return true;
+        }
+
+        Iterator<NTFSAttribute> data = findAttributesByTypeAndName(NTFSAttribute.Types.DATA, null);
+        if (!data.hasNext()) {
+            return true;
+        }
+
+        NTFSAttribute first = data.next();
+        if (first.isResident()) {
+            return false;
+        }
+        for (DataRunInterface run : ((NTFSNonResidentAttribute) first).getDataRuns()) {
+            if (!(run instanceof DataRun) || !((DataRun) run).isSparse()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private WofCompressedStream findWofCompressedStream() throws IOException {
         NTFSAttribute reparsePoint = findAttributeByType(NTFSAttribute.Types.REPARSE_POINT);
-        if (reparsePoint == null && attributeListFailure != null && isFlaggedAsReparsePoint()) {
-            throw new IOException("the reparse point may be in an extension record, but the attribute list could " +
-                "not be read", attributeListFailure);
+        if (reparsePoint == null && isAttributeListIncomplete() && isFlaggedAsReparsePoint() && looksWofCompressed()) {
+            throw new IOException("the reparse point is missing: it may be in an attribute that could not be read",
+                attributeListFailure != null ? attributeListFailure : storedAttributeFailure);
         }
         if (!(reparsePoint instanceof ReparsePointAttribute)) {
             return null;
@@ -824,6 +880,85 @@ public class FileRecord extends NTFSRecord {
         System.arraycopy(tmp, (int) (fileOffset % clusterSize), dest, off, len);
     }
 
+    /**
+     * Gets the compression units of a stream that fail strict LZNT1, by the VCN they start at. Their decoded bytes are
+     * not reliable: such a unit is usually read from clusters that now hold other data.
+     *
+     * <p>Every unit is checked: one that this record hasn't read yet is read now, so the result doesn't depend on
+     * what was read before. In the unit that holds the valid data length, a last chunk cut short, or a short chunk
+     * followed by slack rather than an end marker, is expected and isn't reported. When the first extent isn't
+     * found, the last unit is taken to hold it. Units wholly past it were never written and aren't reported.</p>
+     *
+     * @param attributeType the attribute type.
+     * @param streamName    the stream name, or {@code null} for the default stream.
+     * @return the problems for each failing unit, in VCN order; empty if there are none.
+     * @throws IOException if a unit can't be read.
+     */
+    public SortedMap<Long, Set<CompressionUnitProblem>> getCorruptCompressionUnits(NTFSAttribute.Types attributeType,
+                                                                                String streamName)
+        throws IOException {
+        TreeMap<Long, CompressedDataRun> units = new TreeMap<>();
+        Iterator<NTFSAttribute> attributes = findAttributesByTypeAndName(attributeType, streamName);
+        long initialisedSize = -1;
+
+        while (attributes.hasNext()) {
+            NTFSAttribute attribute = attributes.next();
+            if (attribute.isResident() || !attribute.isCompressedAttribute()) {
+                continue;
+            }
+
+            NTFSNonResidentAttribute nonResident = (NTFSNonResidentAttribute) attribute;
+            if (nonResident.getStartVCN() == 0) {
+                initialisedSize = nonResident.getAttributeInitializedSize();
+            }
+
+            for (DataRunInterface run : nonResident.getDataRuns()) {
+                if (run instanceof CompressedDataRun) {
+                    units.put(run.getFirstVcn(), (CompressedDataRun) run);
+                }
+            }
+        }
+
+        int clusterSize = getClusterSize();
+        if (initialisedSize < 0 && !units.isEmpty()) {
+            CompressedDataRun last = units.lastEntry().getValue();
+            initialisedSize = last.getFirstVcn() * (long) clusterSize + 1;
+        }
+
+        SortedMap<Long, Set<CompressionUnitProblem>> corrupt = new TreeMap<>();
+        for (CompressedDataRun unit : units.values()) {
+            long unitStart = unit.getFirstVcn() * (long) clusterSize;
+            if (unitStart >= initialisedSize) {
+                continue;
+            }
+
+            if (!unit.isChecked()) {
+                int clusters = (int) unit.getLength();
+                unit.readClusters(unit.getFirstVcn(), new byte[clusters * clusterSize], 0, clusters, clusterSize,
+                    getVolume());
+            }
+
+            Set<CompressionUnitProblem> problems = unit.getProblems();
+            if (problems.isEmpty()) {
+                continue;
+            }
+
+            long unitEnd = unitStart + unit.getLength() * clusterSize;
+            if (initialisedSize > unitStart && initialisedSize < unitEnd) {
+                Set<CompressionUnitProblem> rest = new LinkedHashSet<>(problems);
+                rest.remove(CompressionUnitProblem.CHUNK_PAST_STORED_DATA);
+                rest.remove(CompressionUnitProblem.SHORT_CHUNK);
+                problems = Collections.unmodifiableSet(rest);
+            }
+
+            if (!problems.isEmpty()) {
+                corrupt.put(unit.getFirstVcn(), problems);
+            }
+        }
+
+        return corrupt;
+    }
+
     @Override
     public String toString() {
         String fileName = null;
@@ -898,12 +1033,23 @@ public class FileRecord extends NTFSRecord {
                     FileRecord holdingRecord = recordSupplier.getRecord(entry.getFileReferenceNumber());
                     if (holdingRecord == null) {
                         log.error("Failed to look up holding record {} for entry '{}'", referenceNumber, entry);
+                        attributeListIncomplete = true;
+                    } else if (!holds(holdingRecord, entry)) {
+                        log.info("{}:Skipping entry '{}': record {} (base {}, sequence {}) belongs to another file",
+                            referenceNumber, entry, entry.getFileReferenceNumber(),
+                            holdingRecord.getBaseReferenceNumber(), holdingRecord.getSequenceNumber());
+                        attributeListIncomplete = true;
                     } else {
                         attribute = holdingRecord.findStoredAttributeByID(entry.getAttributeID());
 
                         if (attribute == null) {
                             if (isInUse()) {
                                 log.error("Failed to find an attribute matching entry '{}' in the holding record, ref={}", entry, referenceNumber);
+                            }
+                            attributeListIncomplete = true;
+                            if (storedAttributeFailure == null) {
+                                // The holding record's own walk may have stopped before the attribute
+                                storedAttributeFailure = holdingRecord.storedAttributeFailure;
                             }
                         } else {
                             attributeListBuilder.add(attribute);
@@ -927,25 +1073,70 @@ public class FileRecord extends NTFSRecord {
     }
 
     /**
-     * Works out how far into the record the attribute walk is allowed to go.
+     * Checks that a record named by an attribute list entry is still this file's extension record. Once a file is
+     * deleted its extension records can be reused by another file, whose attributes would otherwise be taken as this
+     * one's.
      *
-     * <p>The used entry size is preferred, since that is what the record itself says is in use. It is sanity
-     * checked against the allocated size and against what is actually in the buffer, so that a corrupt value
-     * cannot be used to read outside the record.</p>
+     * <p>Freeing a record increments its sequence number, so the extension records of a deleted file are one past
+     * the sequence its list recorded. The $MFT's extension records have base reference 0, like every base record,
+     * so for the $MFT only the sequence tells them apart.</p>
+     *
+     * @param holdingRecord the record the entry names.
+     * @param entry         the entry.
+     * @return {@code true} if the record belongs to this file.
+     */
+    private boolean holds(FileRecord holdingRecord, AttributeListEntry entry) {
+        if (holdingRecord.getBaseReferenceNumber() != referenceNumber) {
+            return false;
+        }
+
+        int listed = (int) entry.getFileSequenceNumber();
+        int actual = holdingRecord.getSequenceNumber();
+        if (actual == listed) {
+            return true;
+        }
+
+        int freed = (listed + 1) & 0xFFFF;
+        return !isInUse() && !holdingRecord.isInUse() && actual == (freed == 0 ? 1 : freed);
+    }
+
+    /**
+     * Checks whether attributes may be missing from {@link #getAllAttributes()}: the walk of the stored attributes
+     * stopped at one it couldn't read, so a $ATTRIBUTE_LIST past it isn't seen, or an entry of the attribute list was
+     * left out because its holding record couldn't be read, didn't hold the attribute, or now belongs to another
+     * file.
+     *
+     * @return {@code true} if the attributes may be incomplete.
+     */
+    public boolean isAttributeListIncomplete() {
+        getAllAttributes();
+        return attributeListIncomplete;
+    }
+
+    /**
+     * Works out how far into the record the attribute walk is allowed to go: the used size for a record in use, and
+     * the allocated size for a deleted one, bounded by what is in the buffer.
+     *
+     * <p>On a deleted record the used size is often stale and cuts through an attribute, while the chain past it is
+     * intact and ends on the marker within the allocated size. On a record in use it is current, and the slack past
+     * it can still hold attributes of the record's previous owner, which must not be read as live. A deleted record
+     * whose allocated size is implausible falls back to the used size. When both are implausible the buffer is the
+     * only bound, so a buffer holding several records must not be passed with a corrupt record in it.</p>
      *
      * @return the exclusive upper bound, relative to the start of the record.
      */
     private int getAttributeWalkLimit() {
-        int bufferLimit = getBuffer().length - getOffset();
-        int limit = bufferLimit;
+        int limit = getBuffer().length - getOffset();
+        int minimum = getFirstAttributeOffset() + 8;
 
         long allocatedSize = getAllocatedSize();
-        if (allocatedSize > 0 && allocatedSize < limit) {
+        boolean allocatedPlausible = allocatedSize >= minimum && allocatedSize <= limit;
+        if (allocatedPlausible) {
             limit = (int) allocatedSize;
         }
 
         long usedSize = getRealSize();
-        if (usedSize > 0 && usedSize < limit) {
+        if ((isInUse() || !allocatedPlausible) && usedSize >= minimum && usedSize < limit) {
             limit = (int) usedSize;
         }
 
@@ -961,8 +1152,7 @@ public class FileRecord extends NTFSRecord {
         AttributeListBuilder attributeListBuilder = new AttributeListBuilder();
         int offset = getFirstAttributeOffset();
 
-        // Attributes cannot extend past the part of the record that is in use. Without this bound a corrupt size
-        // walks straight into the neighbouring record in the shared buffer, or off the end of it.
+        // Without this bound a corrupt size walks off the end of the buffer.
         final int limit = getAttributeWalkLimit();
 
         while (true) {
@@ -985,7 +1175,13 @@ public class FileRecord extends NTFSRecord {
                           "the walk", referenceNumber, offset, limit);
                 break;
             } else {
-                NTFSAttribute attribute = NTFSAttribute.getAttribute(FileRecord.this, offset);
+                NTFSAttribute attribute;
+                try {
+                    attribute = NTFSAttribute.getAttribute(FileRecord.this, offset);
+                } catch (RuntimeException e) {
+                    stopWalk(offset, attributeListBuilder, e);
+                    break;
+                }
 
                 if (attribute != null) {
                     if (log.isDebugEnabled()) {
@@ -1003,8 +1199,18 @@ public class FileRecord extends NTFSRecord {
                             offsetToNextOffset, limit);
                         break;
                     } else {
+                        try {
+                            attributeListBuilder.add(attribute);
+                        } catch (RuntimeException e) {
+                            stopWalk(offset, attributeListBuilder, e);
+                            break;
+                        }
+
+                        if (offset < getRealSize() && offset + offsetToNextOffset > getRealSize()) {
+                            log.debug("{}:Attribute at offset {} runs past the used size {}", referenceNumber, offset,
+                                getRealSize());
+                        }
                         offset += offsetToNextOffset;
-                        attributeListBuilder.add(attribute);
                     }
                 } else {
                     if (isInUse()) {
@@ -1016,6 +1222,16 @@ public class FileRecord extends NTFSRecord {
         }
 
         return attributeListBuilder.toList();
+    }
+
+    /**
+     * Records that the walk stopped at an attribute it couldn't read, keeping the ones before it.
+     */
+    private void stopWalk(int offset, AttributeListBuilder attributeListBuilder, RuntimeException e) {
+        log.debug("{}:Attribute at offset {} could not be read, keeping the {} before it", referenceNumber, offset,
+            attributeListBuilder.toList().size(), e);
+        storedAttributeFailure = e;
+        attributeListIncomplete = true;
     }
 
     /**

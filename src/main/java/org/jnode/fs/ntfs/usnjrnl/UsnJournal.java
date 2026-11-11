@@ -305,6 +305,11 @@ public class UsnJournal {
         public static final long INTEGRITY_CHANGE = register(0x800000, "integrity-change");
 
         /**
+         * The storage class the file asked for changed (USN_REASON_DESIRED_STORAGE_CLASS_CHANGE).
+         */
+        public static final long DESIRED_STORAGE_CLASS_CHANGE = register(0x1000000, "desired-storage-class-change");
+
+        /**
          * The file or directory was closed.
          */
         public static final long FS_ENTRY_CLOSED = register(0x80000000L, "fs-entry-closed");

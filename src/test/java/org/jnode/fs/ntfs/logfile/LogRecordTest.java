@@ -169,19 +169,19 @@ public class LogRecordTest {
     }
 
     /**
-     * The same for the 32-bit fields.
+     * The same for the 64-bit fields.
      */
     @Test
-    public void testGetUInt32AcrossPages_whenTheFieldIsOnTheNextPage() {
+    public void testGetInt64AcrossPages_whenTheFieldIsOnTheNextPage() {
         // Arrange: the target LCN at 0x50 lands on the next page
         int recordOffset = 2 * PAGE_SIZE - 0x50;
         byte[] buffer = logPages(recordOffset);
-        LittleEndian.setInt32(buffer, 2 * PAGE_SIZE + LOG_PAGE_DATA_OFFSET, 0xDEADBEEF);
+        LittleEndian.setInt64(buffer, 2 * PAGE_SIZE + LOG_PAGE_DATA_OFFSET, 0x1DEADBEEFL);
 
         LogRecord record = new LogRecord(buffer, recordOffset, PAGE_SIZE, LOG_PAGE_DATA_OFFSET);
 
         // Assert
-        assertThat(record.getTargetLcn(), is(0xDEADBEEFL));
+        assertThat(record.getTargetLcn(), is(0x1DEADBEEFL));
     }
 
     /**
@@ -282,5 +282,220 @@ public class LogRecordTest {
         // Act + assert
         assertThat(record.getLsn(), is(0x1234L));
         assertThat("the fixed part of the record is in the buffer", record.isValid(), is(true));
+    }
+
+    /**
+     * Windows 8 and later keep page copies in pages 4-33, so a record crossing the last page continues in page 34.
+     */
+    @Test
+    public void testGetDataAcrossPages_wrapsToTheGivenFirstCircularPage() {
+        // Arrange
+        byte[] buffer = new byte[40 * PAGE_SIZE];
+        for (int i = 0; i < buffer.length; i++) {
+            buffer[i] = (byte) (i * 7);
+        }
+        int recordOffset = buffer.length - 0x40;
+        LittleEndian.setInt16(buffer, recordOffset + 0x28, LogRecord.FLAG_CROSSES_PAGE);
+        LogRecord record = new LogRecord(buffer, recordOffset, PAGE_SIZE, LOG_PAGE_DATA_OFFSET,
+            LogFile.BUFFER_AREA_END);
+
+        // Act
+        byte[] actual = new byte[0x80];
+        record.getDataAcrossPages(0, actual, 0, actual.length);
+
+        // Assert
+        int continuation = LogFile.BUFFER_AREA_END * PAGE_SIZE + LOG_PAGE_DATA_OFFSET;
+        assertThat(Arrays.copyOfRange(actual, 0x40, 0x80),
+                   is(Arrays.copyOfRange(buffer, continuation, continuation + 0x40)));
+    }
+
+    /**
+     * Only the restart area is copied out of a checkpoint record, however long its client data claims to be.
+     */
+    @Test
+    public void testGetCheckpoint_whenTheClientDataLengthIsHuge() {
+        // Arrange
+        byte[] buffer = new byte[2 * PAGE_SIZE];
+        int offset = PAGE_SIZE + LOG_PAGE_DATA_OFFSET;
+        LittleEndian.setInt64(buffer, offset, 0x1000);
+        LittleEndian.setInt32(buffer, offset + 0x18, 0x7FFFFFF0);
+        LittleEndian.setInt32(buffer, offset + 0x20, LogRecord.RECORD_TYPE_CHECKPOINT);
+        LogRecord record = new LogRecord(buffer, offset, PAGE_SIZE, LOG_PAGE_DATA_OFFSET);
+
+        // Act
+        CheckpointRecord checkpoint = record.getCheckpoint();
+
+        // Assert
+        assertThat(checkpoint, is(notNullValue()));
+    }
+
+    /**
+     * Builds a page holding one update record at the data offset that doesn't cross the page.
+     */
+    private static LogRecord updateRecord(int clientDataLength, int lcnsToFollow) {
+        byte[] buffer = new byte[2 * PAGE_SIZE];
+        int offset = PAGE_SIZE + LOG_PAGE_DATA_OFFSET;
+        LittleEndian.setInt64(buffer, offset, 0x1000);
+        LittleEndian.setInt32(buffer, offset + 0x18, clientDataLength);
+        LittleEndian.setInt32(buffer, offset + 0x20, LogRecord.RECORD_TYPE_UPDATE);
+        LittleEndian.setInt16(buffer, offset + 0x3e, lcnsToFollow);
+        return new LogRecord(buffer, offset, PAGE_SIZE, LOG_PAGE_DATA_OFFSET);
+    }
+
+    @Test
+    public void testNoTargetLcnWhenNoneFollow() {
+        // Arrange: the bytes where an LCN would be are the start of the redo data
+        LogRecord record = updateRecord(0x28, 0);
+        LittleEndian.setInt64(record.getBuffer(), record.getOffset() + 0x50, 0x1234);
+
+        // Act + assert
+        assertThat(record.hasTargetLcn(), is(false));
+        assertThat(record.getTargetLcns().length, is(0));
+    }
+
+    @Test
+    public void testTargetLcnsAndVcnAreRead64Bit() {
+        // Arrange
+        LogRecord record = updateRecord(0x30, 2);
+        LittleEndian.setInt64(record.getBuffer(), record.getOffset() + 0x48, 0x123456789AL);
+        LittleEndian.setInt64(record.getBuffer(), record.getOffset() + 0x50, 0x100000001L);
+        LittleEndian.setInt64(record.getBuffer(), record.getOffset() + 0x58, 0x200000002L);
+
+        // Act + assert
+        assertThat(record.getTargetVcn(), is(0x123456789AL));
+        assertThat(record.hasTargetLcn(), is(true));
+        assertThat(record.getTargetLcn(), is(0x100000001L));
+        assertThat(record.getTargetLcns(), is(new long[] { 0x100000001L, 0x200000002L }));
+    }
+
+    @Test
+    public void testTargetLcnsStopAtTheEndOfTheRecord() {
+        // Arrange: three LCNs claimed, but the client data only has room for one
+        LogRecord record = updateRecord(0x28, 3);
+
+        // Act + assert
+        assertThat(record.getTargetLcns().length, is(1));
+    }
+
+    @Test
+    public void testRedoDataOutsideTheRecordIsNotCopied() {
+        // Arrange: 0x28 bytes of client data, with redo data claimed at 0x28 for 0x278 bytes
+        LogRecord record = updateRecord(0x28, 0);
+        byte[] buffer = record.getBuffer();
+        LittleEndian.setInt16(buffer, record.getOffset() + 0x34, 0x28);
+        LittleEndian.setInt16(buffer, record.getOffset() + 0x36, 0x278);
+        Arrays.fill(buffer, record.getOffset() + 0x58, buffer.length, (byte) 0xAA);
+
+        // Act
+        byte[] redo = new byte[record.getRedoLength()];
+        record.getRedoData(redo);
+
+        // Assert
+        assertThat(record.isRedoDataInRecord(), is(false));
+        assertThat(redo, is(new byte[0x278]));
+    }
+
+    @Test
+    public void testRedoDataInsideTheRecordIsCopied() {
+        // Arrange
+        LogRecord record = updateRecord(0x30, 0);
+        byte[] buffer = record.getBuffer();
+        LittleEndian.setInt16(buffer, record.getOffset() + 0x34, 0x28);
+        LittleEndian.setInt16(buffer, record.getOffset() + 0x36, 8);
+        LittleEndian.setInt64(buffer, record.getOffset() + 0x58, 0x0807060504030201L);
+
+        // Act
+        byte[] redo = new byte[record.getRedoLength()];
+        record.getRedoData(redo);
+
+        // Assert
+        assertThat(record.isRedoDataInRecord(), is(true));
+        assertThat(redo, is(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }));
+    }
+
+    @Test
+    public void testRedoDataOutsideTheRecordIsEmpty() {
+        // Arrange: as above, redo data claimed past the client data
+        LogRecord record = updateRecord(0x28, 0);
+        byte[] buffer = record.getBuffer();
+        LittleEndian.setInt16(buffer, record.getOffset() + 0x34, 0x28);
+        LittleEndian.setInt16(buffer, record.getOffset() + 0x36, 0x278);
+
+        // Act + assert
+        assertThat(record.getRedoData().length, is(0));
+    }
+
+    @Test
+    public void testRedoAndUndoDataInsideTheRecordAreReturned() {
+        // Arrange
+        LogRecord record = updateRecord(0x38, 0);
+        byte[] buffer = record.getBuffer();
+        LittleEndian.setInt16(buffer, record.getOffset() + 0x34, 0x28);
+        LittleEndian.setInt16(buffer, record.getOffset() + 0x36, 8);
+        LittleEndian.setInt16(buffer, record.getOffset() + 0x38, 0x30);
+        LittleEndian.setInt16(buffer, record.getOffset() + 0x3a, 8);
+        LittleEndian.setInt64(buffer, record.getOffset() + 0x58, 0x0807060504030201L);
+        LittleEndian.setInt64(buffer, record.getOffset() + 0x60, 0x1817161514131211L);
+
+        // Act + assert
+        assertThat(record.getRedoData(), is(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }));
+        assertThat(record.getUndoData(), is(new byte[] { 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18 }));
+    }
+
+    @Test
+    public void testACheckpointRecordHasNoRedoOrUndoData() {
+        // Arrange: the bytes at the redo and undo fields are part of the restart area
+        LogRecord record = updateRecord(0x70, 0);
+        byte[] buffer = record.getBuffer();
+        LittleEndian.setInt32(buffer, record.getOffset() + 0x20, LogRecord.RECORD_TYPE_CHECKPOINT);
+        LittleEndian.setInt16(buffer, record.getOffset() + 0x34, 0x08);
+        LittleEndian.setInt16(buffer, record.getOffset() + 0x36, 0x10);
+
+        // Act + assert
+        assertThat(record.getRedoData().length, is(0));
+        assertThat(record.getUndoData().length, is(0));
+    }
+
+    @Test
+    public void testCheckpointRecordIsDecodedAsARestartArea() {
+        // Arrange: a type 2 record with 112 bytes of client data, as Windows writes them
+        LogRecord record = updateRecord(0x70, 0);
+        byte[] buffer = record.getBuffer();
+        int clientData = record.getOffset() + 0x30;
+        LittleEndian.setInt32(buffer, record.getOffset() + 0x20, LogRecord.RECORD_TYPE_CHECKPOINT);
+        LittleEndian.setInt32(buffer, clientData, 1);
+        LittleEndian.setInt64(buffer, clientData + 0x08, 1075373);
+        LittleEndian.setInt64(buffer, clientData + 0x10, 1075384);
+        LittleEndian.setInt64(buffer, clientData + 0x18, 1075518);
+        LittleEndian.setInt64(buffer, clientData + 0x20, 1075551);
+        LittleEndian.setInt32(buffer, clientData + 0x30, 984);
+        LittleEndian.setInt32(buffer, clientData + 0x34, 174);
+        LittleEndian.setInt32(buffer, clientData + 0x38, 1304);
+
+        // Act
+        CheckpointRecord checkpoint = record.getCheckpoint();
+
+        // Assert
+        assertThat(checkpoint.getMajorVersion(), is(1L));
+        assertThat(checkpoint.getStartOfCheckpointLsn(), is(1075373L));
+        assertThat(checkpoint.getOpenAttributeTableLsn(), is(1075384L));
+        assertThat(checkpoint.getAttributeNamesLsn(), is(1075518L));
+        assertThat(checkpoint.getDirtyPageTableLsn(), is(1075551L));
+        assertThat(checkpoint.getTransactionTableLsn(), is(0L));
+        assertThat(checkpoint.getOpenAttributeTableLength(), is(984L));
+        assertThat(checkpoint.getAttributeNamesLength(), is(174L));
+        assertThat(checkpoint.getDirtyPageTableLength(), is(1304L));
+        assertThat(checkpoint.getTransactionTableLength(), is(0L));
+
+        // ... and it has none of an update record's payloads
+        assertThat(record.isUpdateRecord(), is(false));
+        assertThat(record.isRedoDataInRecord(), is(false));
+        assertThat(record.isUndoDataInRecord(), is(false));
+        assertThat(record.hasTargetLcn(), is(false));
+    }
+
+    @Test
+    public void testUpdateRecordHasNoCheckpoint() {
+        assertThat(updateRecord(0x70, 0).getCheckpoint(), is(nullValue()));
     }
 }

@@ -20,10 +20,8 @@ import static org.hamcrest.Matchers.*;
 /**
  * Parses the $LogFile of a real volume.
  *
- * <p>{@link LogRecord} is otherwise covered only against hand-built buffers, and {@link LogFile} - which walks the
- * pages, follows records from one to the next and copes with the log wrapping - not at all. The journal on
- * {@code complex-compression.dd} holds 28,363 records, 614 of which run past the end of their page, so it
- * exercises both.</p>
+ * <p>The journal on {@code complex-compression.dd} holds 29,045 records, 627 of which run past the end of their
+ * page, so it exercises both the page walk and the reads across pages.</p>
  *
  * <p>A record that crosses a page continues in the <em>data area</em> of the next page, after that page's
  * {@link RecordPageHeader}. Mapping the offset without allowing for that header lands on the header itself, and
@@ -63,7 +61,7 @@ public class NTFSLogFileTest {
     @Test
     public void testTheJournalParses() {
         assertThat("the volume was cleanly unmounted", logFile.isCleanlyShutdown(), is(true));
-        assertThat("records", records.size(), is(28363));
+        assertThat("records", records.size(), is(29045));
         assertThat("the LSN map should agree with the record list",
             logFile.getLsnLogRecordMap().size(), is(records.size()));
 
@@ -101,8 +99,8 @@ public class NTFSLogFileTest {
                 startsWithPageMagic(redo), is(false));
         }
 
-        assertThat("records crossing a page", crossing, is(614));
-        assertThat("of those, ones with redo data", withRedoData, is(553));
+        assertThat("records crossing a page", crossing, is(627));
+        assertThat("of those, ones with redo data", withRedoData, is(568));
     }
 
     /**
@@ -136,7 +134,7 @@ public class NTFSLogFileTest {
             }
         }
 
-        assertThat("records with an unrecognised operation code", unrecognised, is(15));
+        assertThat("records with an unrecognised operation code", unrecognised, is(12));
     }
 
     /**

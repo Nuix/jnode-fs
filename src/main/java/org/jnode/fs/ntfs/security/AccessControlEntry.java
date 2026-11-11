@@ -83,7 +83,48 @@ public class AccessControlEntry extends NTFSStructure {
      * @return the SID.
      */
     public SecurityIdentifier getSid() {
-        return SecurityUtils.readSid(this, 8);
+        return SecurityUtils.readSid(this, getSidOffset());
+    }
+
+    /**
+     * Checks whether this is an object ACE, which holds object flags and up to two GUIDs before its SID.
+     *
+     * @return {@code true} for the object ACE types.
+     */
+    public boolean isObjectAce() {
+        switch (getType()) {
+            case 0x05:
+            case 0x06:
+            case 0x07:
+            case 0x08:
+            case 0x0b:
+            case 0x0c:
+            case 0x0f:
+            case 0x10:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Gets the offset of the SID: after the object flags and the object type and inherited object type GUIDs that
+     * the flags say are present, for an object ACE.
+     */
+    private int getSidOffset() {
+        if (!isObjectAce()) {
+            return 8;
+        }
+
+        int objectFlags = getInt32(8);
+        int offset = 12;
+        if ((objectFlags & 0x1) != 0) {
+            offset += 16;
+        }
+        if ((objectFlags & 0x2) != 0) {
+            offset += 16;
+        }
+        return offset;
     }
 
     /**
@@ -92,7 +133,26 @@ public class AccessControlEntry extends NTFSStructure {
     public static enum Type {
         ALLOW(0x00, "Allow"),
         DENY(0x01, "Deny"),
-        AUDIT(0x02, "Audit");
+        AUDIT(0x02, "Audit"),
+        ALARM(0x03, "Alarm"),
+        ALLOW_COMPOUND(0x04, "Allow Compound"),
+        ALLOW_OBJECT(0x05, "Allow Object"),
+        DENY_OBJECT(0x06, "Deny Object"),
+        AUDIT_OBJECT(0x07, "Audit Object"),
+        ALARM_OBJECT(0x08, "Alarm Object"),
+        ALLOW_CALLBACK(0x09, "Allow Callback"),
+        DENY_CALLBACK(0x0a, "Deny Callback"),
+        ALLOW_CALLBACK_OBJECT(0x0b, "Allow Callback Object"),
+        DENY_CALLBACK_OBJECT(0x0c, "Deny Callback Object"),
+        AUDIT_CALLBACK(0x0d, "Audit Callback"),
+        ALARM_CALLBACK(0x0e, "Alarm Callback"),
+        AUDIT_CALLBACK_OBJECT(0x0f, "Audit Callback Object"),
+        ALARM_CALLBACK_OBJECT(0x10, "Alarm Callback Object"),
+        MANDATORY_LABEL(0x11, "Mandatory Label"),
+        RESOURCE_ATTRIBUTE(0x12, "Resource Attribute"),
+        SCOPED_POLICY_ID(0x13, "Scoped Policy ID"),
+        PROCESS_TRUST_LABEL(0x14, "Process Trust Label"),
+        ACCESS_FILTER(0x15, "Access Filter");
 
         int type;
         String name;
@@ -236,5 +296,67 @@ public class AccessControlEntry extends NTFSStructure {
 
             return names;
         }
+    }
+
+    /**
+     * The mask of a mandatory label ACE (type 0x11): which access from a lower integrity level is refused.
+     */
+    public static enum MandatoryPolicy {
+        NO_WRITE_UP(0x1, "No Write Up"),
+        NO_READ_UP(0x2, "No Read Up"),
+        NO_EXECUTE_UP(0x4, "No Execute Up");
+
+        int mask;
+
+        String name;
+
+        MandatoryPolicy(int mask, String name) {
+            this.mask = mask;
+            this.name = name;
+        }
+
+        /**
+         * Gets the names of the policy bits set in a mandatory label's mask.
+         *
+         * @param mask the mask.
+         * @return the list of names.
+         */
+        public static List<String> namesForMask(int mask) {
+            List<String> names = new ArrayList<String>();
+
+            for (MandatoryPolicy policy : values()) {
+                if ((policy.mask & mask) != 0) {
+                    mask &= ~policy.mask;
+                    names.add(policy.name);
+                }
+            }
+
+            if (mask != 0) {
+                names.add(String.format("Unknown Mandatory Policy: 0x%x", mask));
+            }
+
+            return names;
+        }
+    }
+
+    /**
+     * Gets the names for this ACE's mask. A mandatory label's mask is a policy, not access rights, and the masks of
+     * resource attribute and process trust label ACEs aren't decoded, so only the other types are named from
+     * {@link Mask}.
+     *
+     * @param isDirectory {@code true} to name directory permissions, {@code false} for file permissions.
+     * @return the list of names.
+     */
+    public List<String> getAccessMaskNames(boolean isDirectory) {
+        int type = getType();
+        if (type == Type.MANDATORY_LABEL.type) {
+            return MandatoryPolicy.namesForMask(getAccessMask());
+        }
+        if (type == Type.RESOURCE_ATTRIBUTE.type || type == Type.PROCESS_TRUST_LABEL.type) {
+            List<String> names = new ArrayList<String>();
+            names.add(String.format("Access Mask: 0x%x", getAccessMask()));
+            return names;
+        }
+        return Mask.namesForMask(getAccessMask(), isDirectory);
     }
 }
